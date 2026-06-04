@@ -71,11 +71,38 @@ export interface Container {
 }
 
 export interface HealthCheck {
-    id: string
-    name: string
-    url: string
-    interval: number
-    status: 'up' | 'down' | 'pending'
-    lastChecked: string | null
-    latency: number | null
+  id: string
+  name: string
+  url: string
+  interval: number
+  status: 'up' | 'down' | 'pending'
+  lastChecked: string | null
+  latency: number | null
 }
+
+// Agent state (agent + latest metrics + containers combined)
+export interface AgentState {
+  agent: Agent
+  metrics: SystemMetrics | null
+  containers: Container[]
+}
+
+// Agent → Hub WebSocket messages
+export type AgentMessage =
+  | { type: 'auth'; token: string; agentId: string; hostname: string; ip: string }
+  | { type: 'metrics'; data: SystemMetrics }
+  | { type: 'containers'; data: Container[] }
+
+// Hub → Agent WebSocket messages
+export type HubMessage =
+  | { type: 'auth_ok'; agentId: string }
+  | { type: 'auth_error'; message: string }
+
+// Hub → Frontend WebSocket messages
+export type LiveMessage =
+  | { type: 'init'; agents: AgentState[]; healthChecks: HealthCheck[] }
+  | { type: 'agent_connected'; agent: AgentState }
+  | { type: 'agent_disconnected'; agentId: string }
+  | { type: 'metrics_update'; agentId: string; metrics: SystemMetrics }
+  | { type: 'containers_update'; agentId: string; containers: Container[] }
+  | { type: 'health_check_update'; healthCheck: HealthCheck }

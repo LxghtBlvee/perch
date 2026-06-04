@@ -4,15 +4,22 @@
   "private": true,
   "scripts": {
     "dev": "bun run --hot src/index.ts",
-    "start": "bun run src/index.ts"
+    "start": "bun run src/index.ts",
+    "db:generate": "drizzle-kit generate --config ./src/config/drizzle.config.ts",
+    "db:push": "drizzle-kit push --config ./src/config/drizzle.config.ts",
+    "db:migrate": "drizzle-kit migrate --config ./src/config/drizzle.config.ts"
   },
   "dependencies": {
     "@perch/types": "workspace:*",
+    "drizzle-orm": "^0.45.2",
     "elysia": "^1.4.28",
     "@elysiajs/cors": "latest",
-    "@elysiajs/swagger": "latest"
+    "@elysiajs/swagger": "latest",
+    "postgres": "^3.4.9"
   },
   "devDependencies": {
+    "@types/bun": "latest",
+    "drizzle-kit": "latest",
     "typescript": "^6.0.3"
   }
 }
