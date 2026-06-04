@@ -1,0 +1,15 @@
+{
+  "name": "@perch/agent",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "bun run --hot src/index.ts",
+    "start": "bun run src/index.ts"
+  },
+  "dependencies": {
+    "@perch/types": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "perch",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:hub": "bun run --cwd apps/hub dev",
+    "dev:web": "bun run --cwd apps/web dev",
+    "dev:agent": "bun run --cwd apps/agent dev"
+  }
+}

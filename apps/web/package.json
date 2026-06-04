@@ -1,0 +1,21 @@
+{
+  "name": "@perch/web",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@perch/types": "workspace:*",
+    "vue": "^3.5.35",
+    "vue-router": "latest",
+    "pinia": "latest"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "latest",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.16"
+  }
+}

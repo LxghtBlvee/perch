@@ -1,0 +1,18 @@
+{
+  "name": "@perch/hub",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "bun run --hot src/index.ts",
+    "start": "bun run src/index.ts"
+  },
+  "dependencies": {
+    "@perch/types": "workspace:*",
+    "elysia": "^1.4.28",
+    "@elysiajs/cors": "latest",
+    "@elysiajs/swagger": "latest"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
+  }
+}
