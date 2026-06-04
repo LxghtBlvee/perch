@@ -9,8 +9,8 @@
     "dev:hub": "bun run --cwd apps/hub dev",
     "dev:web": "bun run --cwd apps/web dev",
     "dev:agent": "bun run --cwd apps/agent dev",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix"
+    "lint": "bunx eslint .",
+    "lint:fix": "bunx eslint . --fix"
   },
   "devDependencies": {
     "@eslint/js": "latest",
