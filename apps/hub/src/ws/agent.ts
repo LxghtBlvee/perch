@@ -11,7 +11,7 @@ const connectionMap = new Map<string, string>()
 
 export const agentWs = new Elysia().ws('/ws/agent', {
     open(ws) {
-        console.log(`Agent socket opened: ${ws.id}`)
+        console.warn(`Agent socket opened: ${ws.id}`)
     },
 
     async message(ws, raw) {
@@ -65,7 +65,7 @@ export const agentWs = new Elysia().ws('/ws/agent', {
             agentRegistry.unregister(agentId)
             connectionMap.delete(ws.id)
             liveRegistry.broadcast({ type: 'agent_disconnected', agentId })
-            console.log(`Agent disconnected: ${agentId}`);
+            console.warn(`Agent disconnected: ${agentId}`);
         }
     },
 })

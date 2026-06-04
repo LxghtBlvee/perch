@@ -1,1 +1,1 @@
-console.log('Perch agent starting...')
+console.warn('Perch agent starting...')

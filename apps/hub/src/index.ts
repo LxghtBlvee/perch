@@ -23,5 +23,5 @@ const app = new Elysia()
   .use(liveWs)
   .listen(env.port)
 
-console.log(`Perch hub running at http://localhost:${app.server?.port}`)
-console.log(`API docs available at http://localhost:${app.server?.port}/docs`)
+console.warn(`Perch hub running at http://localhost:${app.server?.port}`)
+console.warn(`API docs available at http://localhost:${app.server?.port}/docs`)
