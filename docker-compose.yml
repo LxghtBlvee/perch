@@ -1,0 +1,54 @@
+services:
+  hub:
+    build:
+      context: .
+      dockerfile: apps/hub/Dockerfile
+    ports:
+      - "${PERCH_PORT:-8484}:8484"
+    environment:
+      PERCH_PORT: 8484
+      PERCH_HUB_TOKEN: ${PERCH_HUB_TOKEN}
+      PERCH_DB_HOST: db
+      PERCH_DB_PORT: 5432
+      PERCH_DB_USER: ${PERCH_DB_USER:-perch}
+      PERCH_DB_PASS: ${PERCH_DB_PASS}
+      PERCH_DB_NAME: ${PERCH_DB_NAME:-perch}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  agent:
+    build:
+      context: .
+      dockerfile: apps/agent/Dockerfile
+    environment:
+      PERCH_HUB_URL: http://hub:8484
+      PERCH_HUB_TOKEN: ${PERCH_HUB_TOKEN}
+      PERCH_INTERVAL: 5000
+      PERCH_AGENT_ID_FILE: /data/agent.id
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - agent-data:/data
+    depends_on:
+      - hub
+    restart: unless-stopped
+
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${PERCH_DB_USER:-perch}
+      POSTGRES_PASSWORD: ${PERCH_DB_PASS}
+      POSTGRES_DB: ${PERCH_DB_NAME:-perch}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PERCH_DB_USER:-perch} -d ${PERCH_DB_NAME:-perch}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  db-data:
+  agent-data:
