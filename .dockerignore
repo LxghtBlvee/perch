@@ -4,3 +4,4 @@
 **/*.log
 **/.env
 apps/web
+!apps/web/package.json
