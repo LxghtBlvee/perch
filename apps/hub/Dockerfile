@@ -1,4 +1,3 @@
-# Stage 1: Build the Vue web app
 FROM oven/bun:1 AS web-builder
 
 WORKDIR /app
@@ -16,7 +15,6 @@ COPY apps/web ./apps/web
 
 RUN bun --cwd apps/web run build
 
-# Stage 2: Hub runtime
 FROM oven/bun:1
 
 WORKDIR /app
@@ -32,7 +30,6 @@ RUN bun install --frozen-lockfile
 COPY packages/types ./packages/types
 COPY apps/hub ./apps/hub
 
-# Copy the built web app from stage 1
 COPY --from=web-builder /app/apps/web/dist ./apps/web/dist
 
 WORKDIR /app/apps/hub
