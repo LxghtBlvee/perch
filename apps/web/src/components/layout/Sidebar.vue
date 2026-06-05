@@ -17,8 +17,14 @@ const nav = [
 <template>
   <aside class="flex flex-col w-56 shrink-0 border-r border-sidebar-border bg-sidebar h-screen sticky top-0">
     <div class="p-5 border-b border-sidebar-border">
-      <RouterLink to="/" class="flex items-center gap-3">
-        <Bird class="size-6 text-primary" :stroke-width="1.5" />
+      <RouterLink
+        to="/"
+        class="flex items-center gap-3"
+      >
+        <Bird
+          class="size-6 text-primary"
+          :stroke-width="1.5"
+        />
         <span class="text-lg font-semibold tracking-tight">Perch</span>
       </RouterLink>
     </div>
@@ -35,7 +41,11 @@ const nav = [
             : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
         )"
       >
-        <component :is="item.icon" class="size-4 shrink-0" :stroke-width="1.75" />
+        <component
+          :is="item.icon"
+          class="size-4 shrink-0"
+          :stroke-width="1.75"
+        />
         {{ item.label }}
       </RouterLink>
     </nav>
