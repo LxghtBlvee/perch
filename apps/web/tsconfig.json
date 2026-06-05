@@ -3,7 +3,10 @@
   "compilerOptions": {
     "jsx": "preserve",
     "lib": ["ESNext", "DOM"],
-    "outDir": "dist"
+    "outDir": "dist",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
   },
   "include": ["src", "env.d.ts"]
 }
