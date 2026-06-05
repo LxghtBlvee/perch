@@ -1,6 +1,8 @@
 import { Elysia } from 'elysia'
 import { cors } from '@elysiajs/cors'
 import { swagger } from '@elysiajs/swagger'
+import { staticPlugin } from '@elysiajs/static'
+import { join } from 'path'
 import { env } from './config/env.validation'
 import { statusRoutes } from './routes/status'
 import { agentRoutes } from './routes/agents'
@@ -12,6 +14,8 @@ import { healthChecker } from './services/health-checker'
 
 await healthChecker.start()
 
+const webDist = join(process.cwd(), '../web/dist')
+
 const app = new Elysia()
   .use(cors())
   .use(swagger({ path: '/docs' }))
@@ -21,6 +25,8 @@ const app = new Elysia()
   .use(healthCheckRoutes)
   .use(agentWs)
   .use(liveWs)
+  .use(staticPlugin({ assets: webDist, prefix: '/' }))
+  .get('*', () => Bun.file(join(webDist, 'index.html')))
   .listen(env.port)
 
 console.warn(`Perch hub running at http://localhost:${app.server?.port}`)
