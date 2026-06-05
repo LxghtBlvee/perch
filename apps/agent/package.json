@@ -7,9 +7,11 @@
     "start": "bun run src/index.ts"
   },
   "dependencies": {
-    "@perch/types": "workspace:*"
+    "@perch/types": "workspace:*",
+    "systeminformation": "^5.31.7"
   },
   "devDependencies": {
+    "@types/bun": "latest",
     "typescript": "^6.0.3"
   }
 }
