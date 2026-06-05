@@ -17,7 +17,7 @@ interface DockerContainer {
     State: string;
     Status: string;
     Created: number;
-    Ports: Array<{ PublicPort?: number; PrivatePort: number; Type: string }>;
+    Ports: Array<{ PublicPort?: number; PrivatePort: number; Type: string }> | null;
 };
 
 interface DockerStats {
@@ -76,7 +76,7 @@ export async function collectContainers(): Promise<Container[]> {
                     status: mapState(c.State),
                     state: c.Status,
                     createdAt: new Date(c.Created * 1000).toISOString(),
-                    ports: c.Ports.map(p => ({
+                    ports: (c.Ports ?? []).map(p => ({
                         hostPort: p.PublicPort ?? 0,
                         containerPort: p.PrivatePort,
                         protocol: p.Type,
