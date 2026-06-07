@@ -1,10 +1,13 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { AgentState, HealthCheck, LiveMessage } from '@perch/types'
+import type { AgentState, HealthCheck, LiveMessage, SystemMetrics } from '@perch/types'
+
+const HISTORY_MAX = 60 // ~5 min at 5s intervals
 
 export const usePerchStore = defineStore('perch', () => {
     const agents = ref<AgentState[]>([]);
     const healthChecks = ref<HealthCheck[]>([]);
+    const metricsHistory = ref<Record<string, SystemMetrics[]>>({});
     const connected = ref(false);
 
     function handleMessage(msg: LiveMessage) {
@@ -13,6 +16,10 @@ export const usePerchStore = defineStore('perch', () => {
                 agents.value = msg.agents;
                 healthChecks.value = msg.healthChecks;
                 connected.value = true;
+                metricsHistory.value = {};
+                for (const a of msg.agents) {
+                    if (a.metrics) metricsHistory.value[a.agent.id] = [a.metrics];
+                }
                 break;
             case 'agent_connected':
                 agents.value.push(msg.agent);
@@ -23,6 +30,10 @@ export const usePerchStore = defineStore('perch', () => {
             case 'metrics_update': {
                 const agent = agents.value.find(a => a.agent.id === msg.agentId)
                 if (agent) agent.metrics = msg.metrics;
+                if (!metricsHistory.value[msg.agentId]) metricsHistory.value[msg.agentId] = [];
+                const hist = metricsHistory.value[msg.agentId];
+                hist.push(msg.metrics);
+                if (hist.length > HISTORY_MAX) hist.shift();
                 break;
             }
             case 'containers_update': {
@@ -40,5 +51,5 @@ export const usePerchStore = defineStore('perch', () => {
         }
     }
 
-    return { agents, healthChecks, connected, handleMessage };
+    return { agents, healthChecks, metricsHistory, connected, handleMessage };
 })
