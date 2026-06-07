@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { RouterLink, useRoute } from 'vue-router'
-import { LayoutDashboard, HeartPulse, Settings, Bird } from 'lucide-vue-next'
+import { LayoutDashboard, HeartPulse, Settings } from 'lucide-vue-next'
 import { usePerchStore } from '@/stores/perch'
 import { cn } from '@/lib/utils'
 
@@ -21,10 +21,12 @@ const nav = [
         to="/"
         class="flex items-center gap-3"
       >
-        <Bird
-          class="size-6 text-primary"
-          :stroke-width="1.5"
-        />
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none" class="size-6 text-primary" aria-label="Perch">
+            <line x1="2" y1="80" x2="98" y2="80" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+            <path fill="currentColor" fill-rule="evenodd" d="M 22 58 C 14 50 16 38 26 34 C 30 24 46 20 58 24 C 64 18 76 20 78 28 C 80 30 82 33 82 36 L 92 38 L 94 40 L 84 43 C 82 48 76 52 68 54 C 64 60 56 62 48 62 L 30 62 L 12 60 L 22 58 Z M 70 30.5 a 1.5 1.5 0 1 0 0 3 a 1.5 1.5 0 1 0 0 -3 Z" />
+            <line x1="40" y1="62" x2="40" y2="80" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+            <line x1="52" y1="62" x2="52" y2="80" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+          </svg>
         <span class="text-lg font-semibold tracking-tight">Perch</span>
       </RouterLink>
     </div>
