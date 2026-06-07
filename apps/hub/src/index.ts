@@ -12,6 +12,9 @@ import { agentWs } from './ws/agent'
 import { liveWs } from './ws/live'
 import { healthChecker } from './services/health-checker'
 
+import { initLocation } from './services/hub-location'
+
+await initLocation()
 await healthChecker.start()
 
 const webDist = join(process.cwd(), '../web/dist')

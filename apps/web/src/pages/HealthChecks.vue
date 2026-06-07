@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, watch } from 'vue'
 import { Plus, Trash2 } from 'lucide-vue-next'
 import { usePerchStore } from '@/stores/perch'
+import { useRouter } from 'vue-router'
 
 const store = usePerchStore()
+const router = useRouter()
 
 const showForm = ref(false)
 const form = ref({ name: '', url: '', interval: 60 })
@@ -20,7 +22,34 @@ async function loadHistory(id: string) {
   }
 }
 
-onMounted(() => Promise.all(store.healthChecks.map(h => loadHistory(h.id))))
+// Load history for any check that appears (handles both initial load and new checks)
+watch(
+  () => store.healthChecks,
+  (checks) => {
+    for (const check of checks) {
+      if (!(check.id in history.value)) {
+        history.value[check.id] = []
+        loadHistory(check.id)
+      }
+    }
+  },
+  { immediate: true }
+)
+
+// Append to history when a live WebSocket update arrives
+watch(
+  () => store.healthChecks.map(h => h.lastChecked),
+  (newTimes, oldTimes) => {
+    if (!oldTimes) return
+    store.healthChecks.forEach((check, i) => {
+      if (newTimes[i] !== oldTimes[i] && check.lastChecked && check.status !== 'pending') {
+        const h = history.value[check.id]
+        if (!h || h.at(-1)?.checkedAt === check.lastChecked) return
+        h.push({ status: check.status as 'up' | 'down', latency: check.latency, checkedAt: check.lastChecked })
+      }
+    })
+  }
+)
 
 function heartbeatSlots(id: string, count = 60): (HistoryEntry | null)[] {
   const results = history.value[id] ?? []
@@ -150,7 +179,8 @@ async function deleteCheck(id: string) {
       <div
         v-for="check in store.healthChecks"
         :key="check.id"
-        class="rounded-xl border border-border bg-card p-5"
+        class="rounded-xl border border-border bg-card p-5 cursor-pointer hover:border-primary/30 transition-colors"
+        @click="router.push(`/health-checks/${check.id}`)"
       >
         <!-- Top row: status + name + stats + delete -->
         <div class="flex items-center gap-3 mb-4">
@@ -198,7 +228,7 @@ async function deleteCheck(id: string) {
 
           <button
             class="size-8 rounded-lg border border-border flex items-center justify-center hover:bg-destructive/10 hover:border-destructive/30 hover:text-destructive transition-colors ml-1"
-            @click="deleteCheck(check.id)"
+            @click.stop="deleteCheck(check.id)"
           >
             <Trash2 class="size-3.5" :stroke-width="2" />
           </button>

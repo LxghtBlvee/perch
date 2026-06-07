@@ -16,6 +16,7 @@ class HealthChecker {
 
     schedule(id: string, intervalSeconds: number): void {
         this.cancel(id)
+        void this.run(id) // run immediately on schedule
         this.intervals.set(id, setInterval(() => this.run(id), intervalSeconds * 1000))
     }
 
