@@ -13,6 +13,9 @@ services:
       PERCH_DB_USER: ${PERCH_DB_USER:-perch}
       PERCH_DB_PASS: ${PERCH_DB_PASS}
       PERCH_DB_NAME: ${PERCH_DB_NAME:-perch}
+      PERCH_ADMIN_EMAIL: ${PERCH_ADMIN_EMAIL:-}
+      PERCH_ADMIN_PASSWORD: ${PERCH_ADMIN_PASSWORD:-}
+      PERCH_SESSION_DAYS: ${PERCH_SESSION_DAYS:-30}
     depends_on:
       db:
         condition: service_healthy

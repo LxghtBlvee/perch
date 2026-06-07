@@ -1,0 +1,81 @@
+import Elysia, { t } from 'elysia'
+import { eq } from 'drizzle-orm'
+import { db } from '../db'
+import { oauthProviders } from '../db/schema'
+import { requireAdmin } from '../middleware/auth'
+
+const PROVIDERS = ['github', 'google', 'custom'] as const
+type ProviderType = typeof PROVIDERS[number]
+
+export const oauthSettingsRoutes = new Elysia({ prefix: '/api/settings/oauth' })
+    .use(requireAdmin)
+
+    // List all provider configs (secrets redacted)
+    .get('/', async () => {
+        const rows = await db.select().from(oauthProviders)
+
+        // Return all three providers, filling in defaults for unconfigured ones
+        return PROVIDERS.map(provider => {
+            const row = rows.find(r => r.provider === provider)
+            return {
+                provider,
+                enabled: row?.enabled ?? false,
+                clientId: row?.clientId ?? null,
+                // Never return clientSecret
+                hasClientSecret: !!row?.clientSecret,
+                customName: row?.customName ?? null,
+                customAuthorizationUrl: row?.customAuthorizationUrl ?? null,
+                customTokenUrl: row?.customTokenUrl ?? null,
+                customUserinfoUrl: row?.customUserinfoUrl ?? null,
+                customScopes: row?.customScopes ?? null,
+            }
+        })
+    })
+
+    // Upsert a provider config
+    .put('/:provider', async ({ params, body, error }) => {
+        const provider = params.provider as ProviderType
+        if (!PROVIDERS.includes(provider)) return error(400, { error: 'Unknown provider' })
+
+        const [existing] = await db
+            .select()
+            .from(oauthProviders)
+            .where(eq(oauthProviders.provider, provider))
+            .limit(1)
+
+        const values = {
+            provider,
+            enabled: body.enabled,
+            clientId: body.clientId ?? null,
+            // Only update secret if provided (empty string = clear it)
+            ...(body.clientSecret !== undefined
+                ? { clientSecret: body.clientSecret || null }
+                : {}),
+            customName: body.customName ?? null,
+            customAuthorizationUrl: body.customAuthorizationUrl ?? null,
+            customTokenUrl: body.customTokenUrl ?? null,
+            customUserinfoUrl: body.customUserinfoUrl ?? null,
+            customScopes: body.customScopes ?? null,
+            updatedAt: new Date(),
+        }
+
+        if (existing) {
+            await db.update(oauthProviders).set(values).where(eq(oauthProviders.provider, provider))
+        } else {
+            await db.insert(oauthProviders).values(values)
+        }
+
+        return { ok: true }
+    }, {
+        params: t.Object({ provider: t.String() }),
+        body: t.Object({
+            enabled: t.Boolean(),
+            clientId: t.Optional(t.String()),
+            clientSecret: t.Optional(t.String()),
+            customName: t.Optional(t.String()),
+            customAuthorizationUrl: t.Optional(t.String()),
+            customTokenUrl: t.Optional(t.String()),
+            customUserinfoUrl: t.Optional(t.String()),
+            customScopes: t.Optional(t.String()),
+        }),
+    })

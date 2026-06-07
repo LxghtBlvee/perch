@@ -9,14 +9,18 @@ import { agentRoutes } from './routes/agents'
 import { containerRoutes } from './routes/containers'
 import { healthCheckRoutes } from './routes/health-checks'
 import { dataSourceRoutes } from './routes/data-sources'
+import { authRoutes } from './routes/auth'
+import { userRoutes } from './routes/users'
+import { oauthSettingsRoutes } from './routes/oauth-settings'
 import { agentWs } from './ws/agent'
 import { liveWs } from './ws/live'
 import { healthChecker } from './services/health-checker'
-
 import { initLocation } from './services/hub-location'
+import { seedAdmin } from './services/auth'
 
 await initLocation()
 await healthChecker.start()
+await seedAdmin()
 
 const webDist = join(process.cwd(), '../web/dist')
 
@@ -24,10 +28,13 @@ const app = new Elysia()
   .use(cors())
   .use(swagger({ path: '/docs' }))
   .use(statusRoutes)
+  .use(authRoutes)
   .use(agentRoutes)
   .use(containerRoutes)
   .use(healthCheckRoutes)
   .use(dataSourceRoutes)
+  .use(userRoutes)
+  .use(oauthSettingsRoutes)
   .use(agentWs)
   .use(liveWs)
   .use(staticPlugin({ assets: webDist, prefix: '/' }))

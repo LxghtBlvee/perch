@@ -1,7 +1,24 @@
 <script setup lang="ts">
 import Sidebar from '@/components/layout/Sidebar.vue'
 import { usePerchSocket } from '@/composables/usePerchSocket'
-import { onMounted, onUnmounted } from 'vue'
+import { useAuthStore } from '@/stores/auth'
+import { useRoute } from 'vue-router'
+import { onMounted, onUnmounted, computed } from 'vue'
+
+const auth = useAuthStore()
+const route = useRoute()
+
+const isPublicRoute = computed(() => route.meta.public === true)
+
+// Handle OAuth token redirect: /?token=xxx
+const urlParams = new URLSearchParams(location.search)
+const oauthToken = urlParams.get('token')
+if (oauthToken) {
+  auth.setToken(oauthToken)
+  // Clean the token from the URL
+  const clean = location.pathname + location.hash
+  history.replaceState({}, '', clean)
+}
 
 usePerchSocket()
 
@@ -24,7 +41,7 @@ onUnmounted(() => mq.removeEventListener('change', applyColorMode))
 
 <template>
   <div class="flex h-screen bg-background text-foreground overflow-hidden">
-    <Sidebar />
+    <Sidebar v-if="!isPublicRoute" />
     <main class="flex-1 overflow-y-auto">
       <RouterView />
     </main>

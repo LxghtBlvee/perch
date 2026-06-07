@@ -97,15 +97,22 @@ onMounted(fetchSources)
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-2xl font-semibold tracking-tight">Data Sources</h1>
-        <p class="text-sm text-muted-foreground mt-0.5">Connect Prometheus, Loki, InfluxDB, and more.</p>
+        <h1 class="text-2xl font-semibold tracking-tight">
+          Data Sources
+        </h1>
+        <p class="text-sm text-muted-foreground mt-0.5">
+          Connect Prometheus, Loki, InfluxDB, and more.
+        </p>
       </div>
       <button
         v-if="!showForm"
         class="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
         @click="showForm = true"
       >
-        <Plus class="size-4" :stroke-width="2" />
+        <Plus
+          class="size-4"
+          :stroke-width="2"
+        />
         Add data source
       </button>
     </div>
@@ -115,7 +122,9 @@ onMounted(fetchSources)
       v-if="showForm"
       class="rounded-xl border border-border bg-card p-5 space-y-4"
     >
-      <h2 class="text-sm font-semibold">New data source</h2>
+      <h2 class="text-sm font-semibold">
+        New data source
+      </h2>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <!-- Type -->
@@ -147,7 +156,7 @@ onMounted(fetchSources)
               type="text"
               placeholder="My Prometheus"
               class="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/40"
-            />
+            >
           </div>
           <div class="space-y-1.5">
             <label class="text-xs font-medium text-muted-foreground">URL</label>
@@ -156,7 +165,7 @@ onMounted(fetchSources)
               type="text"
               :placeholder="TYPE_META[form.type].placeholder"
               class="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm font-mono placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/40"
-            />
+            >
           </div>
         </div>
       </div>
@@ -180,7 +189,12 @@ onMounted(fetchSources)
         <span class="text-sm text-muted-foreground">Set as default</span>
       </label>
 
-      <p v-if="formError" class="text-xs text-red-400">{{ formError }}</p>
+      <p
+        v-if="formError"
+        class="text-xs text-red-400"
+      >
+        {{ formError }}
+      </p>
 
       <div class="flex items-center gap-2 pt-1">
         <button
@@ -200,8 +214,15 @@ onMounted(fetchSources)
     </div>
 
     <!-- Loading -->
-    <div v-if="loading" class="space-y-3">
-      <div v-for="i in 2" :key="i" class="h-20 rounded-xl border border-border bg-card animate-pulse" />
+    <div
+      v-if="loading"
+      class="space-y-3"
+    >
+      <div
+        v-for="i in 2"
+        :key="i"
+        class="h-20 rounded-xl border border-border bg-card animate-pulse"
+      />
     </div>
 
     <!-- Empty state -->
@@ -209,15 +230,25 @@ onMounted(fetchSources)
       v-else-if="sources.length === 0 && !showForm"
       class="rounded-xl border border-dashed border-border p-16 flex flex-col items-center gap-4 text-center"
     >
-      <Database class="size-10 text-muted-foreground/30" :stroke-width="1.25" />
+      <Database
+        class="size-10 text-muted-foreground/30"
+        :stroke-width="1.25"
+      />
       <div>
-        <p class="text-sm font-medium text-muted-foreground">No data sources yet</p>
-        <p class="text-xs text-muted-foreground/60 mt-1">Connect Prometheus, Loki, or InfluxDB to enrich your dashboards.</p>
+        <p class="text-sm font-medium text-muted-foreground">
+          No data sources yet
+        </p>
+        <p class="text-xs text-muted-foreground/60 mt-1">
+          Connect Prometheus, Loki, or InfluxDB to enrich your dashboards.
+        </p>
       </div>
     </div>
 
     <!-- Sources list -->
-    <div v-else-if="!loading" class="space-y-3">
+    <div
+      v-else-if="!loading"
+      class="space-y-3"
+    >
       <div
         v-for="ds in sources"
         :key="ds.id"
@@ -234,7 +265,9 @@ onMounted(fetchSources)
         <!-- Info -->
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2">
-            <p class="font-semibold text-sm truncate">{{ ds.name }}</p>
+            <p class="font-semibold text-sm truncate">
+              {{ ds.name }}
+            </p>
             <span
               v-if="ds.isDefault"
               class="flex items-center gap-1 text-[10px] font-medium text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded"
@@ -245,7 +278,9 @@ onMounted(fetchSources)
               {{ TYPE_META[ds.type].label }}
             </span>
           </div>
-          <p class="text-xs font-mono text-muted-foreground mt-0.5 truncate">{{ ds.url }}</p>
+          <p class="text-xs font-mono text-muted-foreground mt-0.5 truncate">
+            {{ ds.url }}
+          </p>
         </div>
 
         <!-- Test button -->
@@ -270,8 +305,8 @@ onMounted(fetchSources)
             {{
               testResults[ds.id] === 'testing' ? 'Testing…'
               : testResults[ds.id] === 'ok' ? 'Connected'
-              : testResults[ds.id] === 'fail' ? 'Failed'
-              : 'Test'
+                : testResults[ds.id] === 'fail' ? 'Failed'
+                  : 'Test'
             }}
           </span>
         </button>
@@ -281,7 +316,10 @@ onMounted(fetchSources)
           class="size-8 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-red-400 hover:border-red-400/40 transition-colors shrink-0"
           @click="remove(ds.id)"
         >
-          <Trash2 class="size-3.5" :stroke-width="2" />
+          <Trash2
+            class="size-3.5"
+            :stroke-width="2"
+          />
         </button>
       </div>
     </div>

@@ -98,6 +98,41 @@ export interface AgentState {
   containers: Container[]
 }
 
+// Auth
+export type UserRole = 'member' | 'admin'
+
+export interface AuthUser {
+  id: string
+  email: string
+  name: string | null
+  avatarUrl: string | null
+  role: UserRole
+}
+
+export type OAuthProviderType = 'github' | 'google' | 'custom'
+
+export interface OAuthProvider {
+  provider: OAuthProviderType
+  enabled: boolean
+  clientId: string | null
+  // clientSecret intentionally omitted from API responses
+  customName: string | null
+  customAuthorizationUrl: string | null
+  customTokenUrl: string | null
+  customUserinfoUrl: string | null
+  customScopes: string | null
+}
+
+// User as returned by admin /api/users endpoint
+export interface ManagedUser {
+  id: string
+  email: string
+  name: string | null
+  avatarUrl: string | null
+  role: UserRole
+  createdAt: string
+}
+
 // Agent → Hub WebSocket messages
 export type AgentMessage =
   | { type: 'auth'; token: string; agentId: string; hostname: string; ip: string }

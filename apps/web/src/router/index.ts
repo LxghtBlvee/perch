@@ -7,10 +7,14 @@ import HealthChecks from '@/pages/HealthChecks.vue'
 import HealthCheckDetail from '@/pages/HealthCheckDetail.vue'
 import DataSources from '@/pages/DataSources.vue'
 import Settings from '@/pages/Settings.vue'
+import Login from '@/pages/Login.vue'
+import Users from '@/pages/admin/Users.vue'
+import { useAuthStore } from '@/stores/auth'
 
-export default createRouter({
+const router = createRouter({
     history: createWebHistory(),
     routes: [
+        { path: '/login', component: Login, meta: { public: true } },
         { path: '/', component: Overview },
         { path: '/hosts', component: Hosts },
         { path: '/agents/:id', component: AgentDetail },
@@ -19,5 +23,24 @@ export default createRouter({
         { path: '/health-checks/:id', component: HealthCheckDetail },
         { path: '/data-sources', component: DataSources },
         { path: '/settings', component: Settings },
+        { path: '/admin/users', component: Users, meta: { requiresAdmin: true } },
     ],
 })
+
+router.beforeEach(async (to) => {
+    const auth = useAuthStore()
+
+    if (to.meta.public) return true
+
+    // Try to hydrate user if we have a token but no user yet
+    if (auth.token && !auth.user) {
+        await auth.fetchMe()
+    }
+
+    if (!auth.isAuthenticated) return '/login'
+    if (to.meta.requiresAdmin && !auth.isAdmin) return '/'
+
+    return true
+})
+
+export default router

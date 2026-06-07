@@ -14,4 +14,9 @@ export const env = {
         pass: required('PERCH_DB_PASS'),
         name: Bun.env.PERCH_DB_NAME ?? 'perch',
     },
+    // Optional: seed first admin on startup if no users exist
+    adminEmail: Bun.env.PERCH_ADMIN_EMAIL,
+    adminPassword: Bun.env.PERCH_ADMIN_PASSWORD,
+    // Session expiry in days (default 30)
+    sessionDays: parseInt(Bun.env.PERCH_SESSION_DAYS ?? '30'),
 }

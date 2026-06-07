@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { RouterLink, useRoute } from 'vue-router'
-import { LayoutDashboard, Server, HeartPulse, Database, Settings } from 'lucide-vue-next'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { LayoutDashboard, Server, HeartPulse, Database, Settings, Users, LogOut } from 'lucide-vue-next'
 import { usePerchStore } from '@/stores/perch'
+import { useAuthStore } from '@/stores/auth'
 import { cn } from '@/lib/utils'
 
 const route = useRoute()
+const router = useRouter()
 const store = usePerchStore()
+const auth = useAuthStore()
 
 const nav = [
   { to: '/', icon: LayoutDashboard, label: 'Overview' },
@@ -17,6 +20,11 @@ const bottomNav = [
   { to: '/data-sources', icon: Database, label: 'Data Sources' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ]
+
+async function handleLogout() {
+  await auth.logout()
+  router.push('/login')
+}
 </script>
 
 <template>
@@ -110,12 +118,70 @@ const bottomNav = [
         />
         {{ item.label }}
       </RouterLink>
+
+      <!-- Admin section -->
+      <template v-if="auth.isAdmin">
+        <div class="my-2 border-t border-sidebar-border" />
+        <RouterLink
+          to="/admin/users"
+          :class="cn(
+            'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+            route.path === '/admin/users'
+              ? 'bg-primary/10 text-primary'
+              : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+          )"
+        >
+          <Users
+            class="size-4 shrink-0"
+            :stroke-width="1.75"
+          />
+          Users
+        </RouterLink>
+      </template>
     </nav>
 
-    <div class="p-4 border-t border-sidebar-border">
-      <div class="flex items-center gap-2 text-xs text-muted-foreground">
-        <div :class="cn('size-2 rounded-full', store.connected ? 'bg-green-500' : 'bg-amber-500 animate-pulse')" />
+    <!-- Footer: connection status + user -->
+    <div class="p-3 border-t border-sidebar-border space-y-2">
+      <div class="flex items-center gap-2 text-xs text-muted-foreground px-1">
+        <div :class="cn('size-2 rounded-full shrink-0', store.connected ? 'bg-green-500' : 'bg-amber-500 animate-pulse')" />
         <span>{{ store.connected ? 'Connected' : 'Reconnecting...' }}</span>
+      </div>
+
+      <div
+        v-if="auth.user"
+        class="flex items-center gap-2 rounded-lg px-1 py-1"
+      >
+        <div class="size-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
+          <img
+            v-if="auth.user.avatarUrl"
+            :src="auth.user.avatarUrl"
+            class="size-6 object-cover"
+          >
+          <span
+            v-else
+            class="text-[10px] font-semibold text-primary"
+          >
+            {{ (auth.user.name ?? auth.user.email)[0].toUpperCase() }}
+          </span>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-xs font-medium truncate">
+            {{ auth.user.name ?? auth.user.email }}
+          </p>
+          <p class="text-[10px] text-muted-foreground capitalize">
+            {{ auth.user.role }}
+          </p>
+        </div>
+        <button
+          class="size-6 rounded flex items-center justify-center hover:bg-accent transition-colors shrink-0"
+          title="Sign out"
+          @click="handleLogout"
+        >
+          <LogOut
+            class="size-3.5 text-muted-foreground"
+            :stroke-width="1.75"
+          />
+        </button>
       </div>
     </div>
   </aside>

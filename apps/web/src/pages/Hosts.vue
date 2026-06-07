@@ -94,7 +94,9 @@ const hosts = computed(() =>
     <!-- Page header -->
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-2xl font-semibold tracking-tight">Hosts</h1>
+        <h1 class="text-2xl font-semibold tracking-tight">
+          Hosts
+        </h1>
         <p class="text-sm text-muted-foreground mt-0.5">
           {{ store.agents.filter(a => a.agent.status === 'online').length }} of {{ store.agents.length }} online
         </p>
@@ -106,10 +108,17 @@ const hosts = computed(() =>
       v-if="store.agents.length === 0"
       class="rounded-xl border border-dashed border-border p-16 flex flex-col items-center gap-4 text-center"
     >
-      <Server class="size-10 text-muted-foreground/30" :stroke-width="1.25" />
+      <Server
+        class="size-10 text-muted-foreground/30"
+        :stroke-width="1.25"
+      />
       <div>
-        <p class="text-sm font-medium text-muted-foreground">No hosts connected</p>
-        <p class="text-xs text-muted-foreground/60 mt-1">Deploy the Perch agent on a host to start seeing data here.</p>
+        <p class="text-sm font-medium text-muted-foreground">
+          No hosts connected
+        </p>
+        <p class="text-xs text-muted-foreground/60 mt-1">
+          Deploy the Perch agent on a host to start seeing data here.
+        </p>
       </div>
     </div>
 
@@ -155,7 +164,11 @@ const hosts = computed(() =>
         v-if="!m"
         class="p-5 flex gap-3"
       >
-        <div v-for="i in 6" :key="i" class="flex-1 h-20 rounded-lg bg-muted/40 animate-pulse" />
+        <div
+          v-for="i in 6"
+          :key="i"
+          class="flex-1 h-20 rounded-lg bg-muted/40 animate-pulse"
+        />
       </div>
       <div
         v-else
@@ -165,7 +178,10 @@ const hosts = computed(() =>
         <div class="p-5 space-y-3">
           <div class="flex items-center justify-between text-xs text-muted-foreground">
             <span class="flex items-center gap-1.5 font-medium uppercase tracking-wider">
-              <Cpu class="size-3" :stroke-width="2" /> CPU
+              <Cpu
+                class="size-3"
+                :stroke-width="2"
+              /> CPU
             </span>
             <span>{{ m.cpu.cores }}c</span>
           </div>
@@ -179,14 +195,19 @@ const hosts = computed(() =>
                 :style="{ width: `${Math.min(cpuPct, 100)}%` }"
               />
             </div>
-            <p class="text-[10px] text-muted-foreground truncate">{{ m.cpu.model }}</p>
+            <p class="text-[10px] text-muted-foreground truncate">
+              {{ m.cpu.model }}
+            </p>
           </div>
         </div>
 
         <!-- Memory -->
         <div class="p-5 space-y-3">
           <div class="flex items-center gap-1.5 text-xs text-muted-foreground font-medium uppercase tracking-wider">
-            <MemoryStick class="size-3" :stroke-width="2" /> Memory
+            <MemoryStick
+              class="size-3"
+              :stroke-width="2"
+            /> Memory
           </div>
           <p :class="['text-3xl font-bold tabular-nums', memColor(memPct)]">
             {{ formatPercent(memPct) }}
@@ -207,7 +228,10 @@ const hosts = computed(() =>
         <!-- Disk -->
         <div class="p-5 space-y-3">
           <div class="flex items-center gap-1.5 text-xs text-muted-foreground font-medium uppercase tracking-wider">
-            <HardDrive class="size-3" :stroke-width="2" /> Disk
+            <HardDrive
+              class="size-3"
+              :stroke-width="2"
+            /> Disk
           </div>
           <template v-if="primaryDisk">
             <p :class="['text-3xl font-bold tabular-nums', diskColor(diskPct)]">
@@ -225,13 +249,21 @@ const hosts = computed(() =>
               </p>
             </div>
           </template>
-          <p v-else class="text-3xl font-bold text-muted-foreground">—</p>
+          <p
+            v-else
+            class="text-3xl font-bold text-muted-foreground"
+          >
+            —
+          </p>
         </div>
 
         <!-- Network In -->
         <div class="p-5 space-y-3">
           <div class="flex items-center gap-1.5 text-xs text-muted-foreground font-medium uppercase tracking-wider">
-            <Network class="size-3" :stroke-width="2" /> Net In
+            <Network
+              class="size-3"
+              :stroke-width="2"
+            /> Net In
           </div>
           <p class="text-3xl font-bold tabular-nums text-sky-400">
             {{ formatSpeed(totalRxSpeed) }}
@@ -244,7 +276,10 @@ const hosts = computed(() =>
         <!-- Load -->
         <div class="p-5 space-y-3">
           <div class="flex items-center gap-1.5 text-xs text-muted-foreground font-medium uppercase tracking-wider">
-            <Activity class="size-3" :stroke-width="2" /> Load
+            <Activity
+              class="size-3"
+              :stroke-width="2"
+            /> Load
           </div>
           <p class="text-3xl font-bold tabular-nums text-violet-400">
             {{ m.loadAverage[0].toFixed(2) }}
@@ -257,7 +292,10 @@ const hosts = computed(() =>
         <!-- Uptime -->
         <div class="p-5 space-y-3">
           <div class="flex items-center gap-1.5 text-xs text-muted-foreground font-medium uppercase tracking-wider">
-            <Clock class="size-3" :stroke-width="2" /> Uptime
+            <Clock
+              class="size-3"
+              :stroke-width="2"
+            /> Uptime
           </div>
           <p class="text-3xl font-bold tabular-nums text-foreground">
             {{ formatUptime(m.uptime) }}
@@ -271,53 +309,144 @@ const hosts = computed(() =>
       <!-- ── Charts ──────────────────────────────────────────────── -->
       <template v-if="cpuChart(entry.agent.id)">
         <div class="border-t border-border px-5 pt-4 pb-5 space-y-3">
-          <p class="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Metrics History</p>
+          <p class="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">
+            Metrics History
+          </p>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-
             <!-- CPU -->
             <div class="rounded-lg bg-muted/20 border border-border/50 overflow-hidden">
-              <p class="px-3 pt-2 pb-0.5 text-[10px] text-muted-foreground font-medium">CPU %</p>
-              <svg :viewBox="`0 0 ${SW} ${SH}`" class="w-full block" style="height:64px" preserveAspectRatio="none">
-                <line v-for="y in [SH*0.25, SH*0.5, SH*0.75]" :key="y" x1="0" :y1="y" :x2="SW" :y2="y" stroke="oklch(0.92 0.004 286 / 0.12)" stroke-width="0.5" />
-                <path :d="cpuChart(entry.agent.id)!.area" fill="oklch(0.72 0.18 145 / 0.18)" />
-                <polyline :points="cpuChart(entry.agent.id)!.line" fill="none" stroke="oklch(0.72 0.18 145)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" />
+              <p class="px-3 pt-2 pb-0.5 text-[10px] text-muted-foreground font-medium">
+                CPU %
+              </p>
+              <svg
+                :viewBox="`0 0 ${SW} ${SH}`"
+                class="w-full block"
+                style="height:64px"
+                preserveAspectRatio="none"
+              >
+                <line
+                  v-for="y in [SH*0.25, SH*0.5, SH*0.75]"
+                  :key="y"
+                  x1="0"
+                  :y1="y"
+                  :x2="SW"
+                  :y2="y"
+                  stroke="oklch(0.92 0.004 286 / 0.12)"
+                  stroke-width="0.5"
+                />
+                <path
+                  :d="cpuChart(entry.agent.id)!.area"
+                  fill="oklch(0.72 0.18 145 / 0.18)"
+                />
+                <polyline
+                  :points="cpuChart(entry.agent.id)!.line"
+                  fill="none"
+                  stroke="oklch(0.72 0.18 145)"
+                  stroke-width="1.5"
+                  stroke-linejoin="round"
+                  stroke-linecap="round"
+                />
               </svg>
             </div>
 
             <!-- Memory -->
             <div class="rounded-lg bg-muted/20 border border-border/50 overflow-hidden">
-              <p class="px-3 pt-2 pb-0.5 text-[10px] text-muted-foreground font-medium">Memory %</p>
-              <svg :viewBox="`0 0 ${SW} ${SH}`" class="w-full block" style="height:64px" preserveAspectRatio="none">
-                <line v-for="y in [SH*0.25, SH*0.5, SH*0.75]" :key="y" x1="0" :y1="y" :x2="SW" :y2="y" stroke="oklch(0.92 0.004 286 / 0.12)" stroke-width="0.5" />
-                <path :d="memChart(entry.agent.id)!.area" fill="oklch(0.70 0.09 186 / 0.18)" />
-                <polyline :points="memChart(entry.agent.id)!.line" fill="none" stroke="oklch(0.70 0.09 186)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" />
+              <p class="px-3 pt-2 pb-0.5 text-[10px] text-muted-foreground font-medium">
+                Memory %
+              </p>
+              <svg
+                :viewBox="`0 0 ${SW} ${SH}`"
+                class="w-full block"
+                style="height:64px"
+                preserveAspectRatio="none"
+              >
+                <line
+                  v-for="y in [SH*0.25, SH*0.5, SH*0.75]"
+                  :key="y"
+                  x1="0"
+                  :y1="y"
+                  :x2="SW"
+                  :y2="y"
+                  stroke="oklch(0.92 0.004 286 / 0.12)"
+                  stroke-width="0.5"
+                />
+                <path
+                  :d="memChart(entry.agent.id)!.area"
+                  fill="oklch(0.70 0.09 186 / 0.18)"
+                />
+                <polyline
+                  :points="memChart(entry.agent.id)!.line"
+                  fill="none"
+                  stroke="oklch(0.70 0.09 186)"
+                  stroke-width="1.5"
+                  stroke-linejoin="round"
+                  stroke-linecap="round"
+                />
               </svg>
             </div>
 
             <!-- Network (full width) -->
-            <div v-if="netChart(entry.agent.id)" class="md:col-span-2 rounded-lg bg-muted/20 border border-border/50 overflow-hidden">
+            <div
+              v-if="netChart(entry.agent.id)"
+              class="md:col-span-2 rounded-lg bg-muted/20 border border-border/50 overflow-hidden"
+            >
               <div class="px-3 pt-2 pb-0.5 flex items-center gap-4 text-[10px] text-muted-foreground font-medium">
                 <span>Network</span>
                 <span class="flex items-center gap-1.5"><span class="size-1.5 rounded-full bg-sky-400 inline-block" /> RX</span>
                 <span class="flex items-center gap-1.5"><span class="size-1.5 rounded-full bg-orange-400 inline-block" /> TX</span>
                 <span class="ml-auto">max {{ formatSpeed(netChart(entry.agent.id)!.maxSpd) }}</span>
               </div>
-              <svg :viewBox="`0 0 ${SW} ${SH}`" class="w-full block" style="height:64px" preserveAspectRatio="none">
-                <line v-for="y in [SH*0.25, SH*0.5, SH*0.75]" :key="y" x1="0" :y1="y" :x2="SW" :y2="y" stroke="oklch(0.92 0.004 286 / 0.12)" stroke-width="0.5" />
-                <path :d="netChart(entry.agent.id)!.rxArea" fill="oklch(0.70 0.09 210 / 0.15)" />
-                <polyline :points="netChart(entry.agent.id)!.rx" fill="none" stroke="oklch(0.70 0.09 210)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" />
-                <polyline :points="netChart(entry.agent.id)!.tx" fill="none" stroke="oklch(0.65 0.18 50)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" />
+              <svg
+                :viewBox="`0 0 ${SW} ${SH}`"
+                class="w-full block"
+                style="height:64px"
+                preserveAspectRatio="none"
+              >
+                <line
+                  v-for="y in [SH*0.25, SH*0.5, SH*0.75]"
+                  :key="y"
+                  x1="0"
+                  :y1="y"
+                  :x2="SW"
+                  :y2="y"
+                  stroke="oklch(0.92 0.004 286 / 0.12)"
+                  stroke-width="0.5"
+                />
+                <path
+                  :d="netChart(entry.agent.id)!.rxArea"
+                  fill="oklch(0.70 0.09 210 / 0.15)"
+                />
+                <polyline
+                  :points="netChart(entry.agent.id)!.rx"
+                  fill="none"
+                  stroke="oklch(0.70 0.09 210)"
+                  stroke-width="1.5"
+                  stroke-linejoin="round"
+                  stroke-linecap="round"
+                />
+                <polyline
+                  :points="netChart(entry.agent.id)!.tx"
+                  fill="none"
+                  stroke="oklch(0.65 0.18 50)"
+                  stroke-width="1.5"
+                  stroke-linejoin="round"
+                  stroke-linecap="round"
+                />
               </svg>
             </div>
-
           </div>
         </div>
       </template>
 
       <!-- ── Containers (Beszel-style) ───────────────────────────── -->
-      <div v-if="entry.containers.length > 0" class="border-t border-border">
+      <div
+        v-if="entry.containers.length > 0"
+        class="border-t border-border"
+      >
         <div class="px-5 py-2.5 flex items-center justify-between">
-          <p class="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Containers</p>
+          <p class="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">
+            Containers
+          </p>
           <span class="text-[10px] text-muted-foreground">
             {{ entry.containers.filter(c => c.status === 'running').length }}/{{ entry.containers.length }} running
           </span>
@@ -333,9 +462,9 @@ const hosts = computed(() =>
             <span
               :class="[
                 'size-1.5 rounded-full shrink-0',
-                c.status === 'running'    ? 'bg-green-500' :
+                c.status === 'running' ? 'bg-green-500' :
                 c.status === 'restarting' ? 'bg-amber-400 animate-pulse' :
-                                            'bg-muted-foreground/30',
+                'bg-muted-foreground/30',
               ]"
             />
 
@@ -348,7 +477,10 @@ const hosts = computed(() =>
             <!-- CPU bar + % -->
             <div class="flex items-center gap-2 w-24 shrink-0">
               <div class="flex-1 h-0.5 bg-muted rounded-full overflow-hidden">
-                <div class="h-full bg-sky-500/70 rounded-full" :style="{ width: `${Math.min(c.cpu, 100)}%` }" />
+                <div
+                  class="h-full bg-sky-500/70 rounded-full"
+                  :style="{ width: `${Math.min(c.cpu, 100)}%` }"
+                />
               </div>
               <span class="text-[10px] text-muted-foreground font-mono w-8 text-right">{{ formatPercent(c.cpu) }}</span>
             </div>
@@ -356,7 +488,10 @@ const hosts = computed(() =>
             <!-- Mem bar + size -->
             <div class="flex items-center gap-2 w-32 shrink-0">
               <div class="flex-1 h-0.5 bg-muted rounded-full overflow-hidden">
-                <div class="h-full bg-violet-500/70 rounded-full" :style="{ width: `${Math.min((c.memory.used / c.memory.limit) * 100, 100)}%` }" />
+                <div
+                  class="h-full bg-violet-500/70 rounded-full"
+                  :style="{ width: `${Math.min((c.memory.used / c.memory.limit) * 100, 100)}%` }"
+                />
               </div>
               <span class="text-[10px] text-muted-foreground font-mono w-16 text-right">
                 {{ formatBytes(c.memory.used) }} / {{ formatBytes(c.memory.limit) }}
@@ -365,7 +500,6 @@ const hosts = computed(() =>
           </div>
         </div>
       </div>
-
     </div>
   </div>
 </template>
