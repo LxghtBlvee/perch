@@ -56,6 +56,7 @@ export const authRoutes = new Elysia({ prefix: '/api/auth' })
                 avatarUrl: user.avatarUrl,
                 role: user.role,
                 hasPassword: !!user.passwordHash,
+                seeded: user.seeded,
             },
         }
     }, {
@@ -75,7 +76,7 @@ export const authRoutes = new Elysia({ prefix: '/api/auth' })
         const token = request.headers.get('authorization')?.slice(7) ?? null
         const user = token ? await validateSession(token) : null
         if (!user) { set.status = 401; return { error: 'Unauthorized' } }
-        return { id: user.id, email: user.email, name: user.name, avatarUrl: user.avatarUrl, role: user.role, hasPassword: !!user.passwordHash }
+        return { id: user.id, email: user.email, name: user.name, avatarUrl: user.avatarUrl, role: user.role, hasPassword: !!user.passwordHash, seeded: user.seeded }
     })
 
     // Update current user profile
@@ -102,12 +103,12 @@ export const authRoutes = new Elysia({ prefix: '/api/auth' })
         }
 
         if (Object.keys(updates).length === 0) {
-            return { id: user.id, email: user.email, name: user.name, avatarUrl: user.avatarUrl, role: user.role, hasPassword: !!user.passwordHash }
+            return { id: user.id, email: user.email, name: user.name, avatarUrl: user.avatarUrl, role: user.role, hasPassword: !!user.passwordHash, seeded: user.seeded }
         }
 
         updates.updatedAt = new Date()
         const [updated] = await db.update(users).set(updates).where(eq(users.id, user.id)).returning()
-        return { id: updated.id, email: updated.email, name: updated.name, avatarUrl: updated.avatarUrl, role: updated.role, hasPassword: !!updated.passwordHash }
+        return { id: updated.id, email: updated.email, name: updated.name, avatarUrl: updated.avatarUrl, role: updated.role, hasPassword: !!updated.passwordHash, seeded: updated.seeded }
     }, {
         body: t.Partial(t.Object({
             name: t.String(),

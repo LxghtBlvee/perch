@@ -43,6 +43,7 @@ export const users = pgTable('users', {
     role: text('role', { enum: ['member', 'admin'] }).notNull().default('member'),
     name: text('name'),
     avatarUrl: text('avatar_url'),
+    seeded: boolean('seeded').notNull().default(false),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

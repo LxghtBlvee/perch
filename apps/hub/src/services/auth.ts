@@ -119,6 +119,7 @@ export async function seedAdmin(): Promise<void> {
         passwordHash,
         role: 'admin',
         name: 'Admin',
+        seeded: true,
     })
     console.warn(`[perch] Seeded admin user: ${env.adminEmail}`);
 }

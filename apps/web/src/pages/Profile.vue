@@ -1,6 +1,7 @@
 <!-- apps/web/src/pages/Profile.vue -->
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { KeyRound } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import type { AuthUser } from '@perch/types'
 
@@ -23,10 +24,7 @@ async function saveProfile() {
     const res = await fetch('/api/auth/me', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
-      body: JSON.stringify({
-        name: profileForm.value.name,
-        email: profileForm.value.email,
-      }),
+      body: JSON.stringify({ name: profileForm.value.name, email: profileForm.value.email }),
     })
     const data = await res.json() as AuthUser & { error?: string }
     if (!res.ok) { profileError.value = data.error ?? 'Failed to save'; return }
@@ -80,96 +78,155 @@ async function savePassword() {
 }
 
 const hasPassword = computed(() => auth.user?.hasPassword ?? false)
+const isSeeded = computed(() => auth.user?.seeded ?? false)
 </script>
 
 <template>
-  <div class="p-6 max-w-xl space-y-8">
+  <div class="p-6 space-y-6 max-w-5xl">
     <div>
-      <h1 class="text-2xl font-semibold tracking-tight">Account</h1>
-      <p class="text-sm text-muted-foreground mt-0.5">Manage your profile and password.</p>
+      <h1 class="text-2xl font-semibold tracking-tight">
+        Account
+      </h1>
+      <p class="text-sm text-muted-foreground mt-0.5">
+        Manage your profile and password.
+      </p>
     </div>
 
-    <!-- Profile -->
-    <section class="rounded-xl border border-border bg-card p-6 space-y-5">
-      <h2 class="text-sm font-semibold">Profile</h2>
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+      <!-- Profile -->
+      <section class="rounded-xl border border-border bg-card p-6 space-y-5">
+        <h2 class="text-sm font-semibold">
+          Profile
+        </h2>
 
-      <div class="space-y-1.5">
-        <label class="text-xs font-medium text-muted-foreground">Display name</label>
-        <input
-          v-model="profileForm.name"
-          type="text"
-          placeholder="Your name"
-          class="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/40"
+        <div class="space-y-1.5">
+          <label class="text-xs font-medium text-muted-foreground">Display name</label>
+          <input
+            v-model="profileForm.name"
+            type="text"
+            placeholder="Your name"
+            class="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/40"
+          >
+        </div>
+
+        <div class="space-y-1.5">
+          <label class="text-xs font-medium text-muted-foreground">Email</label>
+          <input
+            v-model="profileForm.email"
+            type="email"
+            class="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/40"
+          >
+        </div>
+
+        <p
+          v-if="profileError"
+          class="text-xs text-red-400"
         >
-      </div>
-
-      <div class="space-y-1.5">
-        <label class="text-xs font-medium text-muted-foreground">Email</label>
-        <input
-          v-model="profileForm.email"
-          type="email"
-          class="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/40"
-        >
-      </div>
-
-      <p v-if="profileError" class="text-xs text-red-400">{{ profileError }}</p>
-      <p v-if="profileSuccess" class="text-xs text-green-400">Saved.</p>
-
-      <button
-        class="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
-        :disabled="profileSaving"
-        @click="saveProfile"
-      >
-        {{ profileSaving ? 'Saving…' : 'Save' }}
-      </button>
-    </section>
-
-    <!-- Password -->
-    <section class="rounded-xl border border-border bg-card p-6 space-y-5">
-      <div>
-        <h2 class="text-sm font-semibold">Password</h2>
-        <p v-if="!hasPassword" class="text-xs text-muted-foreground mt-1">
-          You signed in with OAuth. Set a password to enable email/password login.
+          {{ profileError }}
         </p>
-      </div>
-
-      <div v-if="hasPassword" class="space-y-1.5">
-        <label class="text-xs font-medium text-muted-foreground">Current password</label>
-        <input
-          v-model="passwordForm.currentPassword"
-          type="password"
-          class="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+        <p
+          v-if="profileSuccess"
+          class="text-xs text-green-400"
         >
-      </div>
+          Saved.
+        </p>
 
-      <div class="space-y-1.5">
-        <label class="text-xs font-medium text-muted-foreground">New password</label>
-        <input
-          v-model="passwordForm.newPassword"
-          type="password"
-          class="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+        <button
+          class="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+          :disabled="profileSaving"
+          @click="saveProfile"
         >
-      </div>
+          {{ profileSaving ? 'Saving…' : 'Save' }}
+        </button>
+      </section>
 
-      <div class="space-y-1.5">
-        <label class="text-xs font-medium text-muted-foreground">Confirm new password</label>
-        <input
-          v-model="passwordForm.confirmPassword"
-          type="password"
-          class="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+      <!-- Password -->
+      <section class="rounded-xl border border-border bg-card p-6 space-y-5">
+        <h2 class="text-sm font-semibold">
+          Password
+        </h2>
+
+        <!-- Seeded admin — password is managed via env -->
+        <div
+          v-if="isSeeded"
+          class="flex flex-col items-center justify-center gap-3 py-8 text-center"
         >
-      </div>
+          <div class="size-10 rounded-full bg-muted flex items-center justify-center">
+            <KeyRound
+              class="size-5 text-muted-foreground"
+              :stroke-width="1.5"
+            />
+          </div>
+          <div>
+            <p class="text-sm font-medium">
+              Managed via environment
+            </p>
+            <p class="text-xs text-muted-foreground mt-0.5">
+              This account's password is set by <code class="bg-muted px-1 py-0.5 rounded">PERCH_ADMIN_PASSWORD</code>.
+            </p>
+          </div>
+        </div>
 
-      <p v-if="passwordError" class="text-xs text-red-400">{{ passwordError }}</p>
-      <p v-if="passwordSuccess" class="text-xs text-green-400">Password updated.</p>
+        <template v-else>
+          <p
+            v-if="!hasPassword"
+            class="text-xs text-muted-foreground"
+          >
+            You signed in with OAuth. Set a password to also enable email/password login.
+          </p>
 
-      <button
-        class="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
-        :disabled="passwordSaving"
-        @click="savePassword"
-      >
-        {{ passwordSaving ? 'Saving…' : hasPassword ? 'Update password' : 'Set password' }}
-      </button>
-    </section>
+          <div
+            v-if="hasPassword"
+            class="space-y-1.5"
+          >
+            <label class="text-xs font-medium text-muted-foreground">Current password</label>
+            <input
+              v-model="passwordForm.currentPassword"
+              type="password"
+              class="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+            >
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="text-xs font-medium text-muted-foreground">New password</label>
+            <input
+              v-model="passwordForm.newPassword"
+              type="password"
+              class="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+            >
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="text-xs font-medium text-muted-foreground">Confirm new password</label>
+            <input
+              v-model="passwordForm.confirmPassword"
+              type="password"
+              class="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+            >
+          </div>
+
+          <p
+            v-if="passwordError"
+            class="text-xs text-red-400"
+          >
+            {{ passwordError }}
+          </p>
+          <p
+            v-if="passwordSuccess"
+            class="text-xs text-green-400"
+          >
+            Password updated.
+          </p>
+
+          <button
+            class="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+            :disabled="passwordSaving"
+            @click="savePassword"
+          >
+            {{ passwordSaving ? 'Saving…' : hasPassword ? 'Update password' : 'Set password' }}
+          </button>
+        </template>
+      </section>
+    </div>
   </div>
 </template>

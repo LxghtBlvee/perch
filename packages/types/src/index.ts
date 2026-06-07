@@ -109,6 +109,7 @@ export interface AuthUser {
   avatarUrl: string | null
   role: UserRole
   hasPassword: boolean
+  seeded: boolean
 }
 
 export type OAuthProviderType = 'github' | 'google' | 'custom'
