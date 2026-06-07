@@ -117,19 +117,26 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
 <template>
   <div class="p-6 space-y-8 max-w-5xl">
     <div>
-      <h1 class="text-2xl font-semibold tracking-tight">Settings</h1>
-      <p class="text-sm text-muted-foreground mt-1">Manage your Perch instance.</p>
+      <h1 class="text-2xl font-semibold tracking-tight">
+        Settings
+      </h1>
+      <p class="text-sm text-muted-foreground mt-1">
+        Manage your Perch instance.
+      </p>
     </div>
 
     <!-- General — 3-col grid -->
     <section>
-      <h2 class="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">General</h2>
+      <h2 class="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">
+        General
+      </h2>
       <div class="grid grid-cols-3 gap-4">
-
         <!-- Hub token -->
         <div class="col-span-2 rounded-xl border border-border bg-card p-5 space-y-3">
           <div>
-            <h3 class="text-sm font-medium">Hub token</h3>
+            <h3 class="text-sm font-medium">
+              Hub token
+            </h3>
             <p class="text-xs text-muted-foreground mt-0.5">
               Shared secret for agent auth. Set via
               <code class="bg-muted px-1 py-0.5 rounded">PERCH_HUB_TOKEN</code>.
@@ -143,8 +150,16 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
               class="size-9 rounded-lg border border-border flex items-center justify-center hover:bg-accent transition-colors shrink-0"
               @click="showToken = !showToken"
             >
-              <Eye v-if="!showToken" class="size-4 text-muted-foreground" :stroke-width="1.75" />
-              <EyeOff v-else class="size-4 text-muted-foreground" :stroke-width="1.75" />
+              <Eye
+                v-if="!showToken"
+                class="size-4 text-muted-foreground"
+                :stroke-width="1.75"
+              />
+              <EyeOff
+                v-else
+                class="size-4 text-muted-foreground"
+                :stroke-width="1.75"
+              />
             </button>
           </div>
         </div>
@@ -152,18 +167,28 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
         <!-- Version -->
         <div class="rounded-xl border border-border bg-card p-5 flex flex-col justify-between">
           <div>
-            <h3 class="text-sm font-medium">Version</h3>
-            <p class="text-xs text-muted-foreground mt-0.5">Current release</p>
+            <h3 class="text-sm font-medium">
+              Version
+            </h3>
+            <p class="text-xs text-muted-foreground mt-0.5">
+              Current release
+            </p>
           </div>
-          <p class="text-2xl font-mono font-semibold text-primary mt-4">v0.0.1</p>
+          <p class="text-2xl font-mono font-semibold text-primary mt-4">
+            v0.0.1
+          </p>
         </div>
 
         <!-- Color mode — full width -->
         <div class="col-span-3 rounded-xl border border-border bg-card p-5">
           <div class="flex items-center justify-between">
             <div>
-              <h3 class="text-sm font-medium">Color mode</h3>
-              <p class="text-xs text-muted-foreground mt-0.5">Choose light, dark, or follow your OS.</p>
+              <h3 class="text-sm font-medium">
+                Color mode
+              </h3>
+              <p class="text-xs text-muted-foreground mt-0.5">
+                Choose light, dark, or follow your OS.
+              </p>
             </div>
             <div class="flex items-center gap-1 rounded-lg border border-border bg-muted p-1">
               <button
@@ -186,7 +211,9 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
     <!-- OAuth / SSO — admin only -->
     <template v-if="auth.isAdmin">
       <section>
-        <h2 class="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">Authentication</h2>
+        <h2 class="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">
+          Authentication
+        </h2>
         <div class="grid grid-cols-3 gap-4">
           <div
             v-for="p in providers"
@@ -196,8 +223,12 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
             <!-- Header -->
             <div class="flex items-start justify-between gap-2">
               <div>
-                <p class="text-sm font-medium">{{ providerLabel(p) }}</p>
-                <p class="text-xs text-muted-foreground mt-0.5">{{ providerDesc(p) }}</p>
+                <p class="text-sm font-medium">
+                  {{ providerLabel(p) }}
+                </p>
+                <p class="text-xs text-muted-foreground mt-0.5">
+                  {{ providerDesc(p) }}
+                </p>
               </div>
               <button
                 class="relative shrink-0 w-9 h-5 rounded-full transition-colors mt-0.5"
@@ -212,51 +243,111 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
             <div class="space-y-2 flex-1">
               <div class="space-y-1">
                 <label class="text-xs text-muted-foreground">Client ID</label>
-                <input v-model="p.clientId" type="text" placeholder="Client ID" :class="INPUT" />
+                <input
+                  v-model="p.clientId"
+                  type="text"
+                  placeholder="Client ID"
+                  :class="INPUT"
+                >
               </div>
               <div class="space-y-1">
                 <label class="text-xs text-muted-foreground">Client Secret{{ p.hasClientSecret ? ' (stored)' : '' }}</label>
-                <input v-model="p.clientSecret" type="password" :placeholder="p.hasClientSecret ? 'Leave blank to keep' : 'Client Secret'" :class="INPUT" />
+                <input
+                  v-model="p.clientSecret"
+                  type="password"
+                  :placeholder="p.hasClientSecret ? 'Leave blank to keep' : 'Client Secret'"
+                  :class="INPUT"
+                >
               </div>
               <!-- Org/domain restriction -->
-              <div v-if="p.provider === 'github'" class="space-y-1">
+              <div
+                v-if="p.provider === 'github'"
+                class="space-y-1"
+              >
                 <label class="text-xs text-muted-foreground">Allowed org <span class="text-muted-foreground/50">(optional)</span></label>
-                <input v-model="p.allowedOrg" type="text" placeholder="my-org" :class="INPUT" />
-                <p class="text-xs text-muted-foreground/60">Only members of this GitHub org can sign in.</p>
+                <input
+                  v-model="p.allowedOrg"
+                  type="text"
+                  placeholder="my-org"
+                  :class="INPUT"
+                >
+                <p class="text-xs text-muted-foreground/60">
+                  Only members of this GitHub org can sign in.
+                </p>
               </div>
-              <div v-if="p.provider === 'google' || p.provider === 'custom'" class="space-y-1">
+              <div
+                v-if="p.provider === 'google' || p.provider === 'custom'"
+                class="space-y-1"
+              >
                 <label class="text-xs text-muted-foreground">Allowed domain <span class="text-muted-foreground/50">(optional)</span></label>
-                <input v-model="p.allowedDomain" type="text" placeholder="mycompany.com" :class="INPUT" />
-                <p class="text-xs text-muted-foreground/60">Only emails from this domain can sign in.</p>
+                <input
+                  v-model="p.allowedDomain"
+                  type="text"
+                  placeholder="mycompany.com"
+                  :class="INPUT"
+                >
+                <p class="text-xs text-muted-foreground/60">
+                  Only emails from this domain can sign in.
+                </p>
               </div>
 
               <template v-if="p.provider === 'custom'">
                 <div class="space-y-1">
                   <label class="text-xs text-muted-foreground">Display name</label>
-                  <input v-model="p.customName" type="text" placeholder="Authentik" :class="INPUT" />
+                  <input
+                    v-model="p.customName"
+                    type="text"
+                    placeholder="Authentik"
+                    :class="INPUT"
+                  >
                 </div>
                 <div class="space-y-1">
                   <label class="text-xs text-muted-foreground">Authorization URL</label>
-                  <input v-model="p.customAuthorizationUrl" type="url" placeholder="https://…/authorize/" :class="INPUT" />
+                  <input
+                    v-model="p.customAuthorizationUrl"
+                    type="url"
+                    placeholder="https://…/authorize/"
+                    :class="INPUT"
+                  >
                 </div>
                 <div class="space-y-1">
                   <label class="text-xs text-muted-foreground">Token URL</label>
-                  <input v-model="p.customTokenUrl" type="url" placeholder="https://…/token/" :class="INPUT" />
+                  <input
+                    v-model="p.customTokenUrl"
+                    type="url"
+                    placeholder="https://…/token/"
+                    :class="INPUT"
+                  >
                 </div>
                 <div class="space-y-1">
                   <label class="text-xs text-muted-foreground">Userinfo URL</label>
-                  <input v-model="p.customUserinfoUrl" type="url" placeholder="https://…/userinfo/" :class="INPUT" />
+                  <input
+                    v-model="p.customUserinfoUrl"
+                    type="url"
+                    placeholder="https://…/userinfo/"
+                    :class="INPUT"
+                  >
                 </div>
                 <div class="space-y-1">
                   <label class="text-xs text-muted-foreground">Scopes</label>
-                  <input v-model="p.customScopes" type="text" placeholder="openid email profile" :class="INPUT" />
+                  <input
+                    v-model="p.customScopes"
+                    type="text"
+                    placeholder="openid email profile"
+                    :class="INPUT"
+                  >
                 </div>
               </template>
             </div>
 
             <!-- Save -->
             <div>
-              <p v-if="p.saveError" class="text-xs text-red-500 mb-2">{{ p.saveError }}</p>
+              <p
+                v-if="p.saveError"
+                class="text-xs text-red-500 mb-2"
+              >
+                {{ p.saveError }}
+              </p>
               <button
                 :disabled="p.saving"
                 class="w-full py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"

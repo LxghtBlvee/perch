@@ -25,6 +25,11 @@ class AgentRegistry {
         if (entry) entry.metrics = metrics
     }
 
+    getContainers(agentId: string): Container[] | null {
+        const entry = this.agents.get(agentId)
+        return entry ? [...entry.containers] : null
+    }
+
     updateContainers(agentId: string, containers: Container[]): void {
         const entry = this.agents.get(agentId);
         if (entry) entry.containers = containers;

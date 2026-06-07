@@ -513,14 +513,25 @@ function xLabel(pts: NonNullable<typeof chartData.value>, i: number): string {
         <table class="w-full text-sm">
           <thead>
             <tr class="border-b border-border bg-muted/40">
-              <th class="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Time</th>
-              <th class="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Status</th>
-              <th class="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">Latency</th>
+              <th class="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">
+                Time
+              </th>
+              <th class="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">
+                Status
+              </th>
+              <th class="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">
+                Latency
+              </th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="!history.length">
-              <td colspan="3" class="px-4 py-8 text-center text-xs text-muted-foreground">No results yet.</td>
+              <td
+                colspan="3"
+                class="px-4 py-8 text-center text-xs text-muted-foreground"
+              >
+                No results yet.
+              </td>
             </tr>
             <tr
               v-for="result in pagedHistory"
@@ -543,7 +554,10 @@ function xLabel(pts: NonNullable<typeof chartData.value>, i: number): string {
         </table>
 
         <!-- Pagination -->
-        <div v-if="totalPages > 1" class="flex items-center justify-between px-4 py-2.5 border-t border-border bg-muted/20">
+        <div
+          v-if="totalPages > 1"
+          class="flex items-center justify-between px-4 py-2.5 border-t border-border bg-muted/20"
+        >
           <span class="text-xs text-muted-foreground">
             {{ page * PAGE_SIZE + 1 }}–{{ Math.min((page + 1) * PAGE_SIZE, sortedHistory.length) }} of {{ sortedHistory.length }}
           </span>
@@ -553,7 +567,10 @@ function xLabel(pts: NonNullable<typeof chartData.value>, i: number): string {
               :disabled="page === 0"
               @click="prevPage"
             >
-              <ChevronLeft class="size-4 text-muted-foreground" :stroke-width="1.75" />
+              <ChevronLeft
+                class="size-4 text-muted-foreground"
+                :stroke-width="1.75"
+              />
             </button>
             <span class="text-xs text-muted-foreground px-1">{{ page + 1 }} / {{ totalPages }}</span>
             <button
@@ -561,7 +578,10 @@ function xLabel(pts: NonNullable<typeof chartData.value>, i: number): string {
               :disabled="page === totalPages - 1"
               @click="nextPage"
             >
-              <ChevronRight class="size-4 text-muted-foreground" :stroke-width="1.75" />
+              <ChevronRight
+                class="size-4 text-muted-foreground"
+                :stroke-width="1.75"
+              />
             </button>
           </div>
         </div>

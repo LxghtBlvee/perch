@@ -9,6 +9,7 @@ import DataSources from '@/pages/DataSources.vue'
 import Settings from '@/pages/Settings.vue'
 import Login from '@/pages/Login.vue'
 import Users from '@/pages/admin/Users.vue'
+import Alerts from '@/pages/Alerts.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const router = createRouter({
@@ -21,6 +22,7 @@ const router = createRouter({
         { path: '/agents/:agentId/containers/:containerId', component: ContainerDetail },
         { path: '/health-checks', component: HealthChecks },
         { path: '/health-checks/:id', component: HealthCheckDetail },
+        { path: '/alerts', component: Alerts },
         { path: '/data-sources', component: DataSources },
         { path: '/settings', component: Settings },
         { path: '/admin/users', component: Users, meta: { requiresAdmin: true } },

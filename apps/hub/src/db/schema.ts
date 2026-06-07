@@ -72,6 +72,45 @@ export const oauthProviders = pgTable('oauth_providers', {
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+export const alertDestinations = pgTable('alert_destinations', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+    type: text('type', { enum: ['discord', 'slack', 'ntfy'] }).notNull(),
+    webhookUrl: text('webhook_url').notNull(),
+    ntfyTopic: text('ntfy_topic'),
+    ntfyPriority: text('ntfy_priority').default('default'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const alertRules = pgTable('alert_rules', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+    enabled: boolean('enabled').notNull().default(true),
+    type: text('type', { enum: ['health_check', 'container_event'] }).notNull(),
+    // health_check specific
+    healthCheckId: uuid('health_check_id').references(() => healthChecks.id, { onDelete: 'cascade' }),
+    onStatus: text('on_status', { enum: ['down', 'up', 'both'] }),
+    // container_event specific
+    agentId: uuid('agent_id').references(() => agents.id, { onDelete: 'set null' }),
+    events: text('events'), // JSON array: ["crash","restart"]
+    // shared
+    cooldown: integer('cooldown').notNull().default(300),
+    lastFiredAt: timestamp('last_fired_at'),
+    destinationId: uuid('destination_id').references(() => alertDestinations.id, { onDelete: 'cascade' }).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const alertHistory = pgTable('alert_history', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    ruleId: uuid('rule_id').references(() => alertRules.id, { onDelete: 'cascade' }).notNull(),
+    triggeredAt: timestamp('triggered_at').defaultNow().notNull(),
+    detail: text('detail').notNull(),
+    status: text('status', { enum: ['sent', 'failed'] }).notNull(),
+    error: text('error'),
+});
+
 export const oauthAccounts = pgTable('oauth_accounts', {
     id: uuid('id').primaryKey().defaultRandom(),
     userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),

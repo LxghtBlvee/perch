@@ -133,6 +133,50 @@ export interface ManagedUser {
   createdAt: string
 }
 
+// Alerts
+export type AlertDestinationType = 'discord' | 'slack' | 'ntfy'
+export type AlertRuleType = 'health_check' | 'container_event'
+export type HealthCheckTrigger = 'down' | 'up' | 'both'
+export type ContainerEventType = 'crash' | 'restart'
+
+export interface AlertDestination {
+  id: string
+  name: string
+  type: AlertDestinationType
+  webhookUrl: string
+  ntfyTopic: string | null
+  ntfyPriority: string | null
+  createdAt: string
+}
+
+export interface AlertRule {
+  id: string
+  name: string
+  enabled: boolean
+  type: AlertRuleType
+  // health_check
+  healthCheckId: string | null
+  onStatus: HealthCheckTrigger | null
+  // container_event
+  agentId: string | null
+  events: ContainerEventType[] | null
+  // shared
+  cooldown: number
+  lastFiredAt: string | null
+  destinationId: string
+  destination: AlertDestination
+  createdAt: string
+}
+
+export interface AlertHistoryEntry {
+  id: string
+  ruleId: string
+  triggeredAt: string
+  detail: string
+  status: 'sent' | 'failed'
+  error: string | null
+}
+
 // Agent → Hub WebSocket messages
 export type AgentMessage =
   | { type: 'auth'; token: string; agentId: string; hostname: string; ip: string }

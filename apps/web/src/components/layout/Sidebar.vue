@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { LayoutDashboard, Server, HeartPulse, Database, Settings, Users, LogOut } from 'lucide-vue-next'
+import { LayoutDashboard, Server, HeartPulse, Bell, Database, Settings, Users, LogOut } from 'lucide-vue-next'
 import { usePerchStore } from '@/stores/perch'
 import { useAuthStore } from '@/stores/auth'
 import { cn } from '@/lib/utils'
@@ -14,6 +14,7 @@ const nav = [
   { to: '/', icon: LayoutDashboard, label: 'Overview' },
   { to: '/hosts', icon: Server, label: 'Hosts' },
   { to: '/health-checks', icon: HeartPulse, label: 'Health Checks' },
+  { to: '/alerts', icon: Bell, label: 'Alerts' },
 ]
 
 const bottomNav = [

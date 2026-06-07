@@ -12,6 +12,7 @@ import { dataSourceRoutes } from './routes/data-sources'
 import { authRoutes } from './routes/auth'
 import { userRoutes } from './routes/users'
 import { oauthSettingsRoutes } from './routes/oauth-settings'
+import { alertRoutes } from './routes/alerts'
 import { agentWs } from './ws/agent'
 import { liveWs } from './ws/live'
 import { healthChecker } from './services/health-checker'
@@ -35,6 +36,7 @@ const app = new Elysia()
   .use(dataSourceRoutes)
   .use(userRoutes)
   .use(oauthSettingsRoutes)
+  .use(alertRoutes)
   .use(agentWs)
   .use(liveWs)
   .use(staticPlugin({ assets: webDist, prefix: '/' }))

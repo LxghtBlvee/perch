@@ -1,7 +1,8 @@
-import { eq } from 'drizzle-orm'
+import { desc, eq } from 'drizzle-orm'
 import { db } from '../db'
 import { healthChecks, healthCheckResults } from '../db/schema'
 import { liveRegistry } from './live-registry'
+import { alertManager } from './alert-manager'
 import type { HealthCheck } from '@perch/types'
 
 class HealthChecker {
@@ -32,10 +33,18 @@ class HealthChecker {
         const [check] = await db.select().from(healthChecks).where(eq(healthChecks.id, id))
         if (!check) return 
 
+        // Fetch previous result to detect transitions
+        const [prevResult] = await db
+            .select()
+            .from(healthCheckResults)
+            .where(eq(healthCheckResults.healthCheckId, id))
+            .orderBy(desc(healthCheckResults.checkedAt))
+            .limit(1)
+
         const start = Date.now()
         let status: 'up' | 'down' = 'down'
         let latency: number | null = null
-        
+
         try {
             const res = await fetch(check.url, { signal: AbortSignal.timeout(10_000) })
             if (res.ok) {
@@ -47,6 +56,12 @@ class HealthChecker {
         }
 
         await db.insert(healthCheckResults).values({ healthCheckId: id, status, latency })
+
+        // Fire alert only on status transitions (or first ever check if down)
+        const prevStatus = prevResult?.status ?? null
+        if (prevStatus !== status) {
+            void alertManager.fireHealthCheckAlert(id, check.name, check.url, status)
+        }
 
         const result: HealthCheck = {
             id: check.id,

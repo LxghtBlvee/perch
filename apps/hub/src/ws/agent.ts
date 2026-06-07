@@ -2,6 +2,7 @@ import Elysia from 'elysia'
 import { env } from '../config/env.validation'
 import { agentRegistry } from '../services/agent-registry'
 import { liveRegistry } from '../services/live-registry'
+import { alertManager } from '../services/alert-manager'
 import { db } from '../db'
 import { agents } from '../db/schema'
 import type { AgentMessage } from '@perch/types'
@@ -54,8 +55,39 @@ export const agentWs = new Elysia().ws('/ws/agent', {
         }
 
         if (msg.type === 'containers') {
+            const prevContainers = agentRegistry.getContainers(agentId)
             agentRegistry.updateContainers(agentId, msg.data)
             liveRegistry.broadcast({ type: 'containers_update', agentId, containers: msg.data })
+
+            // Detect crash / restart events by diffing against previous state
+            if (prevContainers && prevContainers.length > 0) {
+                const agentState = agentRegistry.get(agentId)
+                if (agentState) {
+                    const prevMap = new Map(prevContainers.map(c => [c.id, c]))
+                    for (const container of msg.data) {
+                        const prev = prevMap.get(container.id)
+                        if (!prev) continue
+
+                        const wentDown =
+                            prev.status === 'running' &&
+                            (container.status === 'stopped' || container.status === 'dead')
+                        const isRestarting =
+                            container.status === 'restarting' && prev.status !== 'restarting'
+
+                        if (wentDown) {
+                            void alertManager.fireContainerAlert(
+                                agentId, agentState.agent.hostname,
+                                container.name, container.image, 'crash'
+                            )
+                        } else if (isRestarting) {
+                            void alertManager.fireContainerAlert(
+                                agentId, agentState.agent.hostname,
+                                container.name, container.image, 'restart'
+                            )
+                        }
+                    }
+                }
+            }
         }
 
         if (msg.type === 'logs_response') {

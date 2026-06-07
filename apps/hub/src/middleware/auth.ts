@@ -12,7 +12,7 @@ export async function getAuthUser(request: Request): Promise<User | null> {
 /** Returns the authenticated user or sets 401 and returns null. */
 export async function requireAuthUser(
     request: Request,
-    set: { status: number | string }
+    set: { status?: number | string }
 ): Promise<User | null> {
     const user = await getAuthUser(request)
     if (!user) set.status = 401
@@ -22,7 +22,7 @@ export async function requireAuthUser(
 /** Returns the authenticated admin user or sets 401/403 and returns null. */
 export async function requireAdminUser(
     request: Request,
-    set: { status: number | string }
+    set: { status?: number | string }
 ): Promise<User | null> {
     const user = await getAuthUser(request)
     if (!user) { set.status = 401; return null }
