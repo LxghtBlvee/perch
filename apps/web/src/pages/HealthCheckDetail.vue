@@ -69,9 +69,9 @@ const maxLatency = computed(() => {
 })
 
 // ─── Chart ───────────────────────────────────────────────────────────
-const SVG_W = 800, SVG_H = 160
-const CL = 52, CT = 8, CR = 4, CB = 24
-const IW = SVG_W - CL - CR
+const SVG_W = 744, SVG_H = 128
+const CL = 0, CT = 4, CR = 0, CB = 4
+const IW = SVG_W
 const IH = SVG_H - CT - CB
 
 const yScale = computed(() => {
@@ -281,111 +281,95 @@ function xLabel(pts: NonNullable<typeof chartData.value>, i: number): string {
         >
           Not enough data yet.
         </div>
-        <div
-          v-else
-          class="relative select-none"
-        >
-          <svg
-            ref="svgRef"
-            :viewBox="`0 0 ${SVG_W} ${SVG_H}`"
-            class="w-full h-36"
-            @mousemove="onChartMove"
-            @mouseleave="hoverPoint = null"
-          >
-            <!-- Y gridlines + labels -->
-            <g
-              v-for="tick in yScale.ticks"
-              :key="tick"
-            >
-              <line
-                :x1="CL" :y1="toY(tick)"
-                :x2="SVG_W - CR" :y2="toY(tick)"
-                stroke="oklch(0.92 0.004 286 / 0.4)"
-                stroke-width="0.5"
-                stroke-dasharray="4 3"
-              />
-              <text
-                :x="CL - 6"
-                :y="toY(tick) + 3.5"
-                text-anchor="end"
-                fill="oklch(0.55 0.016 285)"
-                font-size="9"
-                font-family="monospace"
+        <div v-else class="select-none">
+          <div class="flex gap-2 items-stretch">
+            <!-- Y-axis labels (HTML, not SVG — avoids distortion with preserveAspectRatio="none") -->
+            <div class="flex flex-col justify-between text-right w-12 shrink-0 text-xs text-muted-foreground font-mono py-0.5">
+              <span v-for="tick in [...yScale.ticks].reverse()" :key="tick">{{ formatTick(tick) }}</span>
+            </div>
+
+            <!-- Chart -->
+            <div class="flex-1 relative min-w-0">
+              <svg
+                ref="svgRef"
+                :viewBox="`0 0 ${SVG_W} ${SVG_H}`"
+                class="w-full h-32 block"
+                preserveAspectRatio="none"
+                @mousemove="onChartMove"
+                @mouseleave="hoverPoint = null"
               >
-                {{ formatTick(tick) }}
-              </text>
-            </g>
+                <!-- Gridlines -->
+                <line
+                  v-for="tick in yScale.ticks"
+                  :key="tick"
+                  x1="0" :y1="toY(tick)"
+                  :x2="SVG_W" :y2="toY(tick)"
+                  stroke="oklch(0.92 0.004 286 / 0.35)"
+                  stroke-width="0.6"
+                  stroke-dasharray="4 3"
+                />
+                <!-- Area -->
+                <path :d="areaPath" fill="oklch(0.70 0.09 186 / 0.12)" />
+                <!-- Line -->
+                <polyline
+                  :points="polyline"
+                  fill="none"
+                  stroke="oklch(0.70 0.09 186)"
+                  stroke-width="2"
+                  stroke-linejoin="round"
+                  stroke-linecap="round"
+                />
+                <!-- Hover vertical rule -->
+                <line
+                  v-if="hoverPoint"
+                  :x1="hoverPoint.x" y1="0"
+                  :x2="hoverPoint.x" :y2="SVG_H"
+                  stroke="oklch(0.70 0.09 186)"
+                  stroke-width="1"
+                  stroke-dasharray="3 2"
+                  opacity="0.5"
+                />
+                <!-- Hover dot -->
+                <circle
+                  v-if="hoverPoint"
+                  :cx="hoverPoint.x"
+                  :cy="hoverPoint.y"
+                  r="4"
+                  fill="oklch(0.70 0.09 186)"
+                  stroke="oklch(0.14 0.005 285)"
+                  stroke-width="2"
+                />
+                <!-- Mouse capture rect -->
+                <rect x="0" y="0" :width="SVG_W" :height="SVG_H" fill="transparent" />
+              </svg>
 
-            <!-- Area fill -->
-            <path
-              :d="areaPath"
-              fill="oklch(0.70 0.09 186 / 0.12)"
-            />
-
-            <!-- Line -->
-            <polyline
-              :points="polyline"
-              fill="none"
-              stroke="oklch(0.70 0.09 186)"
-              stroke-width="1.5"
-              stroke-linejoin="round"
-              stroke-linecap="round"
-            />
-
-            <!-- Hover vertical rule -->
-            <line
-              v-if="hoverPoint"
-              :x1="hoverPoint.x" :y1="CT"
-              :x2="hoverPoint.x" :y2="CT + IH"
-              stroke="oklch(0.70 0.09 186)"
-              stroke-width="1"
-              stroke-dasharray="3 2"
-              opacity="0.5"
-            />
-            <!-- Hover dot -->
-            <circle
-              v-if="hoverPoint"
-              :cx="hoverPoint.x"
-              :cy="hoverPoint.y"
-              r="4"
-              fill="oklch(0.70 0.09 186)"
-              stroke="oklch(0.20 0.006 285)"
-              stroke-width="2"
-            />
-
-            <!-- Mouse target -->
-            <rect
-              :x="CL" :y="CT" :width="IW" :height="IH"
-              fill="transparent"
-            />
-          </svg>
-
-          <!-- Hover tooltip -->
-          <div
-            v-if="hoverPoint"
-            class="absolute top-2 pointer-events-none z-10 bg-card border border-border rounded-lg shadow-xl p-3 text-xs"
-            :style="{
-              left: (hoverPoint.x / SVG_W) > 0.65
-                ? `calc(${(hoverPoint.x / SVG_W) * 100}% - 156px)`
-                : `calc(${(hoverPoint.x / SVG_W) * 100}% + 10px)`,
-            }"
-          >
-            <p class="font-bold text-sm">{{ hoverPoint.latency }}ms</p>
-            <p class="text-muted-foreground mt-0.5 whitespace-nowrap">
-              {{ new Date(hoverPoint.checkedAt).toLocaleString() }}
-            </p>
+              <!-- Hover tooltip -->
+              <div
+                v-if="hoverPoint"
+                class="absolute top-2 pointer-events-none z-10 bg-card border border-border rounded-lg shadow-xl p-3 text-xs"
+                :style="{
+                  left: (hoverPoint.x / SVG_W) > 0.65
+                    ? `calc(${(hoverPoint.x / SVG_W) * 100}% - 160px)`
+                    : `calc(${(hoverPoint.x / SVG_W) * 100}% + 10px)`,
+                }"
+              >
+                <p class="font-bold text-sm">{{ hoverPoint.latency }}ms</p>
+                <p class="text-muted-foreground mt-0.5 whitespace-nowrap">
+                  {{ new Date(hoverPoint.checkedAt).toLocaleString() }}
+                </p>
+              </div>
+            </div>
           </div>
-        </div>
 
-        <!-- X labels -->
-        <div
-          v-if="chartData"
-          class="flex justify-between text-xs text-muted-foreground mt-1"
-          :style="{ paddingLeft: CL + 'px', paddingRight: CR + 'px' }"
-        >
-          <span>{{ xLabel(chartData, 0) }}</span>
-          <span>{{ xLabel(chartData, Math.floor(chartData.length / 2)) }}</span>
-          <span>{{ xLabel(chartData, chartData.length - 1) }}</span>
+          <!-- X labels -->
+          <div class="flex gap-2 mt-1">
+            <div class="w-12 shrink-0" />
+            <div class="flex-1 flex justify-between text-xs text-muted-foreground">
+              <span>{{ xLabel(chartData, 0) }}</span>
+              <span>{{ xLabel(chartData, Math.floor(chartData.length / 2)) }}</span>
+              <span>{{ xLabel(chartData, chartData.length - 1) }}</span>
+            </div>
+          </div>
         </div>
       </div>
 
