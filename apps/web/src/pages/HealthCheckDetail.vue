@@ -36,7 +36,9 @@ onMounted(async () => {
     const res = await fetch('/api/status')
     const data = await res.json()
     if (data.location) hubLocation.value = data.location
-  } catch {}
+  } catch {
+    // ignore — hub location is optional
+  }
 })
 
 // ─── Stats ───────────────────────────────────────────────────────────
@@ -70,7 +72,7 @@ const maxLatency = computed(() => {
 
 // ─── Chart ───────────────────────────────────────────────────────────
 const SVG_W = 744, SVG_H = 128
-const CL = 0, CT = 4, CR = 0, CB = 4
+const CL = 0, CT = 4, CB = 4
 const IW = SVG_W
 const IH = SVG_H - CT - CB
 
@@ -177,7 +179,10 @@ function xLabel(pts: NonNullable<typeof chartData.value>, i: number): string {
         class="size-8 rounded-lg border border-border flex items-center justify-center hover:bg-accent transition-colors"
         @click="router.back()"
       >
-        <ArrowLeft class="size-4" :stroke-width="2" />
+        <ArrowLeft
+          class="size-4"
+          :stroke-width="2"
+        />
       </button>
       <div class="flex items-center gap-3 flex-1 min-w-0">
         <span class="relative flex size-3 shrink-0">
@@ -215,7 +220,11 @@ function xLabel(pts: NonNullable<typeof chartData.value>, i: number): string {
         :class="{ 'opacity-50 pointer-events-none': loading }"
         @click="fetchHistory"
       >
-        <RefreshCw class="size-3" :class="{ 'animate-spin': loading }" :stroke-width="2" />
+        <RefreshCw
+          class="size-3"
+          :class="{ 'animate-spin': loading }"
+          :stroke-width="2"
+        />
         Refresh
       </button>
     </div>
@@ -231,39 +240,67 @@ function xLabel(pts: NonNullable<typeof chartData.value>, i: number): string {
       <!-- Stats -->
       <div class="grid grid-cols-3 md:grid-cols-6 gap-4">
         <div class="rounded-xl border border-border bg-card p-4">
-          <p class="text-xs text-muted-foreground mb-1">Status</p>
+          <p class="text-xs text-muted-foreground mb-1">
+            Status
+          </p>
           <p :class="['text-2xl font-bold', check.status === 'up' ? 'text-green-500' : check.status === 'down' ? 'text-red-500' : 'text-muted-foreground']">
             {{ check.status === 'up' ? 'Up' : check.status === 'down' ? 'Down' : 'Pending' }}
           </p>
-          <p class="text-xs text-muted-foreground mt-1">{{ relativeTime(check.lastChecked) }}</p>
+          <p class="text-xs text-muted-foreground mt-1">
+            {{ relativeTime(check.lastChecked) }}
+          </p>
         </div>
         <div class="rounded-xl border border-border bg-card p-4">
-          <p class="text-xs text-muted-foreground mb-1">Uptime (all)</p>
+          <p class="text-xs text-muted-foreground mb-1">
+            Uptime (all)
+          </p>
           <p :class="['text-2xl font-bold', pctColor(uptime)]">
             {{ uptime !== null ? uptime.toFixed(2) + '%' : '—' }}
           </p>
-          <p class="text-xs text-muted-foreground mt-1">{{ history.length }} checks</p>
+          <p class="text-xs text-muted-foreground mt-1">
+            {{ history.length }} checks
+          </p>
         </div>
         <div class="rounded-xl border border-border bg-card p-4">
-          <p class="text-xs text-muted-foreground mb-1">Uptime (24h)</p>
+          <p class="text-xs text-muted-foreground mb-1">
+            Uptime (24h)
+          </p>
           <p :class="['text-2xl font-bold', pctColor(uptimeLast24h)]">
             {{ uptimeLast24h !== null ? uptimeLast24h.toFixed(2) + '%' : '—' }}
           </p>
-          <p class="text-xs text-muted-foreground mt-1">last 24 hours</p>
+          <p class="text-xs text-muted-foreground mt-1">
+            last 24 hours
+          </p>
         </div>
         <div class="rounded-xl border border-border bg-card p-4">
-          <p class="text-xs text-muted-foreground mb-1">Avg response</p>
-          <p class="text-2xl font-bold">{{ avgLatency !== null ? avgLatency + 'ms' : '—' }}</p>
-          <p class="text-xs text-muted-foreground mt-1">now: {{ check.latency !== null ? check.latency + 'ms' : '—' }}</p>
+          <p class="text-xs text-muted-foreground mb-1">
+            Avg response
+          </p>
+          <p class="text-2xl font-bold">
+            {{ avgLatency !== null ? avgLatency + 'ms' : '—' }}
+          </p>
+          <p class="text-xs text-muted-foreground mt-1">
+            now: {{ check.latency !== null ? check.latency + 'ms' : '—' }}
+          </p>
         </div>
         <div class="rounded-xl border border-border bg-card p-4">
-          <p class="text-xs text-muted-foreground mb-1">Min / Max</p>
-          <p class="text-2xl font-bold">{{ minLatency !== null ? minLatency + 'ms' : '—' }}</p>
-          <p class="text-xs text-muted-foreground mt-1">max {{ maxLatency !== null ? maxLatency + 'ms' : '—' }}</p>
+          <p class="text-xs text-muted-foreground mb-1">
+            Min / Max
+          </p>
+          <p class="text-2xl font-bold">
+            {{ minLatency !== null ? minLatency + 'ms' : '—' }}
+          </p>
+          <p class="text-xs text-muted-foreground mt-1">
+            max {{ maxLatency !== null ? maxLatency + 'ms' : '—' }}
+          </p>
         </div>
         <div class="rounded-xl border border-border bg-card p-4">
-          <p class="text-xs text-muted-foreground mb-1">Interval</p>
-          <p class="text-2xl font-bold">{{ check.interval }}s</p>
+          <p class="text-xs text-muted-foreground mb-1">
+            Interval
+          </p>
+          <p class="text-2xl font-bold">
+            {{ check.interval }}s
+          </p>
           <p class="text-xs text-muted-foreground mt-1">
             every {{ check.interval >= 60 ? Math.round(check.interval / 60) + 'm' : check.interval + 's' }}
           </p>
@@ -281,11 +318,17 @@ function xLabel(pts: NonNullable<typeof chartData.value>, i: number): string {
         >
           Not enough data yet.
         </div>
-        <div v-else class="select-none">
+        <div
+          v-else
+          class="select-none"
+        >
           <div class="flex gap-2 items-stretch">
             <!-- Y-axis labels (HTML, not SVG — avoids distortion with preserveAspectRatio="none") -->
             <div class="flex flex-col justify-between text-right w-12 shrink-0 text-xs text-muted-foreground font-mono py-0.5">
-              <span v-for="tick in [...yScale.ticks].reverse()" :key="tick">{{ formatTick(tick) }}</span>
+              <span
+                v-for="tick in [...yScale.ticks].reverse()"
+                :key="tick"
+              >{{ formatTick(tick) }}</span>
             </div>
 
             <!-- Chart -->
@@ -302,14 +345,19 @@ function xLabel(pts: NonNullable<typeof chartData.value>, i: number): string {
                 <line
                   v-for="tick in yScale.ticks"
                   :key="tick"
-                  x1="0" :y1="toY(tick)"
-                  :x2="SVG_W" :y2="toY(tick)"
+                  x1="0"
+                  :y1="toY(tick)"
+                  :x2="SVG_W"
+                  :y2="toY(tick)"
                   stroke="oklch(0.92 0.004 286 / 0.35)"
                   stroke-width="0.6"
                   stroke-dasharray="4 3"
                 />
                 <!-- Area -->
-                <path :d="areaPath" fill="oklch(0.70 0.09 186 / 0.12)" />
+                <path
+                  :d="areaPath"
+                  fill="oklch(0.70 0.09 186 / 0.12)"
+                />
                 <!-- Line -->
                 <polyline
                   :points="polyline"
@@ -322,8 +370,10 @@ function xLabel(pts: NonNullable<typeof chartData.value>, i: number): string {
                 <!-- Hover vertical rule -->
                 <line
                   v-if="hoverPoint"
-                  :x1="hoverPoint.x" y1="0"
-                  :x2="hoverPoint.x" :y2="SVG_H"
+                  :x1="hoverPoint.x"
+                  y1="0"
+                  :x2="hoverPoint.x"
+                  :y2="SVG_H"
                   stroke="oklch(0.70 0.09 186)"
                   stroke-width="1"
                   stroke-dasharray="3 2"
@@ -340,7 +390,13 @@ function xLabel(pts: NonNullable<typeof chartData.value>, i: number): string {
                   stroke-width="2"
                 />
                 <!-- Mouse capture rect -->
-                <rect x="0" y="0" :width="SVG_W" :height="SVG_H" fill="transparent" />
+                <rect
+                  x="0"
+                  y="0"
+                  :width="SVG_W"
+                  :height="SVG_H"
+                  fill="transparent"
+                />
               </svg>
 
               <!-- Hover tooltip -->
@@ -353,7 +409,9 @@ function xLabel(pts: NonNullable<typeof chartData.value>, i: number): string {
                     : `calc(${(hoverPoint.x / SVG_W) * 100}% + 10px)`,
                 }"
               >
-                <p class="font-bold text-sm">{{ hoverPoint.latency }}ms</p>
+                <p class="font-bold text-sm">
+                  {{ hoverPoint.latency }}ms
+                </p>
                 <p class="text-muted-foreground mt-0.5 whitespace-nowrap">
                   {{ new Date(hoverPoint.checkedAt).toLocaleString() }}
                 </p>
@@ -444,14 +502,25 @@ function xLabel(pts: NonNullable<typeof chartData.value>, i: number): string {
         <table class="w-full text-sm">
           <thead>
             <tr class="border-b border-border bg-muted/40">
-              <th class="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Time</th>
-              <th class="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Status</th>
-              <th class="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">Latency</th>
+              <th class="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">
+                Time
+              </th>
+              <th class="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">
+                Status
+              </th>
+              <th class="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">
+                Latency
+              </th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="!history.length">
-              <td colspan="3" class="px-4 py-8 text-center text-xs text-muted-foreground">No results yet.</td>
+              <td
+                colspan="3"
+                class="px-4 py-8 text-center text-xs text-muted-foreground"
+              >
+                No results yet.
+              </td>
             </tr>
             <tr
               v-for="result in [...history].reverse().slice(0, 50)"

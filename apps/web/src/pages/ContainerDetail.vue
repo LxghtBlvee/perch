@@ -46,7 +46,10 @@ onMounted(fetchLogs)
         class="size-8 rounded-lg border border-border flex items-center justify-center hover:bg-accent transition-colors"
         @click="router.back()"
       >
-        <ArrowLeft class="size-4" :stroke-width="2" />
+        <ArrowLeft
+          class="size-4"
+          :stroke-width="2"
+        />
       </button>
       <div>
         <h1 class="text-2xl font-semibold tracking-tight font-mono">
@@ -80,7 +83,9 @@ onMounted(fetchLogs)
       <!-- Info + Resources -->
       <div class="grid grid-cols-2 gap-4">
         <div class="rounded-xl border border-border bg-card p-4 space-y-3">
-          <h2 class="text-xs font-medium text-muted-foreground">Info</h2>
+          <h2 class="text-xs font-medium text-muted-foreground">
+            Info
+          </h2>
           <div class="space-y-2.5 text-sm">
             <div class="flex justify-between">
               <span class="text-muted-foreground text-xs">ID</span>
@@ -128,7 +133,10 @@ onMounted(fetchLogs)
           <div class="space-y-1">
             <div class="flex justify-between text-xs text-muted-foreground">
               <span class="flex items-center gap-1.5">
-                <Cpu class="size-3" :stroke-width="2" /> CPU
+                <Cpu
+                  class="size-3"
+                  :stroke-width="2"
+                /> CPU
               </span>
               <span>{{ formatPercent(container.cpu) }}</span>
             </div>
@@ -142,7 +150,10 @@ onMounted(fetchLogs)
           <div class="space-y-1">
             <div class="flex justify-between text-xs text-muted-foreground">
               <span class="flex items-center gap-1.5">
-                <MemoryStick class="size-3" :stroke-width="2" /> Memory
+                <MemoryStick
+                  class="size-3"
+                  :stroke-width="2"
+                /> Memory
               </span>
               <span>{{ formatBytes(container.memory.used) }} / {{ formatBytes(container.memory.limit) }}</span>
             </div>
@@ -168,10 +179,18 @@ onMounted(fetchLogs)
               class="text-xs bg-muted border border-border rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-ring"
               @change="fetchLogs"
             >
-              <option :value="100">Last 100 lines</option>
-              <option :value="200">Last 200 lines</option>
-              <option :value="500">Last 500 lines</option>
-              <option :value="1000">Last 1000 lines</option>
+              <option :value="100">
+                Last 100 lines
+              </option>
+              <option :value="200">
+                Last 200 lines
+              </option>
+              <option :value="500">
+                Last 500 lines
+              </option>
+              <option :value="1000">
+                Last 1000 lines
+              </option>
             </select>
             <button
               class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-border hover:bg-accent transition-colors"

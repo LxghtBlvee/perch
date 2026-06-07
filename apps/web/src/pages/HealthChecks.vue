@@ -115,14 +115,22 @@ async function deleteCheck(id: string) {
         class="flex items-center gap-2 text-sm px-3 py-2 rounded-lg bg-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity"
         @click="showForm = !showForm"
       >
-        <Plus class="size-4" :stroke-width="2" />
+        <Plus
+          class="size-4"
+          :stroke-width="2"
+        />
         Add check
       </button>
     </div>
 
     <!-- Add form -->
-    <div v-if="showForm" class="rounded-xl border border-border bg-card p-5 space-y-4">
-      <h3 class="text-sm font-medium">New health check</h3>
+    <div
+      v-if="showForm"
+      class="rounded-xl border border-border bg-card p-5 space-y-4"
+    >
+      <h3 class="text-sm font-medium">
+        New health check
+      </h3>
       <div class="grid grid-cols-3 gap-3">
         <div class="space-y-1.5">
           <label class="text-xs text-muted-foreground">Name</label>
@@ -199,14 +207,20 @@ async function deleteCheck(id: string) {
           </span>
 
           <div class="flex-1 min-w-0">
-            <p class="font-semibold text-sm">{{ check.name }}</p>
-            <p class="text-xs text-muted-foreground font-mono truncate">{{ check.url }}</p>
+            <p class="font-semibold text-sm">
+              {{ check.name }}
+            </p>
+            <p class="text-xs text-muted-foreground font-mono truncate">
+              {{ check.url }}
+            </p>
           </div>
 
           <!-- Stats -->
           <div class="flex items-center gap-6 text-xs shrink-0">
             <div class="text-right">
-              <p class="text-muted-foreground">Uptime</p>
+              <p class="text-muted-foreground">
+                Uptime
+              </p>
               <p
                 :class="[
                   'font-semibold',
@@ -217,12 +231,20 @@ async function deleteCheck(id: string) {
               </p>
             </div>
             <div class="text-right">
-              <p class="text-muted-foreground">Avg resp.</p>
-              <p class="font-semibold">{{ avgLatency(check.id) }}</p>
+              <p class="text-muted-foreground">
+                Avg resp.
+              </p>
+              <p class="font-semibold">
+                {{ avgLatency(check.id) }}
+              </p>
             </div>
             <div class="text-right">
-              <p class="text-muted-foreground">Interval</p>
-              <p class="font-semibold">{{ check.interval }}s</p>
+              <p class="text-muted-foreground">
+                Interval
+              </p>
+              <p class="font-semibold">
+                {{ check.interval }}s
+              </p>
             </div>
           </div>
 
@@ -230,7 +252,10 @@ async function deleteCheck(id: string) {
             class="size-8 rounded-lg border border-border flex items-center justify-center hover:bg-destructive/10 hover:border-destructive/30 hover:text-destructive transition-colors ml-1"
             @click.stop="deleteCheck(check.id)"
           >
-            <Trash2 class="size-3.5" :stroke-width="2" />
+            <Trash2
+              class="size-3.5"
+              :stroke-width="2"
+            />
           </button>
         </div>
 
