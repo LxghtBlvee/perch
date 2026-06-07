@@ -1,4 +1,4 @@
-import Elysia, { t } from 'elysia'
+import Elysia from 'elysia'
 import { desc, eq } from 'drizzle-orm'
 import { liveRegistry } from '../services/live-registry'
 import { agentRegistry } from '../services/agent-registry'
@@ -7,18 +7,24 @@ import { healthChecks, healthCheckResults } from '../db/schema'
 import { validateSession } from '../services/auth'
 
 export const liveWs = new Elysia().ws('/ws/live', {
-    query: t.Object({ token: t.Optional(t.String()) }),
     async open(ws) {
-        // Auth check
-        const token = ws.data.query.token
-        if (!token) {
-            ws.send(JSON.stringify({ type: 'error', message: 'Unauthorized' }))
-            ws.close()
-            return
-        }
-        const user = await validateSession(token)
-        if (!user) {
-            ws.send(JSON.stringify({ type: 'error', message: 'Unauthorized' }))
+        // Auth check — parse token from upgrade request URL directly
+        try {
+            const rawUrl = ws.data.request.url
+            const token = new URLSearchParams(rawUrl.includes('?') ? rawUrl.split('?')[1] : '').get('token')
+            if (!token) {
+                ws.send(JSON.stringify({ type: 'error', message: 'Unauthorized' }))
+                ws.close()
+                return
+            }
+            const user = await validateSession(token)
+            if (!user) {
+                ws.send(JSON.stringify({ type: 'error', message: 'Unauthorized' }))
+                ws.close()
+                return
+            }
+        } catch (err) {
+            console.error('[ws/live] auth error', err)
             ws.close()
             return
         }
