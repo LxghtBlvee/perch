@@ -66,6 +66,9 @@ export const oauthProviders = pgTable('oauth_providers', {
     customTokenUrl: text('custom_token_url'),
     customUserinfoUrl: text('custom_userinfo_url'),
     customScopes: text('custom_scopes'), // space-separated
+    // Org/domain restrictions
+    allowedOrg: text('allowed_org'),       // GitHub: org slug — only members can sign in
+    allowedDomain: text('allowed_domain'), // Google/Custom: email domain e.g. "mycompany.com"
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 

@@ -185,7 +185,7 @@ export const authRoutes = new Elysia({ prefix: '/api/auth' })
                 const [profile, emails] = await Promise.all([
                     fetch('https://api.github.com/user', {
                         headers: { Authorization: `Bearer ${tokenData.access_token}`, Accept: 'application/vnd.github+json' },
-                    }).then(r => r.json()) as Promise<{ id: number; name?: string; avatar_url?: string; email?: string }>,
+                    }).then(r => r.json()) as Promise<{ id: number; login: string; name?: string; avatar_url?: string; email?: string }>,
                     fetch('https://api.github.com/user/emails', {
                         headers: { Authorization: `Bearer ${tokenData.access_token}`, Accept: 'application/vnd.github+json' },
                     }).then(r => r.json()) as Promise<{ email: string; primary: boolean; verified: boolean }[]>,
@@ -193,6 +193,17 @@ export const authRoutes = new Elysia({ prefix: '/api/auth' })
 
                 const primaryEmail = emails.find(e => e.primary && e.verified)?.email ?? profile.email
                 if (!primaryEmail) return error(400, { error: 'No verified email on GitHub account' })
+
+                // Org restriction check
+                if (providerRow.allowedOrg) {
+                    const orgCheck = await fetch(
+                        `https://api.github.com/orgs/${providerRow.allowedOrg}/members/${profile.login}`,
+                        { headers: { Authorization: `Bearer ${tokenData.access_token}`, Accept: 'application/vnd.github+json' } }
+                    )
+                    if (orgCheck.status !== 204) {
+                        return redirect(`${getCallbackBase(request)}/login?error=org_required&org=${encodeURIComponent(providerRow.allowedOrg)}`)
+                    }
+                }
 
                 userInfo = { id: String(profile.id), email: primaryEmail, name: profile.name, avatar: profile.avatar_url }
 
@@ -214,6 +225,14 @@ export const authRoutes = new Elysia({ prefix: '/api/auth' })
                 const profile = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
                     headers: { Authorization: `Bearer ${tokenData.access_token}` },
                 }).then(r => r.json()) as { id: string; email: string; name?: string; picture?: string }
+
+                // Domain restriction check
+                if (providerRow.allowedDomain) {
+                    const domain = profile.email.split('@')[1]
+                    if (domain !== providerRow.allowedDomain) {
+                        return redirect(`${getCallbackBase(request)}/login?error=domain_required&domain=${encodeURIComponent(providerRow.allowedDomain)}`)
+                    }
+                }
 
                 userInfo = { id: profile.id, email: profile.email, name: profile.name, avatar: profile.picture }
 
@@ -239,6 +258,14 @@ export const authRoutes = new Elysia({ prefix: '/api/auth' })
                 const profile = await fetch(providerRow.customUserinfoUrl, {
                     headers: { Authorization: `Bearer ${tokenData.access_token}` },
                 }).then(r => r.json()) as { sub?: string; id?: string; email: string; name?: string; picture?: string; avatar_url?: string }
+
+                // Domain restriction check
+                if (providerRow.allowedDomain) {
+                    const domain = profile.email.split('@')[1]
+                    if (domain !== providerRow.allowedDomain) {
+                        return redirect(`${getCallbackBase(request)}/login?error=domain_required&domain=${encodeURIComponent(providerRow.allowedDomain)}`)
+                    }
+                }
 
                 userInfo = {
                     id: profile.sub ?? profile.id ?? profile.email,

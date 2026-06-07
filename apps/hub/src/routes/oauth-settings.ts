@@ -28,6 +28,8 @@ export const oauthSettingsRoutes = new Elysia({ prefix: '/api/settings/oauth' })
                 customTokenUrl: row?.customTokenUrl ?? null,
                 customUserinfoUrl: row?.customUserinfoUrl ?? null,
                 customScopes: row?.customScopes ?? null,
+                allowedOrg: row?.allowedOrg ?? null,
+                allowedDomain: row?.allowedDomain ?? null,
             }
         })
     })
@@ -59,6 +61,8 @@ export const oauthSettingsRoutes = new Elysia({ prefix: '/api/settings/oauth' })
             customTokenUrl: body.customTokenUrl ?? null,
             customUserinfoUrl: body.customUserinfoUrl ?? null,
             customScopes: body.customScopes ?? null,
+            allowedOrg: body.allowedOrg ?? null,
+            allowedDomain: body.allowedDomain ?? null,
             updatedAt: new Date(),
         }
 
@@ -80,5 +84,7 @@ export const oauthSettingsRoutes = new Elysia({ prefix: '/api/settings/oauth' })
             customTokenUrl: t.Optional(t.String()),
             customUserinfoUrl: t.Optional(t.String()),
             customScopes: t.Optional(t.String()),
+            allowedOrg: t.Optional(t.String()),
+            allowedDomain: t.Optional(t.String()),
         }),
     })
