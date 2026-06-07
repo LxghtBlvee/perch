@@ -31,7 +31,7 @@ class AlertManager {
 
             const ctx: AlertContext = {
                 title: status === 'down' ? 'Health Check Down' : 'Health Check Recovered',
-                detail: `***${healthCheckName}** is ${status === 'down' ? 'DOWN' : 'back UP'}`,
+                detail: `**${healthCheckName}** is ${status === 'down' ? 'DOWN ↓' : 'back UP ↑'}`,
                 fields: [
                     { name: 'Check', value: healthCheckName },
                     { name: 'URL', value: healthCheckUrl },

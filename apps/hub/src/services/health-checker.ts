@@ -57,9 +57,9 @@ class HealthChecker {
 
         await db.insert(healthCheckResults).values({ healthCheckId: id, status, latency })
 
-        // Fire alert only on status transitions (or first ever check if down)
+        // Fire alert on transitions, or on first ever check only if it's already down
         const prevStatus = prevResult?.status ?? null
-        if (prevStatus !== status) {
+        if (prevStatus !== status && (prevStatus !== null || status === 'down')) {
             void alertManager.fireHealthCheckAlert(id, check.name, check.url, status)
         }
 
