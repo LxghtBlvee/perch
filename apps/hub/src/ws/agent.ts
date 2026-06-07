@@ -25,14 +25,15 @@ export const agentWs = new Elysia().ws('/ws/agent', {
                 return
             }
 
-            await db.insert(agents).values({ id: msg.agentId, hostname: msg.hostname, ip: msg.ip }).onConflictDoUpdate({
+            const [row] = await db.insert(agents).values({ id: msg.agentId, hostname: msg.hostname, ip: msg.ip }).onConflictDoUpdate({
                 target: agents.id,
                 set: { hostname: msg.hostname, ip: msg.ip, lastSeen: new Date() },
-            });
+            }).returning();
 
             const agent = {
                 id: msg.agentId,
                 hostname: msg.hostname,
+                displayName: row.displayName ?? null,
                 ip: msg.ip,
                 connectedAt: new Date().toISOString(),
                 lastSeen: new Date().toISOString(),

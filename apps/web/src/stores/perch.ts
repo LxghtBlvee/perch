@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { AgentState, HealthCheck, LiveMessage, SystemMetrics } from '@perch/types'
+import type { Agent, AgentState, HealthCheck, LiveMessage, SystemMetrics } from '@perch/types'
 
 const HISTORY_MAX = 60 // ~5 min at 5s intervals
 
@@ -27,6 +27,11 @@ export const usePerchStore = defineStore('perch', () => {
             case 'agent_disconnected':
                 agents.value = agents.value.filter(a => a.agent.id != msg.agentId);
                 break;
+            case 'agent_updated': {
+                const entry = agents.value.find(a => a.agent.id === msg.agentId)
+                if (entry) entry.agent.displayName = msg.displayName
+                break
+            }
             case 'metrics_update': {
                 const agent = agents.value.find(a => a.agent.id === msg.agentId)
                 if (agent) agent.metrics = msg.metrics;
@@ -51,5 +56,10 @@ export const usePerchStore = defineStore('perch', () => {
         }
     }
 
-    return { agents, healthChecks, metricsHistory, connected, handleMessage };
+    function updateAgent(agentId: string, patch: Partial<Agent>) {
+        const entry = agents.value.find(a => a.agent.id === agentId)
+        if (entry) Object.assign(entry.agent, patch)
+    }
+
+    return { agents, healthChecks, metricsHistory, connected, handleMessage, updateAgent };
 })

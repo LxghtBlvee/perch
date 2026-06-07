@@ -10,6 +10,7 @@ import Settings from '@/pages/Settings.vue'
 import Login from '@/pages/Login.vue'
 import Users from '@/pages/admin/Users.vue'
 import Alerts from '@/pages/Alerts.vue'
+import Profile from '@/pages/Profile.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const router = createRouter({
@@ -26,6 +27,7 @@ const router = createRouter({
         { path: '/data-sources', component: DataSources },
         { path: '/settings', component: Settings },
         { path: '/admin/users', component: Users, meta: { requiresAdmin: true } },
+        { path: '/profile', component: Profile },
     ],
 })
 

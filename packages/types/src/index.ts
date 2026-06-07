@@ -1,9 +1,10 @@
 export interface Agent {
     id: string;
     hostname: string;
+    displayName: string | null;
     ip: string;
     connectedAt: string;
-    lastSeen: string
+    lastSeen: string;
     status: 'online' | 'offline' | 'degraded';
 }
 
@@ -107,6 +108,7 @@ export interface AuthUser {
   name: string | null
   avatarUrl: string | null
   role: UserRole
+  hasPassword: boolean
 }
 
 export type OAuthProviderType = 'github' | 'google' | 'custom'
@@ -195,6 +197,7 @@ export type LiveMessage =
   | { type: 'init'; agents: AgentState[]; healthChecks: HealthCheck[] }
   | { type: 'agent_connected'; agent: AgentState }
   | { type: 'agent_disconnected'; agentId: string }
+  | { type: 'agent_updated'; agentId: string; displayName: string | null }
   | { type: 'metrics_update'; agentId: string; metrics: SystemMetrics }
   | { type: 'containers_update'; agentId: string; containers: Container[] }
   | { type: 'health_check_update'; healthCheck: HealthCheck }

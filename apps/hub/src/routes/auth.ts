@@ -6,9 +6,11 @@ import {
     createSession,
     deleteSession,
     verifyPassword,
+    hashPassword,
     findOrCreateOAuthUser,
     validateSession,
 } from '../services/auth'
+import { requireAuthUser } from '../middleware/auth'
 
 // In-memory OAuth state store (CSRF protection)
 const oauthStateStore = new Map<string, { provider: string; expiresAt: number }>()
@@ -53,6 +55,7 @@ export const authRoutes = new Elysia({ prefix: '/api/auth' })
                 name: user.name,
                 avatarUrl: user.avatarUrl,
                 role: user.role,
+                hasPassword: !!user.passwordHash,
             },
         }
     }, {
@@ -72,7 +75,46 @@ export const authRoutes = new Elysia({ prefix: '/api/auth' })
         const token = request.headers.get('authorization')?.slice(7) ?? null
         const user = token ? await validateSession(token) : null
         if (!user) { set.status = 401; return { error: 'Unauthorized' } }
-        return { id: user.id, email: user.email, name: user.name, avatarUrl: user.avatarUrl, role: user.role }
+        return { id: user.id, email: user.email, name: user.name, avatarUrl: user.avatarUrl, role: user.role, hasPassword: !!user.passwordHash }
+    })
+
+    // Update current user profile
+    .patch('/me', async ({ request, body, set }) => {
+        const user = await requireAuthUser(request, set)
+        if (!user) return { error: 'Unauthorized' }
+
+        const updates: Record<string, unknown> = {}
+
+        if (body.name !== undefined) updates.name = body.name || null
+
+        if (body.email && body.email !== user.email) {
+            const [existing] = await db.select().from(users).where(eq(users.email, body.email)).limit(1)
+            if (existing) { set.status = 409; return { error: 'Email already in use' } }
+            updates.email = body.email
+        }
+
+        if (body.newPassword) {
+            if (!body.currentPassword) { set.status = 400; return { error: 'Current password required' } }
+            if (!user.passwordHash) { set.status = 400; return { error: 'No password set on this account' } }
+            const ok = await verifyPassword(body.currentPassword, user.passwordHash)
+            if (!ok) { set.status = 401; return { error: 'Current password incorrect' } }
+            updates.passwordHash = await hashPassword(body.newPassword)
+        }
+
+        if (Object.keys(updates).length === 0) {
+            return { id: user.id, email: user.email, name: user.name, avatarUrl: user.avatarUrl, role: user.role, hasPassword: !!user.passwordHash }
+        }
+
+        updates.updatedAt = new Date()
+        const [updated] = await db.update(users).set(updates).where(eq(users.id, user.id)).returning()
+        return { id: updated.id, email: updated.email, name: updated.name, avatarUrl: updated.avatarUrl, role: updated.role, hasPassword: !!updated.passwordHash }
+    }, {
+        body: t.Partial(t.Object({
+            name: t.String(),
+            email: t.String(),
+            currentPassword: t.String(),
+            newPassword: t.String(),
+        })),
     })
 
     // Initiate OAuth flow
@@ -275,7 +317,7 @@ export const authRoutes = new Elysia({ prefix: '/api/auth' })
                 }
             }
 
-            const user = await findOrCreateOAuthUser({
+            const oauthUser = await findOrCreateOAuthUser({
                 provider,
                 providerUserId: userInfo.id,
                 email: userInfo.email,
@@ -283,7 +325,7 @@ export const authRoutes = new Elysia({ prefix: '/api/auth' })
                 avatarUrl: userInfo.avatar,
             })
 
-            const token = await createSession(user.id)
+            const token = await createSession(oauthUser.id)
             // Redirect to frontend with token in query param — frontend picks it up and stores it
             return redirect(`/?token=${token}`)
 

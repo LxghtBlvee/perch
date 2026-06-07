@@ -152,27 +152,32 @@ async function handleLogout() {
         v-if="auth.user"
         class="flex items-center gap-2 rounded-lg px-1 py-1"
       >
-        <div class="size-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
-          <img
-            v-if="auth.user.avatarUrl"
-            :src="auth.user.avatarUrl"
-            class="size-6 object-cover"
-          >
-          <span
-            v-else
-            class="text-[10px] font-semibold text-primary"
-          >
-            {{ (auth.user.name ?? auth.user.email)[0].toUpperCase() }}
-          </span>
-        </div>
-        <div class="flex-1 min-w-0">
-          <p class="text-xs font-medium truncate">
-            {{ auth.user.name ?? auth.user.email }}
-          </p>
-          <p class="text-[10px] text-muted-foreground capitalize">
-            {{ auth.user.role }}
-          </p>
-        </div>
+        <RouterLink
+          to="/profile"
+          class="flex items-center gap-2 flex-1 min-w-0 rounded hover:bg-accent transition-colors"
+        >
+          <div class="size-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
+            <img
+              v-if="auth.user.avatarUrl"
+              :src="auth.user.avatarUrl"
+              class="size-6 object-cover"
+            >
+            <span
+              v-else
+              class="text-[10px] font-semibold text-primary"
+            >
+              {{ (auth.user.name ?? auth.user.email)[0].toUpperCase() }}
+            </span>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-xs font-medium truncate">
+              {{ auth.user.name ?? auth.user.email }}
+            </p>
+            <p class="text-[10px] text-muted-foreground capitalize">
+              {{ auth.user.role }}
+            </p>
+          </div>
+        </RouterLink>
         <button
           class="size-6 rounded flex items-center justify-center hover:bg-accent transition-colors shrink-0"
           title="Sign out"

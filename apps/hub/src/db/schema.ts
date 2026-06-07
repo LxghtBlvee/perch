@@ -3,6 +3,7 @@ import { pgTable, text, timestamp, integer, uuid, boolean, unique } from 'drizzl
 export const agents = pgTable('agents', {
     id: uuid('id').primaryKey(),
     hostname: text('hostname').notNull(),
+    displayName: text('display_name'),
     ip: text('ip').notNull(),
     firstSeen: timestamp('first_seen').defaultNow().notNull(),
     lastSeen: timestamp('last_seen').defaultNow().notNull(),

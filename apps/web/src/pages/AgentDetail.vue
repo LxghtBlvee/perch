@@ -1,17 +1,60 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, Cpu, MemoryStick, HardDrive, Clock } from 'lucide-vue-next'
+import { ArrowLeft, Cpu, MemoryStick, HardDrive, Clock, Pencil, Trash2, Check, X } from 'lucide-vue-next'
 import { usePerchStore } from '@/stores/perch'
+import { useAuthStore } from '@/stores/auth'
 import { formatBytes, formatPercent, formatUptime, formatSpeed } from '@/lib/utils'
 
 const route = useRoute()
 const router = useRouter()
 const store = usePerchStore()
+const auth = useAuthStore()
 
 const entry = computed(() => store.agents.find(a => a.agent.id === route.params.id))
 const metrics = computed(() => entry.value?.metrics)
 const containers = computed(() => entry.value?.containers ?? [])
+
+// Rename
+const renaming = ref(false)
+const renameInput = ref('')
+const renameInputEl = ref<HTMLInputElement | null>(null)
+
+function startRename() {
+  renameInput.value = entry.value?.agent.displayName ?? entry.value?.agent.hostname ?? ''
+  renaming.value = true
+  nextTick(() => renameInputEl.value?.select())
+}
+
+async function saveRename() {
+  const agentId = entry.value?.agent.id
+  if (!agentId) return
+  const displayName = renameInput.value.trim() || null
+  const res = await fetch(`/api/agents/${agentId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
+    body: JSON.stringify({ displayName }),
+  })
+  if (res.ok) store.updateAgent(agentId, { displayName })
+  renaming.value = false
+}
+
+function cancelRename() {
+  renaming.value = false
+}
+
+// Delete
+async function deleteAgent() {
+  const agentId = entry.value?.agent.id
+  const name = entry.value?.agent.displayName ?? entry.value?.agent.hostname
+  if (!agentId) return
+  if (!confirm(`Remove agent "${name}"? If it's still running it will reconnect.`)) return
+  await fetch(`/api/agents/${agentId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${auth.token}` },
+  })
+  router.push('/hosts')
+}
 </script>
 
 <template>
@@ -26,20 +69,78 @@ const containers = computed(() => entry.value?.containers ?? [])
           :stroke-width="2"
         />
       </button>
-      <div>
-        <h1 class="text-2xl font-semibold tracking-tight">
-          {{ entry?.agent.hostname ?? 'Agent' }}
-        </h1>
+      <div class="flex-1 min-w-0">
+        <!-- Inline rename -->
+        <div
+          v-if="renaming"
+          class="flex items-center gap-2"
+        >
+          <input
+            ref="renameInputEl"
+            v-model="renameInput"
+            class="text-2xl font-semibold tracking-tight bg-transparent border-b border-primary outline-none w-full max-w-xs"
+            @keydown.enter="saveRename"
+            @keydown.escape="cancelRename"
+          >
+          <button
+            class="size-7 rounded flex items-center justify-center text-green-500 hover:bg-accent transition-colors"
+            @click="saveRename"
+          >
+            <Check
+              class="size-4"
+              :stroke-width="2.5"
+            />
+          </button>
+          <button
+            class="size-7 rounded flex items-center justify-center text-muted-foreground hover:bg-accent transition-colors"
+            @click="cancelRename"
+          >
+            <X
+              class="size-4"
+              :stroke-width="2.5"
+            />
+          </button>
+        </div>
+        <div
+          v-else
+          class="flex items-center gap-2 group"
+        >
+          <h1 class="text-2xl font-semibold tracking-tight">
+            {{ entry?.agent.displayName ?? entry?.agent.hostname ?? 'Agent' }}
+          </h1>
+          <button
+            v-if="entry"
+            class="size-6 rounded flex items-center justify-center text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-accent transition-all"
+            title="Rename agent"
+            @click="startRename"
+          >
+            <Pencil
+              class="size-3.5"
+              :stroke-width="1.75"
+            />
+          </button>
+        </div>
         <p class="text-sm text-muted-foreground font-mono">
-          {{ entry?.agent.ip }}
+          {{ entry?.agent.displayName ? entry.agent.hostname + ' · ' : '' }}{{ entry?.agent.ip }}
         </p>
       </div>
       <span
         v-if="entry"
-        :class="['ml-auto text-xs px-2.5 py-1 rounded-full font-medium', entry.agent.status === 'online' ? 'bg-green-500/10 text-green-600 dark:text-green-400' : 'bg-amber-500/10 text-amber-600']"
+        :class="['text-xs px-2.5 py-1 rounded-full font-medium', entry.agent.status === 'online' ? 'bg-green-500/10 text-green-600 dark:text-green-400' : 'bg-amber-500/10 text-amber-600']"
       >
         {{ entry.agent.status }}
       </span>
+      <button
+        v-if="entry"
+        class="size-8 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-red-400 hover:border-red-400/40 transition-colors shrink-0"
+        title="Remove agent"
+        @click="deleteAgent"
+      >
+        <Trash2
+          class="size-4"
+          :stroke-width="1.75"
+        />
+      </button>
     </div>
 
     <div

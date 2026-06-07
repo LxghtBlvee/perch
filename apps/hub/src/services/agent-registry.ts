@@ -20,6 +20,11 @@ class AgentRegistry {
         this.agents.delete(agentId);
     }
 
+    updateDisplayName(agentId: string, displayName: string | null): void {
+        const entry = this.agents.get(agentId)
+        if (entry) entry.agent.displayName = displayName
+    }
+
     updateMetrics(agentId: string, metrics: SystemMetrics): void {
         const entry = this.agents.get(agentId)
         if (entry) entry.metrics = metrics
