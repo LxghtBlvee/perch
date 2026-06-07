@@ -265,7 +265,8 @@ const containers = computed(() => entry.value?.containers ?? [])
               <tr
                 v-for="c in containers"
                 :key="c.id"
-                class="border-b border-border last:border-0 hover:bg-muted/30 transition-colors"
+                class="border-b border-border last:border-0 hover:bg-muted/30 transition-colors cursor-pointer"
+                @click="router.push(`/agents/${entry?.agent.id}/containers/${c.id}`)"
               >
                 <td class="px-4 py-3 font-medium font-mono text-xs">
                   {{ c.name }}

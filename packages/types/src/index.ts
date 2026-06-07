@@ -92,11 +92,13 @@ export type AgentMessage =
   | { type: 'auth'; token: string; agentId: string; hostname: string; ip: string }
   | { type: 'metrics'; data: SystemMetrics }
   | { type: 'containers'; data: Container[] }
+  | { type: 'logs_response'; requestId: string; logs: string }
 
 // Hub → Agent WebSocket messages
 export type HubMessage =
   | { type: 'auth_ok'; agentId: string }
   | { type: 'auth_error'; message: string }
+  | { type: 'logs_request'; requestId: string; containerId: string; tail: number }
 
 // Hub → Frontend WebSocket messages
 export type LiveMessage =

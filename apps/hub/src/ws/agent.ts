@@ -57,6 +57,10 @@ export const agentWs = new Elysia().ws('/ws/agent', {
             agentRegistry.updateContainers(agentId, msg.data)
             liveRegistry.broadcast({ type: 'containers_update', agentId, containers: msg.data })
         }
+
+        if (msg.type === 'logs_response') {
+            agentRegistry.resolveLogsResponse(msg.requestId, msg.logs)
+        }
     },
 
     close(ws) {

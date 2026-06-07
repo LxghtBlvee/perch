@@ -1,6 +1,27 @@
 import type { HubMessage } from '@perch/types';
 import { config } from './config/config.validation';
 
+function parseDockerLogs(buffer: ArrayBuffer): string {
+    const bytes = new Uint8Array(buffer)
+    // Detect Docker multiplexed stream (8-byte header per frame)
+    if (bytes.length >= 8 && bytes[0] <= 2 && bytes[1] === 0 && bytes[2] === 0 && bytes[3] === 0) {
+        const lines: string[] = []
+        let offset = 0
+        const decoder = new TextDecoder()
+        while (offset + 8 <= bytes.length) {
+            const size = ((bytes[offset + 4] << 24) | (bytes[offset + 5] << 16) | (bytes[offset + 6] << 8) | bytes[offset + 7]) >>> 0
+            offset += 8
+            if (size === 0) continue
+            if (offset + size > bytes.length) break
+            lines.push(decoder.decode(bytes.slice(offset, offset + size)))
+            offset += size
+        }
+        return lines.join('')
+    }
+    // Raw stream (TTY mode)
+    return new TextDecoder().decode(bytes)
+}
+
 const RECONNECT_DELAY = 5_000
 
 export class AgentConnection {
@@ -35,6 +56,8 @@ export class AgentConnection {
             } else if (msg.type === 'auth_error') {
                 console.error(`Authentication rejected: ${msg.message}`)
                 this.ws?.close()
+            } else if (msg.type === 'logs_request') {
+                void this.handleLogsRequest(msg.requestId, msg.containerId, msg.tail)
             }
         }
 
@@ -45,6 +68,19 @@ export class AgentConnection {
 
         this.ws.onerror = () => {
             console.error(`WebSocket error; connection will retry`)
+        }
+    }
+
+    private async handleLogsRequest(requestId: string, containerId: string, tail: number): Promise<void> {
+        try {
+            const res = await fetch(
+                `http://localhost/containers/${containerId}/logs?stdout=1&stderr=1&tail=${tail}&timestamps=false`,
+                { unix: '/var/run/docker.sock' } as RequestInit,
+            )
+            const buffer = await res.arrayBuffer()
+            this.send({ type: 'logs_response', requestId, logs: parseDockerLogs(buffer) })
+        } catch (e) {
+            this.send({ type: 'logs_response', requestId, logs: `Error fetching logs: ${e}` })
         }
     }
 
