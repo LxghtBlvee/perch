@@ -10,10 +10,11 @@ COPY apps/web/package.json ./apps/web/package.json
 
 RUN bun install --frozen-lockfile
 
+COPY tsconfig.json ./
 COPY packages/types ./packages/types
 COPY apps/web ./apps/web
 
-RUN bun --cwd apps/web run build
+RUN cd /app/apps/web && bun run build
 
 FROM oven/bun:1
 

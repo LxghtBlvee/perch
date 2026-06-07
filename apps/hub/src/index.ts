@@ -26,7 +26,9 @@ const app = new Elysia()
   .use(agentWs)
   .use(liveWs)
   .use(staticPlugin({ assets: webDist, prefix: '/' }))
-  .get('*', () => Bun.file(join(webDist, 'index.html')))
+  .onError(({ code }) => {
+    if (code === 'NOT_FOUND') return Bun.file(join(webDist, 'index.html'))
+  })
   .listen(env.port)
 
 console.warn(`Perch hub running at http://localhost:${app.server?.port}`)

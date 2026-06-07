@@ -11,7 +11,7 @@ export function usePerchSocket() {
 
     function connect() {
         const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
-        ws = new WebSocket(`${protocol}///${location.host}/ws/live`);
+        ws = new WebSocket(`${protocol}//${location.host}/ws/live`);
 
         ws.onmessage = (event) => {
             const msg = JSON.parse(event.data as string) as LiveMessage;
