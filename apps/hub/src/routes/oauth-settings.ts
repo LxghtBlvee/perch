@@ -2,26 +2,26 @@ import Elysia, { t } from 'elysia'
 import { eq } from 'drizzle-orm'
 import { db } from '../db'
 import { oauthProviders } from '../db/schema'
-import { requireAdmin } from '../middleware/auth'
+import { requireAdminUser } from '../middleware/auth'
 
 const PROVIDERS = ['github', 'google', 'custom'] as const
 type ProviderType = typeof PROVIDERS[number]
 
 export const oauthSettingsRoutes = new Elysia({ prefix: '/api/settings/oauth' })
-    .use(requireAdmin)
 
     // List all provider configs (secrets redacted)
-    .get('/', async () => {
+    .get('/', async ({ request, set }) => {
+        const admin = await requireAdminUser(request, set)
+        if (!admin) return { error: set.status === 401 ? 'Unauthorized' : 'Forbidden' }
+
         const rows = await db.select().from(oauthProviders)
 
-        // Return all three providers, filling in defaults for unconfigured ones
         return PROVIDERS.map(provider => {
             const row = rows.find(r => r.provider === provider)
             return {
                 provider,
                 enabled: row?.enabled ?? false,
                 clientId: row?.clientId ?? null,
-                // Never return clientSecret
                 hasClientSecret: !!row?.clientSecret,
                 customName: row?.customName ?? null,
                 customAuthorizationUrl: row?.customAuthorizationUrl ?? null,
@@ -33,7 +33,10 @@ export const oauthSettingsRoutes = new Elysia({ prefix: '/api/settings/oauth' })
     })
 
     // Upsert a provider config
-    .put('/:provider', async ({ params, body, error }) => {
+    .put('/:provider', async ({ request, set, params, body, error }) => {
+        const admin = await requireAdminUser(request, set)
+        if (!admin) return { error: set.status === 401 ? 'Unauthorized' : 'Forbidden' }
+
         const provider = params.provider as ProviderType
         if (!PROVIDERS.includes(provider)) return error(400, { error: 'Unknown provider' })
 

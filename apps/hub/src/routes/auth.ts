@@ -7,8 +7,8 @@ import {
     deleteSession,
     verifyPassword,
     findOrCreateOAuthUser,
+    validateSession,
 } from '../services/auth'
-import { requireAuth } from '../middleware/auth'
 
 // In-memory OAuth state store (CSRF protection)
 const oauthStateStore = new Map<string, { provider: string; expiresAt: number }>()
@@ -59,14 +59,12 @@ export const authRoutes = new Elysia({ prefix: '/api/auth' })
     })
 
     // Current user
-    .use(requireAuth)
-    .get('/me', ({ currentUser }) => ({
-        id: currentUser.id,
-        email: currentUser.email,
-        name: currentUser.name,
-        avatarUrl: currentUser.avatarUrl,
-        role: currentUser.role,
-    }))
+    .get('/me', async ({ request, set }) => {
+        const token = request.headers.get('authorization')?.slice(7) ?? null
+        const user = token ? await validateSession(token) : null
+        if (!user) { set.status = 401; return { error: 'Unauthorized' } }
+        return { id: user.id, email: user.email, name: user.name, avatarUrl: user.avatarUrl, role: user.role }
+    })
 
     // Initiate OAuth flow
     .get('/:provider', async ({ params, request, error, redirect }) => {

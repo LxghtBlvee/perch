@@ -3,10 +3,14 @@ import Sidebar from '@/components/layout/Sidebar.vue'
 import { usePerchSocket } from '@/composables/usePerchSocket'
 import { useAuthStore } from '@/stores/auth'
 import { useRoute } from 'vue-router'
-import { onMounted, onUnmounted, computed } from 'vue'
+import { computed } from 'vue'
+import { useColorMode } from '@/composables/useColorMode'
 
 const auth = useAuthStore()
 const route = useRoute()
+
+// Color mode is initialized by the composable import
+useColorMode()
 
 const isPublicRoute = computed(() => route.meta.public === true)
 
@@ -15,28 +19,10 @@ const urlParams = new URLSearchParams(location.search)
 const oauthToken = urlParams.get('token')
 if (oauthToken) {
   auth.setToken(oauthToken)
-  // Clean the token from the URL
-  const clean = location.pathname + location.hash
-  history.replaceState({}, '', clean)
+  history.replaceState({}, '', location.pathname + location.hash)
 }
 
 usePerchSocket()
-
-// System color mode
-function applyColorMode() {
-  if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-    document.documentElement.classList.add('dark')
-  } else {
-    document.documentElement.classList.remove('dark')
-  }
-}
-
-const mq = window.matchMedia('(prefers-color-scheme: dark)')
-onMounted(() => {
-  applyColorMode()
-  mq.addEventListener('change', applyColorMode)
-})
-onUnmounted(() => mq.removeEventListener('change', applyColorMode))
 </script>
 
 <template>

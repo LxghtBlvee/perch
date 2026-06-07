@@ -1,19 +1,31 @@
-import Elysia from 'elysia'
 import { validateSession } from '../services/auth'
+import type { users } from '../db/schema'
 
-export const requireAuth = new Elysia({ name: 'require-auth' })
-    .derive({ as: 'scoped' }, async ({ request, error }) => {
-        const authHeader = request.headers.get('authorization')
-        const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
-        if (!token) return error(401, { error: 'Unauthorized' })
-        const user = await validateSession(token)
-        if (!user) return error(401, { error: 'Unauthorized' })
-        return { currentUser: user }
-    })
+type User = typeof users.$inferSelect
 
-export const requireAdmin = new Elysia({ name: 'require-admin' })
-    .use(requireAuth)
-    .derive({ as: 'scoped' }, ({ currentUser, error }) => {
-        if (currentUser.role !== 'admin') return error(403, { error: 'Forbidden' })
-        return {}
-    })
+/** Extracts and validates the Bearer token from a request. Returns null if missing or invalid. */
+export async function getAuthUser(request: Request): Promise<User | null> {
+    const token = request.headers.get('authorization')?.slice(7) ?? null
+    return token ? validateSession(token) : null
+}
+
+/** Returns the authenticated user or sets 401 and returns null. */
+export async function requireAuthUser(
+    request: Request,
+    set: { status: number | string }
+): Promise<User | null> {
+    const user = await getAuthUser(request)
+    if (!user) set.status = 401
+    return user
+}
+
+/** Returns the authenticated admin user or sets 401/403 and returns null. */
+export async function requireAdminUser(
+    request: Request,
+    set: { status: number | string }
+): Promise<User | null> {
+    const user = await getAuthUser(request)
+    if (!user) { set.status = 401; return null }
+    if (user.role !== 'admin') { set.status = 403; return null }
+    return user
+}
