@@ -10,8 +10,20 @@ const auth = useAuthStore()
 
 const email = ref('')
 const password = ref('')
-const error = ref('')
 const loading = ref(false)
+
+// Pick up OAuth error redirects e.g. ?error=org_required&org=my-org
+const urlError = new URLSearchParams(location.search).get('error')
+const urlOrg = new URLSearchParams(location.search).get('org')
+const urlDomain = new URLSearchParams(location.search).get('domain')
+const oauthError = ref(
+  urlError === 'org_required' ? `Access restricted to members of the "${urlOrg}" GitHub org.`
+  : urlError === 'domain_required' ? `Access restricted to @${urlDomain} email addresses.`
+  : ''
+)
+if (urlError) history.replaceState({}, '', '/login')
+
+const error = ref('')
 
 // /api/auth/providers already returns only enabled providers
 const providers = ref<EnabledProvider[]>([])
@@ -67,6 +79,11 @@ function providerIcon(p: EnabledProvider): string {
           </g>
         </svg>
         <p class="text-sm text-muted-foreground">Sign in to continue</p>
+      </div>
+
+      <!-- OAuth redirect error -->
+      <div v-if="oauthError" class="rounded-lg bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400 text-center">
+        {{ oauthError }}
       </div>
 
       <!-- Form -->

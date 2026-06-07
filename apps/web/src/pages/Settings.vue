@@ -26,6 +26,8 @@ interface ProviderConfig {
   customTokenUrl: string
   customUserinfoUrl: string
   customScopes: string
+  allowedOrg: string
+  allowedDomain: string
   saving: boolean
   saveError: string
   saved: boolean
@@ -49,6 +51,8 @@ onMounted(async () => {
       customTokenUrl: p.customTokenUrl ?? '',
       customUserinfoUrl: p.customUserinfoUrl ?? '',
       customScopes: p.customScopes ?? '',
+      allowedOrg: p.allowedOrg ?? '',
+      allowedDomain: p.allowedDomain ?? '',
       saving: false,
       saveError: '',
       saved: false,
@@ -89,6 +93,8 @@ async function saveProvider(p: ProviderConfig) {
         customTokenUrl: p.customTokenUrl || undefined,
         customUserinfoUrl: p.customUserinfoUrl || undefined,
         customScopes: p.customScopes || undefined,
+        allowedOrg: p.allowedOrg || undefined,
+        allowedDomain: p.allowedDomain || undefined,
       }),
     })
     if (!res.ok) {
@@ -212,6 +218,18 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
                 <label class="text-xs text-muted-foreground">Client Secret{{ p.hasClientSecret ? ' (stored)' : '' }}</label>
                 <input v-model="p.clientSecret" type="password" :placeholder="p.hasClientSecret ? 'Leave blank to keep' : 'Client Secret'" :class="INPUT" />
               </div>
+              <!-- Org/domain restriction -->
+              <div v-if="p.provider === 'github'" class="space-y-1">
+                <label class="text-xs text-muted-foreground">Allowed org <span class="text-muted-foreground/50">(optional)</span></label>
+                <input v-model="p.allowedOrg" type="text" placeholder="my-org" :class="INPUT" />
+                <p class="text-xs text-muted-foreground/60">Only members of this GitHub org can sign in.</p>
+              </div>
+              <div v-if="p.provider === 'google' || p.provider === 'custom'" class="space-y-1">
+                <label class="text-xs text-muted-foreground">Allowed domain <span class="text-muted-foreground/50">(optional)</span></label>
+                <input v-model="p.allowedDomain" type="text" placeholder="mycompany.com" :class="INPUT" />
+                <p class="text-xs text-muted-foreground/60">Only emails from this domain can sign in.</p>
+              </div>
+
               <template v-if="p.provider === 'custom'">
                 <div class="space-y-1">
                   <label class="text-xs text-muted-foreground">Display name</label>

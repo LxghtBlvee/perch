@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, RefreshCw } from 'lucide-vue-next'
+import { ArrowLeft, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import { usePerchStore } from '@/stores/perch'
 
 const route = useRoute()
@@ -146,6 +146,17 @@ const heartbeatSlots = computed(() => {
   const recent = history.value.slice(-count)
   return [...Array(Math.max(0, count - recent.length)).fill(null), ...recent]
 })
+
+// ─── Results table pagination ─────────────────────────────────────────
+const PAGE_SIZE = 10
+const page = ref(0)
+const sortedHistory = computed(() => [...history.value].reverse())
+const totalPages = computed(() => Math.ceil(sortedHistory.value.length / PAGE_SIZE))
+const pagedHistory = computed(() =>
+  sortedHistory.value.slice(page.value * PAGE_SIZE, (page.value + 1) * PAGE_SIZE)
+)
+function prevPage() { if (page.value > 0) page.value-- }
+function nextPage() { if (page.value < totalPages.value - 1) page.value++ }
 
 // ─── Helpers ─────────────────────────────────────────────────────────
 function relativeTime(iso: string | null): string {
@@ -502,28 +513,17 @@ function xLabel(pts: NonNullable<typeof chartData.value>, i: number): string {
         <table class="w-full text-sm">
           <thead>
             <tr class="border-b border-border bg-muted/40">
-              <th class="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">
-                Time
-              </th>
-              <th class="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">
-                Status
-              </th>
-              <th class="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">
-                Latency
-              </th>
+              <th class="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Time</th>
+              <th class="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Status</th>
+              <th class="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">Latency</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="!history.length">
-              <td
-                colspan="3"
-                class="px-4 py-8 text-center text-xs text-muted-foreground"
-              >
-                No results yet.
-              </td>
+              <td colspan="3" class="px-4 py-8 text-center text-xs text-muted-foreground">No results yet.</td>
             </tr>
             <tr
-              v-for="result in [...history].reverse().slice(0, 50)"
+              v-for="result in pagedHistory"
               :key="result.checkedAt"
               class="border-b border-border last:border-0"
             >
@@ -531,12 +531,7 @@ function xLabel(pts: NonNullable<typeof chartData.value>, i: number): string {
                 {{ new Date(result.checkedAt).toLocaleString() }}
               </td>
               <td class="px-4 py-2.5">
-                <span
-                  :class="['text-xs px-2 py-0.5 rounded-full font-medium',
-                           result.status === 'up'
-                             ? 'bg-green-500/10 text-green-600 dark:text-green-400'
-                             : 'bg-red-500/10 text-red-500']"
-                >
+                <span :class="['text-xs px-2 py-0.5 rounded-full font-medium', result.status === 'up' ? 'bg-green-500/10 text-green-600 dark:text-green-400' : 'bg-red-500/10 text-red-500']">
                   {{ result.status }}
                 </span>
               </td>
@@ -546,6 +541,30 @@ function xLabel(pts: NonNullable<typeof chartData.value>, i: number): string {
             </tr>
           </tbody>
         </table>
+
+        <!-- Pagination -->
+        <div v-if="totalPages > 1" class="flex items-center justify-between px-4 py-2.5 border-t border-border bg-muted/20">
+          <span class="text-xs text-muted-foreground">
+            {{ page * PAGE_SIZE + 1 }}–{{ Math.min((page + 1) * PAGE_SIZE, sortedHistory.length) }} of {{ sortedHistory.length }}
+          </span>
+          <div class="flex items-center gap-1">
+            <button
+              class="size-7 rounded-md flex items-center justify-center hover:bg-accent transition-colors disabled:opacity-30 disabled:pointer-events-none"
+              :disabled="page === 0"
+              @click="prevPage"
+            >
+              <ChevronLeft class="size-4 text-muted-foreground" :stroke-width="1.75" />
+            </button>
+            <span class="text-xs text-muted-foreground px-1">{{ page + 1 }} / {{ totalPages }}</span>
+            <button
+              class="size-7 rounded-md flex items-center justify-center hover:bg-accent transition-colors disabled:opacity-30 disabled:pointer-events-none"
+              :disabled="page === totalPages - 1"
+              @click="nextPage"
+            >
+              <ChevronRight class="size-4 text-muted-foreground" :stroke-width="1.75" />
+            </button>
+          </div>
+        </div>
       </div>
     </template>
   </div>
