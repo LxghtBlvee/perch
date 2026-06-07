@@ -68,8 +68,13 @@ function providerDesc(p: ProviderConfig) {
 }
 
 async function saveProvider(p: ProviderConfig) {
-  p.saving = true
   p.saveError = ''
+  // Validate before saving
+  if (p.enabled) {
+    if (!p.clientId) { p.saveError = 'Client ID is required to enable this provider'; return }
+    if (!p.hasClientSecret && !p.clientSecret) { p.saveError = 'Client Secret is required to enable this provider'; return }
+  }
+  p.saving = true
   p.saved = false
   try {
     const res = await fetch(`/api/settings/oauth/${p.provider}`, {

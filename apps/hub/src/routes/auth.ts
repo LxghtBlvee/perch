@@ -26,6 +26,15 @@ function getCallbackBase(request: Request): string {
 }
 
 export const authRoutes = new Elysia({ prefix: '/api/auth' })
+    // Public: enabled OAuth providers (for login page, no auth required)
+    .get('/providers', async () => {
+        const rows = await db
+            .select({ provider: oauthProviders.provider, customName: oauthProviders.customName })
+            .from(oauthProviders)
+            .where(eq(oauthProviders.enabled, true))
+        return rows
+    })
+
     // Email/password login
     .post('/login', async ({ body, error }) => {
         const { email, password } = body

@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import type { OAuthProvider } from '@perch/types'
+
+interface EnabledProvider { provider: string; customName: string | null }
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -12,8 +13,8 @@ const password = ref('')
 const error = ref('')
 const loading = ref(false)
 
-const providers = ref<OAuthProvider[]>([])
-const enabledProviders = computed(() => providers.value.filter(p => p.enabled))
+// /api/auth/providers already returns only enabled providers
+const providers = ref<EnabledProvider[]>([])
 
 onMounted(async () => {
   const res = await fetch('/api/auth/providers').catch(() => null)
@@ -37,9 +38,15 @@ function oauthLogin(provider: string) {
   window.location.href = `/api/auth/${provider}`
 }
 
-function providerLabel(p: OAuthProvider): string {
+function providerLabel(p: EnabledProvider): string {
   if (p.provider === 'custom') return p.customName ?? 'SSO'
   return p.provider === 'github' ? 'GitHub' : 'Google'
+}
+
+function providerIcon(p: EnabledProvider): string {
+  if (p.provider === 'github') return '/icons/github.svg'
+  if (p.provider === 'google') return '/icons/google.svg'
+  return '/icons/sso.svg'
 }
 </script>
 
@@ -103,7 +110,7 @@ function providerLabel(p: OAuthProvider): string {
       </form>
 
       <!-- OAuth providers -->
-      <template v-if="enabledProviders.length > 0">
+      <template v-if="providers.length > 0">
         <div class="relative">
           <div class="absolute inset-0 flex items-center">
             <div class="w-full border-t border-border" />
@@ -115,12 +122,13 @@ function providerLabel(p: OAuthProvider): string {
 
         <div class="space-y-2">
           <button
-            v-for="p in enabledProviders"
+            v-for="p in providers"
             :key="p.provider"
             type="button"
-            class="w-full py-2 px-4 rounded-lg border border-border bg-background text-sm font-medium hover:bg-accent transition-colors flex items-center justify-center gap-2"
+            class="w-full py-2 px-4 rounded-lg border border-border bg-background text-sm font-medium hover:bg-accent transition-colors flex items-center justify-center gap-2.5"
             @click="oauthLogin(p.provider)"
           >
+            <img :src="providerIcon(p)" class="size-4" :alt="providerLabel(p)" />
             {{ providerLabel(p) }}
           </button>
         </div>
