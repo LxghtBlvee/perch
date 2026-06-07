@@ -17,6 +17,12 @@ export function formatPercent(value: number, decimals = 1): string {
     return `${value.toFixed(decimals)}%`;
 }
 
+export function formatSpeed(bytesPerSec: number): string {
+    if (bytesPerSec < 1024) return `${bytesPerSec.toFixed(0)} B/s`
+    if (bytesPerSec < 1024 * 1024) return `${(bytesPerSec / 1024).toFixed(1)} KB/s`
+    return `${(bytesPerSec / 1024 / 1024).toFixed(1)} MB/s`
+}
+
 export function formatUptime(seconds: number): string {
     const d = Math.floor(seconds / 86400)
     const h = Math.floor((seconds % 86400) / 3600)

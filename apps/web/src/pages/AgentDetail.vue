@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, Cpu, MemoryStick, HardDrive, Clock } from 'lucide-vue-next'
 import { usePerchStore } from '@/stores/perch'
-import { formatBytes, formatPercent, formatUptime } from '@/lib/utils'
+import { formatBytes, formatPercent, formatUptime, formatSpeed } from '@/lib/utils'
 
 const route = useRoute()
 const router = useRouter()
@@ -142,6 +142,88 @@ const containers = computed(() => entry.value?.containers ?? [])
           >
             —
           </p>
+        </div>
+      </div>
+
+      <!-- Storage -->
+      <div v-if="metrics?.disks.length">
+        <h2 class="text-sm font-medium text-muted-foreground mb-3">
+          Storage
+        </h2>
+        <div class="rounded-xl border border-border bg-card divide-y divide-border">
+          <div
+            v-for="disk in metrics.disks"
+            :key="disk.mountpoint"
+            class="p-4"
+          >
+            <div class="flex items-center justify-between text-xs mb-2">
+              <span class="font-mono font-medium">{{ disk.mountpoint }}</span>
+              <span class="text-muted-foreground">{{ formatBytes(disk.used) }} / {{ formatBytes(disk.total) }}</span>
+            </div>
+            <div class="h-1.5 bg-muted rounded-full overflow-hidden">
+              <div
+                class="h-full bg-primary rounded-full transition-all"
+                :style="{ width: `${Math.min((disk.used / disk.total) * 100, 100)}%` }"
+              />
+            </div>
+            <div class="flex justify-between text-xs text-muted-foreground mt-1.5">
+              <span>{{ disk.filesystem }}</span>
+              <span>{{ formatPercent((disk.used / disk.total) * 100) }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Network -->
+      <div v-if="metrics?.network.filter(n => n.interface !== 'lo').length">
+        <h2 class="text-sm font-medium text-muted-foreground mb-3">
+          Network
+        </h2>
+        <div class="rounded-xl border border-border overflow-hidden">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-border bg-muted/40">
+                <th class="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">
+                  Interface
+                </th>
+                <th class="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">
+                  ↓ In
+                </th>
+                <th class="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">
+                  ↑ Out
+                </th>
+                <th class="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">
+                  Total RX
+                </th>
+                <th class="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">
+                  Total TX
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="iface in metrics.network.filter(n => n.interface !== 'lo')"
+                :key="iface.interface"
+                class="border-b border-border last:border-0"
+              >
+                <td class="px-4 py-3 font-mono text-xs font-medium">
+                  {{ iface.interface }}
+                </td>
+                <td class="px-4 py-3 text-right text-xs text-muted-foreground font-mono">
+                  {{ formatSpeed(iface.rxSpeed) }}
+                </td>
+                <td class="px-4 py-3 text-right text-xs text-muted-foreground font-mono">
+                  {{ formatSpeed(iface.txSpeed) }}
+                </td>
+                <td class="px-4 py-3 text-right text-xs text-muted-foreground font-mono">
+                  {{ formatBytes(iface.rxBytes) }}
+                </td>
+                <td class="px-4 py-3 text-right text-xs text-muted-foreground font-mono">
+                  {{ formatBytes(iface.txBytes) }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
 

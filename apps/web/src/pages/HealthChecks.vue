@@ -10,11 +10,13 @@ const form = ref({ name: '', url: '', interval: 60 })
 
 async function createCheck() {
   if (!form.value.name || !form.value.url) return
-  await fetch('/api/health-checks', {
+  const res = await fetch('/api/health-checks', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(form.value),
   })
+  const check = await res.json()
+  store.healthChecks.push(check)
   form.value = { name: '', url: '', interval: 60 }
   showForm.value = false
 }
