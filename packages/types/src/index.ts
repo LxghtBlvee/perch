@@ -80,6 +80,17 @@ export interface HealthCheck {
   latency: number | null
 }
 
+export type DataSourceType = 'prometheus' | 'loki' | 'influxdb' | 'graphite'
+
+export interface DataSource {
+  id: string
+  name: string
+  type: DataSourceType
+  url: string
+  isDefault: boolean
+  createdAt: string
+}
+
 // Agent state (agent + latest metrics + containers combined)
 export interface AgentState {
   agent: Agent

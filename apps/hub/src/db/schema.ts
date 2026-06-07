@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, integer, uuid } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, integer, uuid, boolean } from 'drizzle-orm/pg-core';
 
 export const agents = pgTable('agents', {
     id: uuid('id').primaryKey(),
@@ -13,6 +13,16 @@ export const healthChecks = pgTable('health_checks', {
     name: text('name').notNull(),
     url: text('url').notNull(),
     interval: integer('interval').notNull().default(60),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const dataSources = pgTable('data_sources', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+    type: text('type', { enum: ['prometheus', 'loki', 'influxdb', 'graphite'] }).notNull(),
+    url: text('url').notNull(),
+    isDefault: boolean('is_default').notNull().default(false),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

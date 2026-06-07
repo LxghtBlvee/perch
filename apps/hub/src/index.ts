@@ -8,6 +8,7 @@ import { statusRoutes } from './routes/status'
 import { agentRoutes } from './routes/agents'
 import { containerRoutes } from './routes/containers'
 import { healthCheckRoutes } from './routes/health-checks'
+import { dataSourceRoutes } from './routes/data-sources'
 import { agentWs } from './ws/agent'
 import { liveWs } from './ws/live'
 import { healthChecker } from './services/health-checker'
@@ -26,6 +27,7 @@ const app = new Elysia()
   .use(agentRoutes)
   .use(containerRoutes)
   .use(healthCheckRoutes)
+  .use(dataSourceRoutes)
   .use(agentWs)
   .use(liveWs)
   .use(staticPlugin({ assets: webDist, prefix: '/' }))

@@ -5,10 +5,10 @@ export default defineConfig({
     out: './src/db/migrations',
     dialect: 'postgresql',
     dbCredentials: {
-        host: Bun.env.PERCH_DB_HOST ?? 'localhost',
-        port: parseInt(Bun.env.PERCH_DB_PORT ?? '5432'),
-        user: Bun.env.PERCH_DB_USER ?? 'perch',
-        password: Bun.env.PERCH_DB_PASS ?? '',
-        database: Bun.env.PERCH_DB_NAME ?? 'perch',
+        host: process.env.PERCH_DB_HOST ?? 'localhost',
+        port: parseInt(process.env.PERCH_DB_PORT ?? '5432'),
+        user: process.env.PERCH_DB_USER ?? 'perch',
+        password: process.env.PERCH_DB_PASS ?? '',
+        database: process.env.PERCH_DB_NAME ?? 'perch',
     },
 })
