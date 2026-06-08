@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { LayoutDashboard, Server, HeartPulse, Bell, Database, Settings, Users, LogOut, Sliders, Globe } from 'lucide-vue-next'
+import { LayoutDashboard, Server, HeartPulse, Bell, Database, Settings, Users, LogOut, Sliders, Globe, KeyRound } from 'lucide-vue-next'
 import { usePerchStore } from '@/stores/perch'
 import { useAuthStore } from '@/stores/auth'
 import { cn } from '@/lib/utils'
@@ -152,6 +152,21 @@ async function handleLogout() {
             :stroke-width="1.75"
           />
           Status Pages
+        </RouterLink>
+        <RouterLink
+          to="/admin/auth"
+          :class="cn(
+            'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+            route.path === '/admin/auth'
+              ? 'bg-primary/10 text-primary'
+              : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+          )"
+        >
+          <KeyRound
+            class="size-4 shrink-0"
+            :stroke-width="1.75"
+          />
+          Auth
         </RouterLink>
         <RouterLink
           to="/admin/instance"

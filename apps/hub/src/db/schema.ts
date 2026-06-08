@@ -44,6 +44,8 @@ export const users = pgTable('users', {
     name: text('name'),
     avatarUrl: text('avatar_url'),
     seeded: boolean('seeded').notNull().default(false),
+    recoveryTokenHash: text('recovery_token_hash').unique(),
+    recoveryTokenExpiresAt: timestamp('recovery_token_expires_at'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -58,19 +60,22 @@ export const sessions = pgTable('sessions', {
 
 export const oauthProviders = pgTable('oauth_providers', {
     id: uuid('id').primaryKey().defaultRandom(),
-    provider: text('provider', { enum: ['github', 'google', 'custom'] }).notNull().unique(),
+    provider: text('provider', { enum: ['github', 'google', 'custom', 'microsoft', 'gitlab', 'discord', 'okta'] }).notNull().unique(),
     enabled: boolean('enabled').notNull().default(false),
     clientId: text('client_id'),
     clientSecret: text('client_secret'),
-    // Custom (e.g. Authentik) fields
+    // Custom / OIDC fields (shared across custom, microsoft, gitlab, okta)
     customName: text('custom_name'),
     customAuthorizationUrl: text('custom_authorization_url'),
     customTokenUrl: text('custom_token_url'),
     customUserinfoUrl: text('custom_userinfo_url'),
     customScopes: text('custom_scopes'), // space-separated
+    // Provider-specific config
+    providerTenantId: text('provider_tenant_id'),  // Microsoft: tenant ID (default 'common')
+    providerBaseUrl: text('provider_base_url'),     // GitLab: base URL / Okta: org domain
     // Org/domain restrictions
-    allowedOrg: text('allowed_org'),       // GitHub: org slug — only members can sign in
-    allowedDomain: text('allowed_domain'), // Google/Custom: email domain e.g. "mycompany.com"
+    allowedOrg: text('allowed_org'),       // GitHub: org slug
+    allowedDomain: text('allowed_domain'), // Google/Microsoft/GitLab/Okta/Custom: email domain
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
@@ -146,6 +151,9 @@ export const statusPages = pgTable('status_pages', {
     id: uuid('id').primaryKey().defaultRandom(),
     slug: text('slug').notNull().unique(),
     name: text('name').notNull(),
+    description: text('description'),
+    logoUrl: text('logo_url'),
+    customDomain: text('custom_domain').unique(),
     isPublic: boolean('is_public').notNull().default(true),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -160,6 +168,31 @@ export const statusPageChecks = pgTable('status_page_checks', {
     showUrl: boolean('show_url').notNull().default(false),
     sortOrder: integer('sort_order').notNull().default(0),
 })
+
+export const statusPageIncidents = pgTable('status_page_incidents', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    statusPageId: uuid('status_page_id').references(() => statusPages.id, { onDelete: 'cascade' }).notNull(),
+    type: text('type', { enum: ['incident', 'maintenance'] }).notNull().default('incident'),
+    title: text('title').notNull(),
+    body: text('body').notNull().default(''),
+    // incident status
+    status: text('status', { enum: ['investigating', 'identified', 'monitoring', 'resolved', 'scheduled', 'in_progress', 'completed'] }).notNull().default('investigating'),
+    // maintenance scheduling
+    scheduledAt: timestamp('scheduled_at'),
+    resolvedAt: timestamp('resolved_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+export const statusPageSubscribers = pgTable('status_page_subscribers', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    statusPageId: uuid('status_page_id').references(() => statusPages.id, { onDelete: 'cascade' }).notNull(),
+    email: text('email').notNull(),
+    unsubscribeToken: text('unsubscribe_token').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+    unique().on(t.statusPageId, t.email),
+])
 
 export const oauthAccounts = pgTable('oauth_accounts', {
     id: uuid('id').primaryKey().defaultRandom(),

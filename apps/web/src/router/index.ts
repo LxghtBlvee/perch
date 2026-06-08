@@ -12,7 +12,9 @@ import Users from '@/pages/admin/Users.vue'
 import Instance from '@/pages/admin/Instance.vue'
 import StatusPages from '@/pages/admin/StatusPages.vue'
 import StatusPageEdit from '@/pages/admin/StatusPageEdit.vue'
+import Auth from '@/pages/admin/Auth.vue'
 import StatusPage from '@/pages/StatusPage.vue'
+import Unauthorized from '@/pages/Unauthorized.vue'
 import Alerts from '@/pages/Alerts.vue'
 import Profile from '@/pages/Profile.vue'
 import NotFound from '@/pages/NotFound.vue'
@@ -35,7 +37,9 @@ const router = createRouter({
         { path: '/admin/instance', component: Instance, meta: { requiresAdmin: true } },
         { path: '/admin/status-pages', component: StatusPages, meta: { requiresAdmin: true } },
         { path: '/admin/status-pages/:id', component: StatusPageEdit, meta: { requiresAdmin: true } },
+        { path: '/admin/auth', component: Auth, meta: { requiresAdmin: true } },
         { path: '/status/:slug', component: StatusPage, meta: { public: true } },
+        { path: '/unauthorized', component: Unauthorized, meta: { public: true } },
         { path: '/profile', component: Profile },
         { path: '/:pathMatch(.*)*', component: NotFound, meta: { public: true } },
     ],
@@ -52,7 +56,7 @@ router.beforeEach(async (to) => {
     }
 
     if (!auth.isAuthenticated) return '/login'
-    if (to.meta.requiresAdmin && !auth.isAdmin) return '/'
+    if (to.meta.requiresAdmin && !auth.isAdmin) return '/unauthorized'
 
     return true
 })

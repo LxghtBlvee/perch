@@ -4,7 +4,7 @@ import { db } from '../db'
 import { oauthProviders } from '../db/schema'
 import { requireAdminUser } from '../middleware/auth'
 
-const PROVIDERS = ['github', 'google', 'custom'] as const
+const PROVIDERS = ['github', 'google', 'microsoft', 'gitlab', 'discord', 'okta', 'custom'] as const
 type ProviderType = typeof PROVIDERS[number]
 
 export const oauthSettingsRoutes = new Elysia({ prefix: '/api/settings/oauth' })
@@ -28,6 +28,8 @@ export const oauthSettingsRoutes = new Elysia({ prefix: '/api/settings/oauth' })
                 customTokenUrl: row?.customTokenUrl ?? null,
                 customUserinfoUrl: row?.customUserinfoUrl ?? null,
                 customScopes: row?.customScopes ?? null,
+                providerTenantId: row?.providerTenantId ?? null,
+                providerBaseUrl: row?.providerBaseUrl ?? null,
                 allowedOrg: row?.allowedOrg ?? null,
                 allowedDomain: row?.allowedDomain ?? null,
             }
@@ -61,6 +63,8 @@ export const oauthSettingsRoutes = new Elysia({ prefix: '/api/settings/oauth' })
             customTokenUrl: body.customTokenUrl ?? null,
             customUserinfoUrl: body.customUserinfoUrl ?? null,
             customScopes: body.customScopes ?? null,
+            providerTenantId: body.providerTenantId ?? null,
+            providerBaseUrl: body.providerBaseUrl ?? null,
             allowedOrg: body.allowedOrg ?? null,
             allowedDomain: body.allowedDomain ?? null,
             updatedAt: new Date(),
@@ -84,6 +88,8 @@ export const oauthSettingsRoutes = new Elysia({ prefix: '/api/settings/oauth' })
             customTokenUrl: t.Optional(t.String()),
             customUserinfoUrl: t.Optional(t.String()),
             customScopes: t.Optional(t.String()),
+            providerTenantId: t.Optional(t.String()),
+            providerBaseUrl: t.Optional(t.String()),
             allowedOrg: t.Optional(t.String()),
             allowedDomain: t.Optional(t.String()),
         }),

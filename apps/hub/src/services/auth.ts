@@ -1,6 +1,6 @@
 import { eq, and } from 'drizzle-orm'
 import { db } from '../db'
-import { users, sessions, oauthAccounts } from '../db/schema'
+import { users, sessions, oauthAccounts, instanceSettings } from '../db/schema'
 import { env } from '../config/env.validation'
 
 function generateToken(): string {
@@ -16,10 +16,37 @@ function hashToken(token: string): string {
 export async function createSession(userId: string): Promise<string> {
     const token = generateToken();
     const tokenHash = hashToken(token);
-    const expiresAt = new Date(Date.now() + env.sessionDays * 86_400_000);
+    // Read sessionDays from instance settings (fall back to env)
+    const [settings] = await db.select({ sessionDays: instanceSettings.sessionDays })
+        .from(instanceSettings).where(eq(instanceSettings.id, 1)).limit(1)
+    const sessionDays = settings?.sessionDays ?? env.sessionDays
+    const expiresAt = new Date(Date.now() + sessionDays * 86_400_000);
 
     await db.insert(sessions).values({ userId, tokenHash, expiresAt });
     return token;
+}
+
+export async function createRecoveryToken(userId: string): Promise<string> {
+    const token = generateToken()
+    const tokenHash = hashToken(token)
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24h
+    await db.update(users)
+        .set({ recoveryTokenHash: tokenHash, recoveryTokenExpiresAt: expiresAt, updatedAt: new Date() })
+        .where(eq(users.id, userId))
+    return token
+}
+
+export async function useRecoveryToken(token: string): Promise<string | null> {
+    const tokenHash = hashToken(token)
+    const [user] = await db.select().from(users).where(eq(users.recoveryTokenHash, tokenHash)).limit(1)
+    if (!user || !user.recoveryTokenExpiresAt) return null
+    if (user.recoveryTokenExpiresAt < new Date()) {
+        await db.update(users).set({ recoveryTokenHash: null, recoveryTokenExpiresAt: null }).where(eq(users.id, user.id))
+        return null
+    }
+    // Consume token (one-time use)
+    await db.update(users).set({ recoveryTokenHash: null, recoveryTokenExpiresAt: null }).where(eq(users.id, user.id))
+    return createSession(user.id)
 }
 
 export async function validateSession(token: string) {
