@@ -113,6 +113,54 @@ export const alertHistory = pgTable('alert_history', {
     error: text('error'),
 });
 
+export const instanceSettings = pgTable('instance_settings', {
+    id: integer('id').primaryKey().default(1),
+    // Sessions & security
+    sessionDays: integer('session_days').notNull().default(30),
+    selfRegistrationEnabled: boolean('self_registration_enabled').notNull().default(false),
+    defaultUserRole: text('default_user_role', { enum: ['member', 'admin'] }).notNull().default('member'),
+    loginLockoutEnabled: boolean('login_lockout_enabled').notNull().default(true),
+    loginLockoutThreshold: integer('login_lockout_threshold').notNull().default(5),
+    // Agents & monitoring
+    agentReportInterval: integer('agent_report_interval').notNull().default(5000),
+    agentReconnectDelay: integer('agent_reconnect_delay').notNull().default(5000),
+    defaultHealthCheckInterval: integer('default_health_check_interval').notNull().default(60),
+    defaultHealthCheckTimeout: integer('default_health_check_timeout').notNull().default(10000),
+    // Alerts
+    alertWebhookTimeout: integer('alert_webhook_timeout').notNull().default(10000),
+    defaultAlertCooldown: integer('default_alert_cooldown').notNull().default(300),
+    // Privacy
+    geolocationEnabled: boolean('geolocation_enabled').notNull().default(true),
+    // Retention
+    metricsRetentionDays: integer('metrics_retention_days').notNull().default(30),
+    alertHistoryRetentionDays: integer('alert_history_retention_days').notNull().default(90),
+    healthCheckResultsRetentionDays: integer('health_check_results_retention_days').notNull().default(90),
+    // Maintenance
+    maintenanceModeEnabled: boolean('maintenance_mode_enabled').notNull().default(false),
+    // Status pages
+    statusPageEnabled: boolean('status_page_enabled').notNull().default(false),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+export const statusPages = pgTable('status_pages', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    slug: text('slug').notNull().unique(),
+    name: text('name').notNull(),
+    isPublic: boolean('is_public').notNull().default(true),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+export const statusPageChecks = pgTable('status_page_checks', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    statusPageId: uuid('status_page_id').references(() => statusPages.id, { onDelete: 'cascade' }).notNull(),
+    healthCheckId: uuid('health_check_id').references(() => healthChecks.id, { onDelete: 'cascade' }).notNull(),
+    displayName: text('display_name'),
+    displayMode: text('display_mode', { enum: ['full_history', 'response_time', 'current_status'] }).notNull().default('full_history'),
+    showUrl: boolean('show_url').notNull().default(false),
+    sortOrder: integer('sort_order').notNull().default(0),
+})
+
 export const oauthAccounts = pgTable('oauth_accounts', {
     id: uuid('id').primaryKey().defaultRandom(),
     userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
