@@ -443,8 +443,16 @@ function formatDateTime(iso: string) {
               :class="copiedRecovery ? 'bg-green-500/10 text-green-500' : 'bg-primary/10 text-primary hover:bg-primary/20'"
               @click="copyRecoveryLink"
             >
-              <Check v-if="copiedRecovery" class="size-3" :stroke-width="2" />
-              <Copy v-else class="size-3" :stroke-width="1.75" />
+              <Check
+                v-if="copiedRecovery"
+                class="size-3"
+                :stroke-width="2"
+              />
+              <Copy
+                v-else
+                class="size-3"
+                :stroke-width="1.75"
+              />
               {{ copiedRecovery ? 'Copied!' : 'Copy link' }}
             </button>
             <button
@@ -452,7 +460,11 @@ function formatDateTime(iso: string) {
               :disabled="generatingRecovery"
               @click="generateRecoveryLink"
             >
-              <RefreshCw class="size-3" :class="generatingRecovery ? 'animate-spin' : ''" :stroke-width="1.75" />
+              <RefreshCw
+                class="size-3"
+                :class="generatingRecovery ? 'animate-spin' : ''"
+                :stroke-width="1.75"
+              />
               Regenerate
             </button>
           </div>

@@ -22,7 +22,11 @@ const LEVELS: Record<ToastLevel, LevelConfig> = {
 <template>
   <Teleport to="body">
     <div class="fixed bottom-4 right-4 z-[200] flex flex-col gap-2 w-80 pointer-events-none">
-      <TransitionGroup name="toast" tag="div" class="flex flex-col gap-2">
+      <TransitionGroup
+        name="toast"
+        tag="div"
+        class="flex flex-col gap-2"
+      >
         <div
           v-for="toast in toasts"
           :key="toast.id"
@@ -38,7 +42,9 @@ const LEVELS: Record<ToastLevel, LevelConfig> = {
               :class="[LEVELS[toast.level].iconClass, toast.level === 'loading' && 'animate-spin']"
               :stroke-width="1.75"
             />
-            <p class="text-sm text-foreground leading-snug">{{ toast.message }}</p>
+            <p class="text-sm text-foreground leading-snug">
+              {{ toast.message }}
+            </p>
           </div>
 
           <!-- Dismiss -->
@@ -46,7 +52,10 @@ const LEVELS: Record<ToastLevel, LevelConfig> = {
             class="absolute top-3 right-3 text-muted-foreground hover:text-foreground transition-colors"
             @click="remove(toast.id)"
           >
-            <X class="size-3.5" :stroke-width="1.75" />
+            <X
+              class="size-3.5"
+              :stroke-width="1.75"
+            />
           </button>
 
           <!-- Progress bar -->

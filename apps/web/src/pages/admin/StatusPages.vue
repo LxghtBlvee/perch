@@ -114,24 +114,46 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
   <div class="p-6 space-y-6">
     <div class="flex items-start justify-between">
       <div>
-        <h1 class="text-2xl font-semibold tracking-tight">Status Pages</h1>
-        <p class="text-sm text-muted-foreground mt-1">Share uptime status with your users via a public or private page.</p>
+        <h1 class="text-2xl font-semibold tracking-tight">
+          Status Pages
+        </h1>
+        <p class="text-sm text-muted-foreground mt-1">
+          Share uptime status with your users via a public or private page.
+        </p>
       </div>
       <button
         class="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
         @click="showCreate = true"
       >
-        <Plus class="size-4" :stroke-width="1.75" />
+        <Plus
+          class="size-4"
+          :stroke-width="1.75"
+        />
         New page
       </button>
     </div>
 
-    <div v-if="loading" class="text-sm text-muted-foreground">Loading...</div>
+    <div
+      v-if="loading"
+      class="text-sm text-muted-foreground"
+    >
+      Loading...
+    </div>
 
-    <div v-else-if="pages.length === 0" class="rounded-xl border border-dashed border-border p-12 text-center">
-      <Globe class="size-8 text-muted-foreground mx-auto mb-3" :stroke-width="1.25" />
-      <p class="text-sm font-medium">No status pages yet</p>
-      <p class="text-xs text-muted-foreground mt-1 mb-4">Create one to share uptime with your users.</p>
+    <div
+      v-else-if="pages.length === 0"
+      class="rounded-xl border border-dashed border-border p-12 text-center"
+    >
+      <Globe
+        class="size-8 text-muted-foreground mx-auto mb-3"
+        :stroke-width="1.25"
+      />
+      <p class="text-sm font-medium">
+        No status pages yet
+      </p>
+      <p class="text-xs text-muted-foreground mt-1 mb-4">
+        Create one to share uptime with your users.
+      </p>
       <button
         class="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
         @click="showCreate = true"
@@ -141,7 +163,10 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
     </div>
 
     <!-- Table -->
-    <div v-else class="rounded-xl border border-border overflow-hidden">
+    <div
+      v-else
+      class="rounded-xl border border-border overflow-hidden"
+    >
       <div class="grid grid-cols-[1fr_auto_auto_auto] gap-4 px-5 py-3 bg-muted/30 border-b border-border text-xs font-medium text-muted-foreground">
         <span>Page</span>
         <span class="w-20 text-center">Visibility</span>
@@ -157,8 +182,12 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
           @click="router.push(`/admin/status-pages/${page.id}`)"
         >
           <div class="min-w-0">
-            <p class="text-sm font-medium group-hover:text-primary transition-colors truncate">{{ page.name }}</p>
-            <p class="text-xs text-muted-foreground font-mono mt-0.5">/status/{{ page.slug }}</p>
+            <p class="text-sm font-medium group-hover:text-primary transition-colors truncate">
+              {{ page.name }}
+            </p>
+            <p class="text-xs text-muted-foreground font-mono mt-0.5">
+              /status/{{ page.slug }}
+            </p>
           </div>
 
           <div class="w-20 flex justify-center">
@@ -168,8 +197,14 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
                 page.isPublic ? 'bg-green-500/10 text-green-500' : 'bg-muted text-muted-foreground'
               ]"
             >
-              <Globe v-if="page.isPublic" class="size-2.5" />
-              <Lock v-else class="size-2.5" />
+              <Globe
+                v-if="page.isPublic"
+                class="size-2.5"
+              />
+              <Lock
+                v-else
+                class="size-2.5"
+              />
               {{ page.isPublic ? 'Public' : 'Private' }}
             </span>
           </div>
@@ -178,22 +213,36 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
             <span class="text-xs text-muted-foreground">{{ page.checkCount }}</span>
           </div>
 
-          <div class="w-24 flex items-center justify-end gap-1" @click.stop>
+          <div
+            class="w-24 flex items-center justify-end gap-1"
+            @click.stop
+          >
             <a
               :href="`/status/${page.slug}`"
               target="_blank"
               class="size-7 rounded-lg flex items-center justify-center hover:bg-accent transition-colors"
               title="Open"
             >
-              <ExternalLink class="size-3.5 text-muted-foreground" :stroke-width="1.75" />
+              <ExternalLink
+                class="size-3.5 text-muted-foreground"
+                :stroke-width="1.75"
+              />
             </a>
             <button
               class="size-7 rounded-lg flex items-center justify-center hover:bg-accent transition-colors"
               title="Copy link"
               @click="copyLink(page.slug, page.id)"
             >
-              <Check v-if="copiedId === page.id" class="size-3.5 text-green-500" :stroke-width="2" />
-              <Copy v-else class="size-3.5 text-muted-foreground" :stroke-width="1.75" />
+              <Check
+                v-if="copiedId === page.id"
+                class="size-3.5 text-green-500"
+                :stroke-width="2"
+              />
+              <Copy
+                v-else
+                class="size-3.5 text-muted-foreground"
+                :stroke-width="1.75"
+              />
             </button>
             <button
               class="size-7 rounded-lg flex items-center justify-center hover:bg-accent transition-colors disabled:opacity-50"
@@ -201,7 +250,10 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
               :disabled="deletingId === page.id"
               @click="deletePage(page.id, page.name)"
             >
-              <Trash2 class="size-3.5 text-muted-foreground" :stroke-width="1.75" />
+              <Trash2
+                class="size-3.5 text-muted-foreground"
+                :stroke-width="1.75"
+              />
             </button>
           </div>
         </div>
@@ -211,27 +263,52 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
 
   <!-- Create modal -->
   <Teleport to="body">
-    <div v-if="showCreate" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div class="absolute inset-0 bg-black/50" @click="showCreate = false; createError = ''" />
+    <div
+      v-if="showCreate"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4"
+    >
+      <div
+        class="absolute inset-0 bg-black/50"
+        @click="showCreate = false; createError = ''"
+      />
       <div class="relative z-10 bg-card border border-border rounded-2xl p-6 w-full max-w-md shadow-xl space-y-4">
-        <h2 class="text-base font-semibold">New status page</h2>
+        <h2 class="text-base font-semibold">
+          New status page
+        </h2>
 
         <div class="space-y-3">
           <div class="space-y-1">
             <label class="text-xs text-muted-foreground">Name</label>
-            <input v-model="newName" type="text" placeholder="My Services" :class="INPUT" @input="autoSlug" @keydown.enter="createPage">
+            <input
+              v-model="newName"
+              type="text"
+              placeholder="My Services"
+              :class="INPUT"
+              @input="autoSlug"
+              @keydown.enter="createPage"
+            >
           </div>
           <div class="space-y-1">
             <label class="text-xs text-muted-foreground">Slug</label>
             <div class="flex items-center gap-2">
               <span class="text-xs text-muted-foreground shrink-0">/status/</span>
-              <input v-model="newSlug" type="text" placeholder="my-services" :class="INPUT" @keydown.enter="createPage">
+              <input
+                v-model="newSlug"
+                type="text"
+                placeholder="my-services"
+                :class="INPUT"
+                @keydown.enter="createPage"
+              >
             </div>
           </div>
           <div class="flex items-center justify-between rounded-lg border border-border bg-background px-3 py-2.5">
             <div>
-              <p class="text-sm">Public</p>
-              <p class="text-xs text-muted-foreground">Anyone with the link can view.</p>
+              <p class="text-sm">
+                Public
+              </p>
+              <p class="text-xs text-muted-foreground">
+                Anyone with the link can view.
+              </p>
             </div>
             <button
               class="relative shrink-0 w-9 h-5 rounded-full transition-colors"
@@ -243,10 +320,18 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
           </div>
         </div>
 
-        <p v-if="createError" class="text-xs text-red-500 -mt-1">{{ createError }}</p>
+        <p
+          v-if="createError"
+          class="text-xs text-red-500 -mt-1"
+        >
+          {{ createError }}
+        </p>
 
         <div class="flex gap-2 pt-1">
-          <button class="flex-1 py-2 rounded-lg border border-border text-sm font-medium hover:bg-accent transition-colors" @click="showCreate = false; createError = ''">
+          <button
+            class="flex-1 py-2 rounded-lg border border-border text-sm font-medium hover:bg-accent transition-colors"
+            @click="showCreate = false; createError = ''"
+          >
             Cancel
           </button>
           <button

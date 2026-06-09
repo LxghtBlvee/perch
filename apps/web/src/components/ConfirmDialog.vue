@@ -13,9 +13,15 @@ const { state, respond } = useConfirm()
       leave-active-class="transition-all duration-150"
       leave-to-class="opacity-0"
     >
-      <div v-if="state" class="fixed inset-0 z-[300] flex items-center justify-center p-4">
+      <div
+        v-if="state"
+        class="fixed inset-0 z-[300] flex items-center justify-center p-4"
+      >
         <!-- Backdrop -->
-        <div class="absolute inset-0 bg-black/50" @click="respond(false)" />
+        <div
+          class="absolute inset-0 bg-black/50"
+          @click="respond(false)"
+        />
 
         <!-- Card -->
         <Transition
@@ -24,7 +30,10 @@ const { state, respond } = useConfirm()
           leave-active-class="transition-all duration-100"
           leave-to-class="opacity-0 scale-95"
         >
-          <div v-if="state" class="relative z-10 w-full max-w-sm rounded-2xl border border-border bg-card shadow-xl p-6 space-y-4">
+          <div
+            v-if="state"
+            class="relative z-10 w-full max-w-sm rounded-2xl border border-border bg-card shadow-xl p-6 space-y-4"
+          >
             <!-- Icon + title -->
             <div class="flex items-start gap-3">
               <div :class="['size-9 rounded-lg flex items-center justify-center shrink-0', state.danger ? 'bg-red-500/10' : 'bg-muted']">
@@ -34,8 +43,12 @@ const { state, respond } = useConfirm()
                 />
               </div>
               <div class="pt-1">
-                <p class="text-sm font-semibold">{{ state.title ?? 'Are you sure?' }}</p>
-                <p class="text-xs text-muted-foreground mt-1 leading-relaxed">{{ state.message }}</p>
+                <p class="text-sm font-semibold">
+                  {{ state.title ?? 'Are you sure?' }}
+                </p>
+                <p class="text-xs text-muted-foreground mt-1 leading-relaxed">
+                  {{ state.message }}
+                </p>
               </div>
             </div>
 

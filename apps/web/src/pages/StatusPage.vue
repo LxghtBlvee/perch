@@ -218,7 +218,10 @@ function buildChart(history: CheckResult[], width: number, height: number): stri
 </script>
 
 <template>
-  <div id="sp-root" class="min-h-screen bg-background text-foreground">
+  <div
+    id="sp-root"
+    class="min-h-screen bg-background text-foreground"
+  >
     <!-- Header -->
     <header class="border-b border-border">
       <div class="max-w-2xl mx-auto px-6 py-5 flex items-center justify-between">
@@ -264,8 +267,16 @@ function buildChart(history: CheckResult[], width: number, height: number): stri
           </svg>
           <span class="text-sm font-semibold tracking-tight">Perch</span>
         </div>
-        <div v-if="data" class="flex items-center gap-3">
-          <img v-if="data.logoUrl" :src="data.logoUrl" alt="" class="h-6 max-w-24 object-contain">
+        <div
+          v-if="data"
+          class="flex items-center gap-3"
+        >
+          <img
+            v-if="data.logoUrl"
+            :src="data.logoUrl"
+            alt=""
+            class="h-6 max-w-24 object-contain"
+          >
           <span class="text-sm font-medium text-muted-foreground">{{ data.name }}</span>
         </div>
       </div>
@@ -292,7 +303,12 @@ function buildChart(history: CheckResult[], width: number, height: number): stri
 
       <template v-else-if="data">
         <!-- Description -->
-        <p v-if="data.description" class="text-sm text-muted-foreground -mt-4">{{ data.description }}</p>
+        <p
+          v-if="data.description"
+          class="text-sm text-muted-foreground -mt-4"
+        >
+          {{ data.description }}
+        </p>
 
         <!-- Overall status banner -->
         <div class="rounded-xl border border-border bg-card p-6 flex items-center gap-4">
@@ -303,25 +319,46 @@ function buildChart(history: CheckResult[], width: number, height: number): stri
         </div>
 
         <!-- Active incidents / maintenance banners -->
-        <div v-if="data.incidents && data.incidents.length > 0" class="space-y-3">
+        <div
+          v-if="data.incidents && data.incidents.length > 0"
+          class="space-y-3"
+        >
           <div
             v-for="incident in data.incidents"
             :key="incident.id"
             :class="['rounded-xl border p-4 space-y-1', INCIDENT_BANNER_COLOR[incident.type]]"
           >
             <div class="flex items-center gap-2">
-              <span class="text-xs font-semibold uppercase tracking-wide" :class="incident.type === 'maintenance' ? 'text-sky-500' : 'text-red-500'">
+              <span
+                class="text-xs font-semibold uppercase tracking-wide"
+                :class="incident.type === 'maintenance' ? 'text-sky-500' : 'text-red-500'"
+              >
                 {{ incident.type === 'maintenance' ? 'Maintenance' : 'Incident' }}
               </span>
               <span class="text-xs text-muted-foreground">·</span>
-              <span class="text-xs font-medium" :class="INCIDENT_STATUS_COLOR[incident.status]">
+              <span
+                class="text-xs font-medium"
+                :class="INCIDENT_STATUS_COLOR[incident.status]"
+              >
                 {{ INCIDENT_STATUS_LABEL[incident.status] }}
               </span>
-              <span v-if="incident.scheduledAt" class="text-xs text-muted-foreground ml-auto">{{ new Date(incident.scheduledAt).toLocaleString() }}</span>
+              <span
+                v-if="incident.scheduledAt"
+                class="text-xs text-muted-foreground ml-auto"
+              >{{ new Date(incident.scheduledAt).toLocaleString() }}</span>
             </div>
-            <p class="text-sm font-medium">{{ incident.title }}</p>
-            <p v-if="incident.body" class="text-xs text-muted-foreground">{{ incident.body }}</p>
-            <p class="text-xs text-muted-foreground">{{ new Date(incident.updatedAt).toLocaleString() }}</p>
+            <p class="text-sm font-medium">
+              {{ incident.title }}
+            </p>
+            <p
+              v-if="incident.body"
+              class="text-xs text-muted-foreground"
+            >
+              {{ incident.body }}
+            </p>
+            <p class="text-xs text-muted-foreground">
+              {{ new Date(incident.updatedAt).toLocaleString() }}
+            </p>
           </div>
         </div>
 
