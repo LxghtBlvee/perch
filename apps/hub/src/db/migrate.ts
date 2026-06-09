@@ -2,7 +2,7 @@ import { db } from '.'
 import { sql } from 'drizzle-orm'
 
 async function migrate() {
-    console.log('[db] Applying schema...')
+    console.warn('[db] Applying schema...')
 
     await db.execute(sql`
         CREATE TABLE IF NOT EXISTS agents (
@@ -242,7 +242,7 @@ async function migrate() {
         )
     `)
 
-    console.log('[db] Schema applied.')
+    console.warn('[db] Schema applied.')
 }
 
 migrate()

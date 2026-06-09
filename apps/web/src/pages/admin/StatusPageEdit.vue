@@ -128,7 +128,7 @@ onMounted(async () => {
       checkUrl: c.checkUrl, displayName: c.displayName ?? '', displayMode: c.displayMode, showUrl: c.showUrl,
     }))
     if (data.themeJson) {
-      try { Object.assign(theme.value, JSON.parse(data.themeJson)) } catch {}
+      try { Object.assign(theme.value, JSON.parse(data.themeJson)) } catch (_e) {}
     }
   }
 
