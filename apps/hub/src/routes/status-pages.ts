@@ -1,7 +1,7 @@
 import Elysia, { t } from 'elysia'
-import { eq, and, ne, desc, inArray } from 'drizzle-orm'
+import { eq, and, ne, desc, inArray, isNull, or } from 'drizzle-orm'
 import { db } from '../db'
-import { statusPages, statusPageChecks, healthChecks, healthCheckResults } from '../db/schema'
+import { statusPages, statusPageChecks, statusPageIncidents, healthChecks, healthCheckResults } from '../db/schema'
 import { requireAdminUser, getAuthUser } from '../middleware/auth'
 
 export const statusPageRoutes = new Elysia()
@@ -93,6 +93,9 @@ export const statusPageRoutes = new Elysia()
             name: t.Optional(t.String()),
             slug: t.Optional(t.String()),
             isPublic: t.Optional(t.Boolean()),
+            description: t.Optional(t.Nullable(t.String())),
+            logoUrl: t.Optional(t.Nullable(t.String())),
+            customDomain: t.Optional(t.Nullable(t.String())),
         })
     })
 
@@ -144,6 +147,115 @@ export const statusPageRoutes = new Elysia()
         })
     })
 
+    // --- Incidents ---
+
+    .get('/api/admin/status-pages/:id/incidents', async ({ request, set, params, error }) => {
+        const admin = await requireAdminUser(request, set)
+        if (!admin) return { error: set.status === 401 ? 'Unauthorized' : 'Forbidden' }
+
+        const [page] = await db.select({ id: statusPages.id }).from(statusPages).where(eq(statusPages.id, params.id)).limit(1)
+        if (!page) return error(404, { error: 'Not found' })
+
+        const incidents = await db
+            .select()
+            .from(statusPageIncidents)
+            .where(eq(statusPageIncidents.statusPageId, params.id))
+            .orderBy(desc(statusPageIncidents.createdAt))
+
+        return incidents
+    }, { params: t.Object({ id: t.String() }) })
+
+    .post('/api/admin/status-pages/:id/incidents', async ({ request, set, params, body, error }) => {
+        const admin = await requireAdminUser(request, set)
+        if (!admin) return { error: set.status === 401 ? 'Unauthorized' : 'Forbidden' }
+
+        const [page] = await db.select({ id: statusPages.id }).from(statusPages).where(eq(statusPages.id, params.id)).limit(1)
+        if (!page) return error(404, { error: 'Not found' })
+
+        const defaultStatus = body.type === 'maintenance' ? 'scheduled' as const : 'investigating' as const
+
+        const [incident] = await db.insert(statusPageIncidents).values({
+            statusPageId: params.id,
+            type: body.type ?? 'incident',
+            title: body.title,
+            body: body.body ?? '',
+            status: body.status ?? defaultStatus,
+            scheduledAt: body.scheduledAt ? new Date(body.scheduledAt) : null,
+        }).returning()
+
+        return incident
+    }, {
+        params: t.Object({ id: t.String() }),
+        body: t.Object({
+            title: t.String(),
+            type: t.Optional(t.Union([t.Literal('incident'), t.Literal('maintenance')])),
+            body: t.Optional(t.String()),
+            status: t.Optional(t.Union([
+                t.Literal('investigating'), t.Literal('identified'),
+                t.Literal('monitoring'), t.Literal('resolved'),
+                t.Literal('scheduled'), t.Literal('in_progress'), t.Literal('completed'),
+            ])),
+            scheduledAt: t.Optional(t.Nullable(t.String())),
+        })
+    })
+
+    .patch('/api/admin/status-pages/:id/incidents/:incidentId', async ({ request, set, params, body, error }) => {
+        const admin = await requireAdminUser(request, set)
+        if (!admin) return { error: set.status === 401 ? 'Unauthorized' : 'Forbidden' }
+
+        const resolvedStatuses = ['resolved', 'completed']
+        const resolvedAt = body.status && resolvedStatuses.includes(body.status) ? new Date() : undefined
+
+        const [updated] = await db
+            .update(statusPageIncidents)
+            .set({
+                ...(body.title !== undefined && { title: body.title }),
+                ...(body.body !== undefined && { body: body.body }),
+                ...(body.status !== undefined && { status: body.status }),
+                ...(body.scheduledAt !== undefined && { scheduledAt: body.scheduledAt ? new Date(body.scheduledAt) : null }),
+                ...(resolvedAt && { resolvedAt }),
+                updatedAt: new Date(),
+            })
+            .where(and(
+                eq(statusPageIncidents.id, params.incidentId),
+                eq(statusPageIncidents.statusPageId, params.id),
+            ))
+            .returning()
+
+        if (!updated) return error(404, { error: 'Not found' })
+        return updated
+    }, {
+        params: t.Object({ id: t.String(), incidentId: t.String() }),
+        body: t.Object({
+            title: t.Optional(t.String()),
+            body: t.Optional(t.String()),
+            status: t.Optional(t.Union([
+                t.Literal('investigating'), t.Literal('identified'),
+                t.Literal('monitoring'), t.Literal('resolved'),
+                t.Literal('scheduled'), t.Literal('in_progress'), t.Literal('completed'),
+            ])),
+            scheduledAt: t.Optional(t.Nullable(t.String())),
+        })
+    })
+
+    .delete('/api/admin/status-pages/:id/incidents/:incidentId', async ({ request, set, params, error }) => {
+        const admin = await requireAdminUser(request, set)
+        if (!admin) return { error: set.status === 401 ? 'Unauthorized' : 'Forbidden' }
+
+        const [deleted] = await db
+            .delete(statusPageIncidents)
+            .where(and(
+                eq(statusPageIncidents.id, params.incidentId),
+                eq(statusPageIncidents.statusPageId, params.id),
+            ))
+            .returning()
+
+        if (!deleted) return error(404, { error: 'Not found' })
+        return { ok: true }
+    }, { params: t.Object({ id: t.String(), incidentId: t.String() }) })
+
+    // --- Public status page ---
+
     .get('/api/status/:slug', async ({ request, set, params, error }) => {
         const [page] = await db.select().from(statusPages).where(eq(statusPages.slug, params.slug)).limit(1)
         if (!page) return error(404, { error: 'Not found' })
@@ -169,8 +281,31 @@ export const statusPageRoutes = new Elysia()
             .where(eq(statusPageChecks.statusPageId, page.id))
             .orderBy(statusPageChecks.sortOrder)
 
+        // Fetch active incidents (unresolved) for public display
+        const incidents = await db
+            .select()
+            .from(statusPageIncidents)
+            .where(and(
+                eq(statusPageIncidents.statusPageId, page.id),
+                or(isNull(statusPageIncidents.resolvedAt), eq(statusPageIncidents.status, 'investigating')),
+            ))
+            .orderBy(desc(statusPageIncidents.createdAt))
+
+        const activeIncidents = incidents.filter(i =>
+            i.status !== 'resolved' && i.status !== 'completed'
+        ).map(i => ({
+            id: i.id,
+            type: i.type,
+            title: i.title,
+            body: i.body,
+            status: i.status,
+            scheduledAt: i.scheduledAt?.toISOString() ?? null,
+            createdAt: i.createdAt.toISOString(),
+            updatedAt: i.updatedAt.toISOString(),
+        }))
+
         if (checks.length === 0) {
-            return { id: page.id, name: page.name, slug: page.slug, checks: [] }
+            return { id: page.id, name: page.name, slug: page.slug, description: page.description, logoUrl: page.logoUrl, checks: [], incidents: activeIncidents }
         }
 
         const checkIds = checks.map(c => c.healthCheckId)
@@ -214,5 +349,5 @@ export const statusPageRoutes = new Elysia()
             }
         })
 
-        return { id: page.id, name: page.name, slug: page.slug, checks: enrichedChecks }
+        return { id: page.id, name: page.name, slug: page.slug, description: page.description, logoUrl: page.logoUrl, checks: enrichedChecks, incidents: activeIncidents }
     }, { params: t.Object({ slug: t.String() }) })

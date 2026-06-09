@@ -8,6 +8,7 @@ const auth = useAuthStore()
 const slug = route.params.slug as string
 
 type DisplayMode = 'full_history' | 'response_time' | 'current_status'
+type IncidentStatus = 'investigating' | 'identified' | 'monitoring' | 'resolved' | 'scheduled' | 'in_progress' | 'completed'
 
 interface CheckResult { status: string; latency: number | null; checkedAt: string }
 interface PageCheck {
@@ -19,11 +20,50 @@ interface PageCheck {
   history: CheckResult[]
 }
 
+interface Incident {
+  id: string
+  type: 'incident' | 'maintenance'
+  title: string
+  body: string
+  status: IncidentStatus
+  scheduledAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
 interface PageData {
   id: string
   name: string
   slug: string
+  description: string | null
+  logoUrl: string | null
   checks: PageCheck[]
+  incidents: Incident[]
+}
+
+const INCIDENT_STATUS_LABEL: Record<IncidentStatus, string> = {
+  investigating: 'Investigating',
+  identified: 'Identified',
+  monitoring: 'Monitoring',
+  resolved: 'Resolved',
+  scheduled: 'Scheduled',
+  in_progress: 'In Progress',
+  completed: 'Completed',
+}
+
+const INCIDENT_BANNER_COLOR: Record<'incident' | 'maintenance', string> = {
+  incident: 'border-red-500/30 bg-red-500/5',
+  maintenance: 'border-sky-500/30 bg-sky-500/5',
+}
+
+const INCIDENT_STATUS_COLOR: Record<IncidentStatus, string> = {
+  investigating: 'text-red-500',
+  identified: 'text-amber-500',
+  monitoring: 'text-blue-500',
+  resolved: 'text-green-500',
+  scheduled: 'text-sky-500',
+  in_progress: 'text-amber-500',
+  completed: 'text-green-500',
 }
 
 const data = ref<PageData | null>(null)
@@ -142,10 +182,10 @@ function buildChart(history: CheckResult[], width: number, height: number): stri
           </svg>
           <span class="text-sm font-semibold tracking-tight">Perch</span>
         </div>
-        <span
-          v-if="data"
-          class="text-sm font-medium text-muted-foreground"
-        >{{ data.name }}</span>
+        <div v-if="data" class="flex items-center gap-3">
+          <img v-if="data.logoUrl" :src="data.logoUrl" alt="" class="h-6 max-w-24 object-contain">
+          <span class="text-sm font-medium text-muted-foreground">{{ data.name }}</span>
+        </div>
       </div>
     </header>
 
@@ -169,12 +209,38 @@ function buildChart(history: CheckResult[], width: number, height: number): stri
       </div>
 
       <template v-else-if="data">
+        <!-- Description -->
+        <p v-if="data.description" class="text-sm text-muted-foreground -mt-4">{{ data.description }}</p>
+
         <!-- Overall status banner -->
         <div class="rounded-xl border border-border bg-card p-6 flex items-center gap-4">
           <div :class="['size-3 rounded-full shrink-0', overallColor[overallStatus]]" />
           <p :class="['text-base font-semibold', overallTextColor[overallStatus]]">
             {{ overallLabel[overallStatus] }}
           </p>
+        </div>
+
+        <!-- Active incidents / maintenance banners -->
+        <div v-if="data.incidents && data.incidents.length > 0" class="space-y-3">
+          <div
+            v-for="incident in data.incidents"
+            :key="incident.id"
+            :class="['rounded-xl border p-4 space-y-1', INCIDENT_BANNER_COLOR[incident.type]]"
+          >
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-semibold uppercase tracking-wide" :class="incident.type === 'maintenance' ? 'text-sky-500' : 'text-red-500'">
+                {{ incident.type === 'maintenance' ? 'Maintenance' : 'Incident' }}
+              </span>
+              <span class="text-xs text-muted-foreground">·</span>
+              <span class="text-xs font-medium" :class="INCIDENT_STATUS_COLOR[incident.status]">
+                {{ INCIDENT_STATUS_LABEL[incident.status] }}
+              </span>
+              <span v-if="incident.scheduledAt" class="text-xs text-muted-foreground ml-auto">{{ new Date(incident.scheduledAt).toLocaleString() }}</span>
+            </div>
+            <p class="text-sm font-medium">{{ incident.title }}</p>
+            <p v-if="incident.body" class="text-xs text-muted-foreground">{{ incident.body }}</p>
+            <p class="text-xs text-muted-foreground">{{ new Date(incident.updatedAt).toLocaleString() }}</p>
+          </div>
         </div>
 
         <!-- Check cards -->
