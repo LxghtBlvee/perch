@@ -2,9 +2,11 @@
 import { ref, onMounted } from 'vue'
 import { Trash2, ShieldCheck, ShieldMinus, X, Copy, Check, RefreshCw } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
+import { useConfirm } from '@/composables/useConfirm'
 import type { ManagedUser } from '@perch/types'
 
 const auth = useAuthStore()
+const { confirm } = useConfirm()
 const users = ref<ManagedUser[]>([])
 const loading = ref(true)
 const showCreate = ref(false)
@@ -82,7 +84,8 @@ async function toggleRole(user: ManagedUser) {
 }
 
 async function deleteUser(user: ManagedUser) {
-  if (!confirm(`Delete ${user.email}? This cannot be undone.`)) return
+  const ok = await confirm({ title: `Delete ${user.name ?? user.email}?`, message: 'This cannot be undone. The user will lose all access to Perch.', confirmLabel: 'Delete', danger: true })
+  if (!ok) return
   await fetch(`/api/users/${user.id}`, {
     method: 'DELETE',
     headers: { Authorization: `Bearer ${auth.token}` },
@@ -416,7 +419,11 @@ function formatDateTime(iso: string) {
           </div>
         </div>
 
-        <div class="border-t border-border pt-4 space-y-2">
+        <!-- Recovery link — only for non-admin, non-self accounts -->
+        <div
+          v-if="selectedUser.role !== 'admin' && selectedUser.id !== auth.user?.id"
+          class="border-t border-border pt-4 space-y-2"
+        >
           <p class="text-xs text-muted-foreground">
             Recovery link
           </p>
@@ -436,16 +443,8 @@ function formatDateTime(iso: string) {
               :class="copiedRecovery ? 'bg-green-500/10 text-green-500' : 'bg-primary/10 text-primary hover:bg-primary/20'"
               @click="copyRecoveryLink"
             >
-              <Check
-                v-if="copiedRecovery"
-                class="size-3"
-                :stroke-width="2"
-              />
-              <Copy
-                v-else
-                class="size-3"
-                :stroke-width="1.75"
-              />
+              <Check v-if="copiedRecovery" class="size-3" :stroke-width="2" />
+              <Copy v-else class="size-3" :stroke-width="1.75" />
               {{ copiedRecovery ? 'Copied!' : 'Copy link' }}
             </button>
             <button
@@ -453,18 +452,14 @@ function formatDateTime(iso: string) {
               :disabled="generatingRecovery"
               @click="generateRecoveryLink"
             >
-              <RefreshCw
-                class="size-3"
-                :class="generatingRecovery ? 'animate-spin' : ''"
-                :stroke-width="1.75"
-              />
+              <RefreshCw class="size-3" :class="generatingRecovery ? 'animate-spin' : ''" :stroke-width="1.75" />
               Regenerate
             </button>
           </div>
           <button
             v-else
             class="w-full py-1.5 rounded-lg text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
-            :disabled="generatingRecovery || selectedUser.id === auth.user?.id"
+            :disabled="generatingRecovery"
             @click="generateRecoveryLink"
           >
             {{ generatingRecovery ? 'Generating...' : 'Generate recovery link' }}

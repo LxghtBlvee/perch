@@ -46,6 +46,7 @@ export const users = pgTable('users', {
     seeded: boolean('seeded').notNull().default(false),
     recoveryTokenHash: text('recovery_token_hash').unique(),
     recoveryTokenExpiresAt: timestamp('recovery_token_expires_at'),
+    lastLoginAt: timestamp('last_login_at'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -154,6 +155,7 @@ export const statusPages = pgTable('status_pages', {
     description: text('description'),
     logoUrl: text('logo_url'),
     customDomain: text('custom_domain').unique(),
+    themeJson: text('theme_json'),
     isPublic: boolean('is_public').notNull().default(true),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),

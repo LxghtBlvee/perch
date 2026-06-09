@@ -62,6 +62,7 @@ async function migrate() {
         )
     `)
     await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS recovery_token_hash TEXT`)
+    await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP`)
     await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS recovery_token_expires_at TIMESTAMP`)
     await db.execute(sql`
         DO $$ BEGIN
@@ -182,6 +183,7 @@ async function migrate() {
     `)
     await db.execute(sql`ALTER TABLE status_pages ADD COLUMN IF NOT EXISTS description TEXT`)
     await db.execute(sql`ALTER TABLE status_pages ADD COLUMN IF NOT EXISTS logo_url TEXT`)
+    await db.execute(sql`ALTER TABLE status_pages ADD COLUMN IF NOT EXISTS theme_json TEXT`)
     await db.execute(sql`
         DO $$ BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'status_pages_custom_domain_unique') THEN

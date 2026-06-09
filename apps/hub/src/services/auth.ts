@@ -23,6 +23,7 @@ export async function createSession(userId: string): Promise<string> {
     const expiresAt = new Date(Date.now() + sessionDays * 86_400_000);
 
     await db.insert(sessions).values({ userId, tokenHash, expiresAt });
+    await db.update(users).set({ lastLoginAt: new Date(), updatedAt: new Date() }).where(eq(users.id, userId));
     return token;
 }
 

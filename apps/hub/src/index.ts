@@ -3,6 +3,7 @@ import { cors } from '@elysiajs/cors'
 import { swagger } from '@elysiajs/swagger'
 import { staticPlugin } from '@elysiajs/static'
 import { join } from 'path'
+import { mkdir } from 'fs/promises'
 import { env } from './config/env.validation'
 import { statusRoutes } from './routes/status'
 import { agentRoutes } from './routes/agents'
@@ -26,6 +27,8 @@ await healthChecker.start()
 await seedAdmin()
 
 const webDist = join(process.cwd(), '../web/dist')
+const uploadsDir = join(process.cwd(), 'uploads')
+await mkdir(uploadsDir, { recursive: true })
 
 const app = new Elysia()
   .use(cors())
@@ -43,6 +46,7 @@ const app = new Elysia()
   .use(statusPageRoutes)
   .use(agentWs)
   .use(liveWs)
+  .use(staticPlugin({ assets: uploadsDir, prefix: '/uploads' }))
   .use(staticPlugin({ assets: webDist, prefix: '/' }))
   .onError(({ code }) => {
     if (code === 'NOT_FOUND') return Bun.file(join(webDist, 'index.html'))

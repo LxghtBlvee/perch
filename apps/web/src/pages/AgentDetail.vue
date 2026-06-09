@@ -4,12 +4,14 @@ import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, Cpu, MemoryStick, HardDrive, Clock, Pencil, Trash2, Check, X } from 'lucide-vue-next'
 import { usePerchStore } from '@/stores/perch'
 import { useAuthStore } from '@/stores/auth'
+import { useConfirm } from '@/composables/useConfirm'
 import { formatBytes, formatPercent, formatUptime, formatSpeed } from '@/lib/utils'
 
 const route = useRoute()
 const router = useRouter()
 const store = usePerchStore()
 const auth = useAuthStore()
+const { confirm } = useConfirm()
 
 const entry = computed(() => store.agents.find(a => a.agent.id === route.params.id))
 const metrics = computed(() => entry.value?.metrics)
@@ -48,7 +50,8 @@ async function deleteAgent() {
   const agentId = entry.value?.agent.id
   const name = entry.value?.agent.displayName ?? entry.value?.agent.hostname
   if (!agentId) return
-  if (!confirm(`Remove agent "${name}"? If it's still running it will reconnect.`)) return
+  const ok = await confirm({ title: `Remove "${name}"?`, message: "If the agent is still running it will reconnect the next time it starts.", confirmLabel: 'Remove', danger: true })
+  if (!ok) return
   await fetch(`/api/agents/${agentId}`, {
     method: 'DELETE',
     headers: { Authorization: `Bearer ${auth.token}` },

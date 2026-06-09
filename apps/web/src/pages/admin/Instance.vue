@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { RouterLink } from 'vue-router'
+import { Eye, EyeOff, KeyRound } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
+
+const showToken = ref(false)
 
 const auth = useAuthStore()
 
@@ -109,12 +113,50 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
       </p>
     </div>
 
-    <div
-      v-if="loading"
-      class="text-sm text-muted-foreground"
-    >
-      Loading...
-    </div>
+    <!-- General -->
+    <section>
+      <h2 class="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">General</h2>
+      <div class="grid grid-cols-3 gap-4">
+        <div class="col-span-2 rounded-xl border border-border bg-card p-5 space-y-3">
+          <div>
+            <h3 class="text-sm font-medium">Hub token</h3>
+            <p class="text-xs text-muted-foreground mt-0.5">Shared secret for agent auth. Set via <code class="bg-muted px-1 py-0.5 rounded">PERCH_HUB_TOKEN</code>.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="flex-1 font-mono text-xs bg-muted px-3 py-2 rounded-lg text-muted-foreground select-all">
+              {{ showToken ? 'PERCH_HUB_TOKEN (set in environment)' : '••••••••••••••••••••••••' }}
+            </div>
+            <button class="size-9 rounded-lg border border-border flex items-center justify-center hover:bg-accent transition-colors shrink-0" @click="showToken = !showToken">
+              <Eye v-if="!showToken" class="size-4 text-muted-foreground" :stroke-width="1.75" />
+              <EyeOff v-else class="size-4 text-muted-foreground" :stroke-width="1.75" />
+            </button>
+          </div>
+        </div>
+        <div class="rounded-xl border border-border bg-card p-5 flex flex-col justify-between">
+          <div>
+            <h3 class="text-sm font-medium">Version</h3>
+            <p class="text-xs text-muted-foreground mt-0.5">Current release</p>
+          </div>
+          <p class="text-2xl font-mono font-semibold text-primary mt-4">v0.0.1</p>
+        </div>
+        <div class="col-span-3">
+          <RouterLink to="/admin/auth" class="flex items-center justify-between rounded-xl border border-border bg-card p-5 hover:bg-accent transition-colors group">
+            <div class="flex items-center gap-3">
+              <div class="size-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                <KeyRound class="size-4 text-primary" :stroke-width="1.75" />
+              </div>
+              <div>
+                <p class="text-sm font-medium">Sign-in methods</p>
+                <p class="text-xs text-muted-foreground mt-0.5">Configure GitHub, Google, Microsoft, and more</p>
+              </div>
+            </div>
+            <span class="text-xs text-muted-foreground group-hover:text-foreground transition-colors">Manage →</span>
+          </RouterLink>
+        </div>
+      </div>
+    </section>
+
+    <div v-if="loading" class="text-sm text-muted-foreground">Loading...</div>
 
     <template v-else>
       <!-- Sessions & Security -->

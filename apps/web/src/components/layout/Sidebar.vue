@@ -198,7 +198,7 @@ async function handleLogout() {
         class="flex items-center gap-2 rounded-lg px-1 py-1"
       >
         <RouterLink
-          to="/profile"
+          to="/settings"
           class="flex items-center gap-2 flex-1 min-w-0 rounded hover:bg-accent transition-colors"
         >
           <div class="size-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">

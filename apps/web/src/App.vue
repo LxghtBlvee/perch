@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import Sidebar from '@/components/layout/Sidebar.vue'
+import ToastContainer from '@/components/ToastContainer.vue'
+import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { usePerchSocket } from '@/composables/usePerchSocket'
 import { useAuthStore } from '@/stores/auth'
 import { useRoute } from 'vue-router'
@@ -31,5 +33,7 @@ usePerchSocket()
     <main class="flex-1 overflow-y-auto">
       <RouterView />
     </main>
+    <ToastContainer />
+    <ConfirmDialog />
   </div>
 </template>

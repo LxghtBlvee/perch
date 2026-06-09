@@ -1,5 +1,7 @@
 import Elysia, { t } from 'elysia'
 import { eq, and, ne, desc, inArray, isNull, or } from 'drizzle-orm'
+import { join } from 'path'
+import { mkdir } from 'fs/promises'
 import { db } from '../db'
 import { statusPages, statusPageChecks, statusPageIncidents, healthChecks, healthCheckResults } from '../db/schema'
 import { requireAdminUser, getAuthUser } from '../middleware/auth'
@@ -96,8 +98,54 @@ export const statusPageRoutes = new Elysia()
             description: t.Optional(t.Nullable(t.String())),
             logoUrl: t.Optional(t.Nullable(t.String())),
             customDomain: t.Optional(t.Nullable(t.String())),
+            themeJson: t.Optional(t.Nullable(t.String())),
         })
     })
+
+    .post('/api/admin/status-pages/:id/logo', async ({ request, set, params, body, error }) => {
+        const admin = await requireAdminUser(request, set)
+        if (!admin) return { error: set.status === 401 ? 'Unauthorized' : 'Forbidden' }
+
+        const [page] = await db.select({ id: statusPages.id }).from(statusPages).where(eq(statusPages.id, params.id)).limit(1)
+        if (!page) return error(404, { error: 'Not found' })
+
+        const file = body.file as File
+        if (!file || file.size === 0) return error(400, { error: 'No file provided' })
+        if (!file.type.startsWith('image/')) return error(400, { error: 'File must be an image' })
+        if (file.size > 2 * 1024 * 1024) return error(400, { error: 'File must be under 2 MB' })
+
+        const uploadsDir = join(process.cwd(), 'uploads')
+        await mkdir(uploadsDir, { recursive: true })
+
+        const ext = (file.name.split('.').pop() ?? 'png').toLowerCase()
+        const filename = `sp-logo-${params.id}-${Date.now()}.${ext}`
+        await Bun.write(join(uploadsDir, filename), await file.arrayBuffer())
+
+        const logoUrl = `/uploads/${filename}`
+        await db.update(statusPages).set({ logoUrl, updatedAt: new Date() }).where(eq(statusPages.id, params.id))
+
+        return { logoUrl }
+    }, {
+        params: t.Object({ id: t.String() }),
+        body: t.Object({ file: t.File() }),
+    })
+
+    .get('/api/admin/status-pages/:id/verify-domain', async ({ request, set, params, error }) => {
+        const admin = await requireAdminUser(request, set)
+        if (!admin) return { error: set.status === 401 ? 'Unauthorized' : 'Forbidden' }
+
+        const [page] = await db.select({ customDomain: statusPages.customDomain }).from(statusPages).where(eq(statusPages.id, params.id)).limit(1)
+        if (!page) return error(404, { error: 'Not found' })
+        if (!page.customDomain) return error(400, { error: 'No custom domain configured' })
+
+        try {
+            const { lookup } = await import('node:dns/promises')
+            const results = await lookup(page.customDomain, { all: true })
+            return { domain: page.customDomain, addresses: results.map((r: { address: string }) => r.address), verified: results.length > 0 }
+        } catch {
+            return { domain: page.customDomain, addresses: [], verified: false, error: 'DNS lookup failed — domain may not resolve yet' }
+        }
+    }, { params: t.Object({ id: t.String() }) })
 
     .delete('/api/admin/status-pages/:id', async ({ request, set, params, error }) => {
         const admin = await requireAdminUser(request, set)
@@ -305,7 +353,7 @@ export const statusPageRoutes = new Elysia()
         }))
 
         if (checks.length === 0) {
-            return { id: page.id, name: page.name, slug: page.slug, description: page.description, logoUrl: page.logoUrl, checks: [], incidents: activeIncidents }
+            return { id: page.id, name: page.name, slug: page.slug, description: page.description, logoUrl: page.logoUrl, themeJson: page.themeJson, checks: [], incidents: activeIncidents }
         }
 
         const checkIds = checks.map(c => c.healthCheckId)
@@ -349,5 +397,5 @@ export const statusPageRoutes = new Elysia()
             }
         })
 
-        return { id: page.id, name: page.name, slug: page.slug, description: page.description, logoUrl: page.logoUrl, checks: enrichedChecks, incidents: activeIncidents }
+        return { id: page.id, name: page.name, slug: page.slug, description: page.description, logoUrl: page.logoUrl, themeJson: page.themeJson, checks: enrichedChecks, incidents: activeIncidents }
     }, { params: t.Object({ slug: t.String() }) })

@@ -1,7 +1,7 @@
 import Elysia, { t } from 'elysia'
-import { eq, desc } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { db } from '../db'
-import { users, sessions } from '../db/schema'
+import { users } from '../db/schema'
 import { requireAdminUser } from '../middleware/auth'
 import { hashPassword, createRecoveryToken } from '../services/auth'
 
@@ -52,13 +52,6 @@ export const userRoutes = new Elysia({ prefix: '/api/users' })
         const [user] = await db.select().from(users).where(eq(users.id, params.id)).limit(1)
         if (!user) return error(404, { error: 'User not found' })
 
-        const [lastSession] = await db
-            .select({ createdAt: sessions.createdAt })
-            .from(sessions)
-            .where(eq(sessions.userId, params.id))
-            .orderBy(desc(sessions.createdAt))
-            .limit(1)
-
         return {
             id: user.id,
             email: user.email,
@@ -66,7 +59,7 @@ export const userRoutes = new Elysia({ prefix: '/api/users' })
             avatarUrl: user.avatarUrl,
             role: user.role,
             createdAt: user.createdAt.toISOString(),
-            lastLoginAt: lastSession?.createdAt.toISOString() ?? null,
+            lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
         }
     }, {
         params: t.Object({ id: t.String() }),

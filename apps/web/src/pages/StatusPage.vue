@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
@@ -9,6 +9,14 @@ const slug = route.params.slug as string
 
 type DisplayMode = 'full_history' | 'response_time' | 'current_status'
 type IncidentStatus = 'investigating' | 'identified' | 'monitoring' | 'resolved' | 'scheduled' | 'in_progress' | 'completed'
+
+interface Theme {
+  accentColor?: string
+  bgColor?: string
+  textColor?: string
+  fontFamily?: string
+  customCss?: string
+}
 
 interface CheckResult { status: string; latency: number | null; checkedAt: string }
 interface PageCheck {
@@ -37,6 +45,7 @@ interface PageData {
   slug: string
   description: string | null
   logoUrl: string | null
+  themeJson: string | null
   checks: PageCheck[]
   incidents: Incident[]
 }
@@ -70,12 +79,80 @@ const data = ref<PageData | null>(null)
 const loading = ref(true)
 const error = ref('')
 
+const FONT_FAMILY_MAP: Record<string, string> = {
+  inter: "'Inter', sans-serif",
+  'dm-sans': "'DM Sans', sans-serif",
+  geist: "'Geist', sans-serif",
+  jakarta: "'Plus Jakarta Sans', sans-serif",
+  mono: "'JetBrains Mono', monospace",
+}
+
+const FONT_GOOGLE_MAP: Record<string, string> = {
+  inter: 'Inter:wght@400;500;600;700',
+  'dm-sans': 'DM+Sans:wght@400;500;600;700',
+  geist: 'Geist:wght@400;500;600;700',
+  jakarta: 'Plus+Jakarta+Sans:wght@400;500;600;700',
+  mono: 'JetBrains+Mono:wght@400;500;600;700',
+}
+
+function applyTheme(themeStr: string | null) {
+  // Remove any previously injected theme style/font
+  document.getElementById('sp-theme')?.remove()
+  document.getElementById('sp-font')?.remove()
+
+  if (!themeStr) return
+
+  let theme: Theme
+  try { theme = JSON.parse(themeStr) } catch { return }
+
+  const vars: string[] = []
+
+  if (theme.accentColor) {
+    vars.push(`--primary: ${theme.accentColor};`)
+    vars.push(`--color-primary: ${theme.accentColor};`)
+    vars.push(`--ring: ${theme.accentColor};`)
+  }
+  if (theme.bgColor) {
+    vars.push(`--background: ${theme.bgColor};`)
+    vars.push(`--color-background: ${theme.bgColor};`)
+    vars.push(`background-color: ${theme.bgColor} !important;`)
+  }
+  if (theme.textColor) {
+    vars.push(`--foreground: ${theme.textColor};`)
+    vars.push(`--color-foreground: ${theme.textColor};`)
+    vars.push(`color: ${theme.textColor} !important;`)
+  }
+  if (theme.fontFamily && theme.fontFamily !== 'system') {
+    const ff = FONT_FAMILY_MAP[theme.fontFamily]
+    if (ff) {
+      vars.push(`font-family: ${ff} !important;`)
+      const query = FONT_GOOGLE_MAP[theme.fontFamily]
+      if (query) {
+        const link = document.createElement('link')
+        link.id = 'sp-font'
+        link.rel = 'stylesheet'
+        link.href = `https://fonts.googleapis.com/css2?family=${query}&display=swap`
+        document.head.appendChild(link)
+      }
+    }
+  }
+
+  let css = `#sp-root { ${vars.join(' ')} }\n#sp-root * { font-family: inherit; }`
+  if (theme.customCss) css += `\n${theme.customCss}`
+
+  const style = document.createElement('style')
+  style.id = 'sp-theme'
+  style.textContent = css
+  document.head.appendChild(style)
+}
+
 onMounted(async () => {
   const res = await fetch(`/api/status/${slug}`, {
     headers: auth.token ? { Authorization: `Bearer ${auth.token}` } : {},
   })
   if (res.ok) {
     data.value = await res.json() as PageData
+    applyTheme(data.value.themeJson ?? null)
   } else if (res.status === 404) {
     error.value = 'Status page not found.'
   } else if (res.status === 401) {
@@ -84,6 +161,11 @@ onMounted(async () => {
     error.value = 'Failed to load status page.'
   }
   loading.value = false
+})
+
+onUnmounted(() => {
+  document.getElementById('sp-theme')?.remove()
+  document.getElementById('sp-font')?.remove()
 })
 
 const overallStatus = computed(() => {
@@ -136,7 +218,7 @@ function buildChart(history: CheckResult[], width: number, height: number): stri
 </script>
 
 <template>
-  <div class="min-h-screen bg-background text-foreground">
+  <div id="sp-root" class="min-h-screen bg-background text-foreground">
     <!-- Header -->
     <header class="border-b border-border">
       <div class="max-w-2xl mx-auto px-6 py-5 flex items-center justify-between">

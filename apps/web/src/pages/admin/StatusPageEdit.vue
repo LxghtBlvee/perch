@@ -1,14 +1,22 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, Plus, Trash2, ChevronUp, ChevronDown, Globe, Lock, AlertTriangle, Wrench, CheckCircle2, X } from 'lucide-vue-next'
+import {
+  ArrowLeft, Plus, Trash2, ChevronUp, ChevronDown, Globe, Lock,
+  AlertTriangle, Wrench, CheckCircle2, X, Upload, RefreshCw,
+  ExternalLink, Palette, Monitor,
+} from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
+import { useToast } from '@/composables/useToast'
 
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
+const toast = useToast()
+const hostname = window.location.hostname
 const pageId = route.params.id as string
 
+// ── Types ──────────────────────────────────────────────────────────────────
 interface HealthCheck { id: string; name: string; url: string }
 type DisplayMode = 'full_history' | 'response_time' | 'current_status'
 
@@ -29,6 +37,7 @@ interface PageData {
   description: string | null
   logoUrl: string | null
   customDomain: string | null
+  themeJson: string | null
   isPublic: boolean
 }
 
@@ -46,6 +55,24 @@ interface Incident {
   updatedAt: string
 }
 
+interface Theme {
+  accentColor: string
+  bgColor: string
+  textColor: string
+  fontFamily: string
+  customCss: string
+}
+
+const FONT_OPTIONS = [
+  { value: 'system',   label: 'System default' },
+  { value: 'inter',    label: 'Inter' },
+  { value: 'dm-sans',  label: 'DM Sans' },
+  { value: 'geist',    label: 'Geist' },
+  { value: 'jakarta',  label: 'Plus Jakarta Sans' },
+  { value: 'mono',     label: 'JetBrains Mono' },
+]
+
+// ── State ──────────────────────────────────────────────────────────────────
 const page = ref<PageData | null>(null)
 const checks = ref<PageCheck[]>([])
 const incidents = ref<Incident[]>([])
@@ -54,22 +81,34 @@ const loading = ref(true)
 const saving = ref(false)
 const savingMeta = ref(false)
 const saveError = ref('')
-const savedMeta = ref(false)
 const showAddPicker = ref(false)
 
-// Incident modal state
+const theme = ref<Theme>({ accentColor: '#7dd3c0', bgColor: '', textColor: '', fontFamily: 'system', customCss: '' })
+const savingTheme = ref(false)
+const showPreview = ref(false)
+
+// Logo upload
+const logoFileInput = ref<HTMLInputElement | null>(null)
+const uploadingLogo = ref(false)
+
+// Domain verify
+const verifying = ref(false)
+const verifyResult = ref<{ addresses: string[]; verified: boolean; error?: string } | null>(null)
+
+// Incident modal
 const showIncidentModal = ref(false)
 const editingIncident = ref<Incident | null>(null)
 const incidentForm = ref({ type: 'incident' as IncidentType, title: '', body: '', status: 'investigating' as IncidentStatus, scheduledAt: '' })
 const savingIncident = ref(false)
 
+// ── Computed ───────────────────────────────────────────────────────────────
 const availableChecks = computed(() =>
   allHealthChecks.value.filter(hc => !checks.value.some(c => c.healthCheckId === hc.id))
 )
-
 const activeIncidents = computed(() => incidents.value.filter(i => i.status !== 'resolved' && i.status !== 'completed'))
 const resolvedIncidents = computed(() => incidents.value.filter(i => i.status === 'resolved' || i.status === 'completed'))
 
+// ── Lifecycle ──────────────────────────────────────────────────────────────
 onMounted(async () => {
   const [pageRes, allChecksRes, incidentsRes] = await Promise.all([
     fetch(`/api/admin/status-pages/${pageId}`, { headers: { Authorization: `Bearer ${auth.token}` } }),
@@ -81,30 +120,25 @@ onMounted(async () => {
     const data = await pageRes.json() as PageData & { checks: Array<PageCheck & { checkName: string; checkUrl: string }> }
     page.value = {
       id: data.id, slug: data.slug, name: data.name, isPublic: data.isPublic,
-      description: data.description ?? null, logoUrl: data.logoUrl ?? null, customDomain: data.customDomain ?? null,
+      description: data.description ?? null, logoUrl: data.logoUrl ?? null,
+      customDomain: data.customDomain ?? null, themeJson: data.themeJson ?? null,
     }
     checks.value = data.checks.map(c => ({
-      id: c.id,
-      healthCheckId: c.healthCheckId,
-      checkName: c.checkName,
-      checkUrl: c.checkUrl,
-      displayName: c.displayName ?? '',
-      displayMode: c.displayMode,
-      showUrl: c.showUrl,
+      id: c.id, healthCheckId: c.healthCheckId, checkName: c.checkName,
+      checkUrl: c.checkUrl, displayName: c.displayName ?? '', displayMode: c.displayMode, showUrl: c.showUrl,
     }))
+    if (data.themeJson) {
+      try { Object.assign(theme.value, JSON.parse(data.themeJson)) } catch {}
+    }
   }
 
-  if (allChecksRes.ok) {
-    allHealthChecks.value = await allChecksRes.json() as HealthCheck[]
-  }
-
-  if (incidentsRes.ok) {
-    incidents.value = await incidentsRes.json() as Incident[]
-  }
+  if (allChecksRes.ok) allHealthChecks.value = await allChecksRes.json() as HealthCheck[]
+  if (incidentsRes.ok) incidents.value = await incidentsRes.json() as Incident[]
 
   loading.value = false
 })
 
+// ── Meta save ─────────────────────────────────────────────────────────────
 async function saveMeta() {
   if (!page.value) return
   savingMeta.value = true
@@ -116,17 +150,71 @@ async function saveMeta() {
       slug: page.value.slug,
       isPublic: page.value.isPublic,
       description: page.value.description || null,
-      logoUrl: page.value.logoUrl || null,
       customDomain: page.value.customDomain || null,
     }),
   })
   savingMeta.value = false
-  if (res.ok) {
-    savedMeta.value = true
-    setTimeout(() => { savedMeta.value = false }, 2000)
+  if (res.ok) { toast.success('Settings saved') }
+  else {
+    const d = await res.json() as { error?: string }
+    toast.error(d.error ?? 'Failed to save settings')
   }
 }
 
+// ── Logo upload ────────────────────────────────────────────────────────────
+async function onLogoSelected(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file || !page.value) return
+  uploadingLogo.value = true
+  const form = new FormData()
+  form.append('file', file)
+  const res = await fetch(`/api/admin/status-pages/${pageId}/logo`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${auth.token}` },
+    body: form,
+  })
+  uploadingLogo.value = false
+  if (res.ok) {
+    const { logoUrl } = await res.json() as { logoUrl: string }
+    page.value.logoUrl = logoUrl
+    toast.success('Logo uploaded')
+  } else {
+    const d = await res.json() as { error?: string }
+    toast.error(d.error ?? 'Failed to upload logo')
+  }
+  if (logoFileInput.value) logoFileInput.value.value = ''
+}
+
+// ── Domain verify ──────────────────────────────────────────────────────────
+async function verifyDomain() {
+  verifying.value = true
+  verifyResult.value = null
+  const res = await fetch(`/api/admin/status-pages/${pageId}/verify-domain`, {
+    headers: { Authorization: `Bearer ${auth.token}` },
+  })
+  const data = await res.json() as { addresses: string[]; verified: boolean; error?: string }
+  verifyResult.value = data
+  verifying.value = false
+  if (data.verified) toast.success('DNS verified — domain resolves correctly')
+  else toast.warning(data.error ?? 'Domain does not resolve yet')
+}
+
+// ── Theme save ─────────────────────────────────────────────────────────────
+async function saveTheme() {
+  if (!page.value) return
+  savingTheme.value = true
+  const themeJson = JSON.stringify(theme.value)
+  const res = await fetch(`/api/admin/status-pages/${pageId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
+    body: JSON.stringify({ themeJson }),
+  })
+  savingTheme.value = false
+  if (res.ok) { if (page.value) page.value.themeJson = themeJson; toast.success('Theme saved') }
+  else toast.error('Failed to save theme')
+}
+
+// ── Checks ─────────────────────────────────────────────────────────────────
 async function saveChecks() {
   saving.value = true
   saveError.value = ''
@@ -135,10 +223,8 @@ async function saveChecks() {
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
     body: JSON.stringify({
       checks: checks.value.map(c => ({
-        healthCheckId: c.healthCheckId,
-        displayName: c.displayName || undefined,
-        displayMode: c.displayMode,
-        showUrl: c.showUrl,
+        healthCheckId: c.healthCheckId, displayName: c.displayName || undefined,
+        displayMode: c.displayMode, showUrl: c.showUrl,
       }))
     }),
   })
@@ -146,40 +232,20 @@ async function saveChecks() {
   if (!res.ok) {
     const data = await res.json() as { error?: string }
     saveError.value = data.error ?? 'Save failed'
+    toast.error(data.error ?? 'Failed to save checks')
   }
 }
 
 function addCheck(hc: HealthCheck) {
-  checks.value.push({
-    healthCheckId: hc.id,
-    checkName: hc.name,
-    checkUrl: hc.url,
-    displayName: '',
-    displayMode: 'full_history',
-    showUrl: false,
-  })
+  checks.value.push({ healthCheckId: hc.id, checkName: hc.name, checkUrl: hc.url, displayName: '', displayMode: 'full_history', showUrl: false })
   showAddPicker.value = false
   saveChecks()
 }
+function removeCheck(i: number) { checks.value.splice(i, 1); saveChecks() }
+function moveUp(i: number) { if (i === 0) return; [checks.value[i - 1], checks.value[i]] = [checks.value[i], checks.value[i - 1]]; saveChecks() }
+function moveDown(i: number) { if (i === checks.value.length - 1) return; [checks.value[i], checks.value[i + 1]] = [checks.value[i + 1], checks.value[i]]; saveChecks() }
 
-function removeCheck(i: number) {
-  checks.value.splice(i, 1)
-  saveChecks()
-}
-
-function moveUp(i: number) {
-  if (i === 0) return
-  ;[checks.value[i - 1], checks.value[i]] = [checks.value[i], checks.value[i - 1]]
-  saveChecks()
-}
-
-function moveDown(i: number) {
-  if (i === checks.value.length - 1) return
-  ;[checks.value[i], checks.value[i + 1]] = [checks.value[i + 1], checks.value[i]]
-  saveChecks()
-}
-
-// Incidents
+// ── Incidents ──────────────────────────────────────────────────────────────
 function openNewIncident() {
   editingIncident.value = null
   incidentForm.value = { type: 'incident', title: '', body: '', status: 'investigating', scheduledAt: '' }
@@ -188,50 +254,30 @@ function openNewIncident() {
 
 function openEditIncident(incident: Incident) {
   editingIncident.value = incident
-  incidentForm.value = {
-    type: incident.type,
-    title: incident.title,
-    body: incident.body,
-    status: incident.status,
-    scheduledAt: incident.scheduledAt ? incident.scheduledAt.slice(0, 16) : '',
-  }
+  incidentForm.value = { type: incident.type, title: incident.title, body: incident.body, status: incident.status, scheduledAt: incident.scheduledAt ? incident.scheduledAt.slice(0, 16) : '' }
   showIncidentModal.value = true
 }
 
 async function saveIncident() {
   savingIncident.value = true
-  const payload = {
-    type: incidentForm.value.type,
-    title: incidentForm.value.title,
-    body: incidentForm.value.body,
-    status: incidentForm.value.status,
-    scheduledAt: incidentForm.value.scheduledAt || null,
-  }
-
-  let res: Response
-  if (editingIncident.value) {
-    res = await fetch(`/api/admin/status-pages/${pageId}/incidents/${editingIncident.value.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
-      body: JSON.stringify(payload),
-    })
-  } else {
-    res = await fetch(`/api/admin/status-pages/${pageId}/incidents`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
-      body: JSON.stringify(payload),
-    })
-  }
+  const payload = { type: incidentForm.value.type, title: incidentForm.value.title, body: incidentForm.value.body, status: incidentForm.value.status, scheduledAt: incidentForm.value.scheduledAt || null }
+  const res = editingIncident.value
+    ? await fetch(`/api/admin/status-pages/${pageId}/incidents/${editingIncident.value.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` }, body: JSON.stringify(payload) })
+    : await fetch(`/api/admin/status-pages/${pageId}/incidents`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` }, body: JSON.stringify(payload) })
 
   if (res.ok) {
     const updated = await res.json() as Incident
     if (editingIncident.value) {
       const idx = incidents.value.findIndex(i => i.id === updated.id)
       if (idx !== -1) incidents.value[idx] = updated
+      toast.success('Incident updated')
     } else {
       incidents.value.unshift(updated)
+      toast.success('Incident created')
     }
     showIncidentModal.value = false
+  } else {
+    toast.error('Failed to save incident')
   }
   savingIncident.value = false
 }
@@ -239,77 +285,59 @@ async function saveIncident() {
 async function resolveIncident(incident: Incident) {
   const resolveStatus = incident.type === 'maintenance' ? 'completed' : 'resolved'
   const res = await fetch(`/api/admin/status-pages/${pageId}/incidents/${incident.id}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
+    method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
     body: JSON.stringify({ status: resolveStatus }),
   })
   if (res.ok) {
     const updated = await res.json() as Incident
     const idx = incidents.value.findIndex(i => i.id === incident.id)
     if (idx !== -1) incidents.value[idx] = updated
-  }
+    toast.success(incident.type === 'maintenance' ? 'Marked as completed' : 'Incident resolved')
+  } else toast.error('Failed to resolve incident')
 }
 
 async function deleteIncident(incident: Incident) {
-  const res = await fetch(`/api/admin/status-pages/${pageId}/incidents/${incident.id}`, {
-    method: 'DELETE',
-    headers: { Authorization: `Bearer ${auth.token}` },
-  })
-  if (res.ok) {
-    incidents.value = incidents.value.filter(i => i.id !== incident.id)
-  }
+  const res = await fetch(`/api/admin/status-pages/${pageId}/incidents/${incident.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${auth.token}` } })
+  if (res.ok) { incidents.value = incidents.value.filter(i => i.id !== incident.id); toast.success('Incident deleted') }
+  else toast.error('Failed to delete incident')
 }
 
+// ── Lookups ────────────────────────────────────────────────────────────────
 const INCIDENT_STATUSES: { value: IncidentStatus; label: string }[] = [
-  { value: 'investigating', label: 'Investigating' },
-  { value: 'identified', label: 'Identified' },
-  { value: 'monitoring', label: 'Monitoring' },
-  { value: 'resolved', label: 'Resolved' },
+  { value: 'investigating', label: 'Investigating' }, { value: 'identified', label: 'Identified' },
+  { value: 'monitoring', label: 'Monitoring' }, { value: 'resolved', label: 'Resolved' },
 ]
-
 const MAINTENANCE_STATUSES: { value: IncidentStatus; label: string }[] = [
-  { value: 'scheduled', label: 'Scheduled' },
-  { value: 'in_progress', label: 'In Progress' },
-  { value: 'completed', label: 'Completed' },
+  { value: 'scheduled', label: 'Scheduled' }, { value: 'in_progress', label: 'In Progress' }, { value: 'completed', label: 'Completed' },
 ]
-
 const STATUS_COLORS: Record<IncidentStatus, string> = {
-  investigating: 'text-red-500 bg-red-500/10',
-  identified: 'text-amber-500 bg-amber-500/10',
-  monitoring: 'text-blue-500 bg-blue-500/10',
-  resolved: 'text-green-500 bg-green-500/10',
-  scheduled: 'text-sky-500 bg-sky-500/10',
-  in_progress: 'text-amber-500 bg-amber-500/10',
-  completed: 'text-green-500 bg-green-500/10',
+  investigating: 'text-red-500 bg-red-500/10', identified: 'text-amber-500 bg-amber-500/10',
+  monitoring: 'text-blue-500 bg-blue-500/10', resolved: 'text-green-500 bg-green-500/10',
+  scheduled: 'text-sky-500 bg-sky-500/10', in_progress: 'text-amber-500 bg-amber-500/10', completed: 'text-green-500 bg-green-500/10',
 }
-
 const DISPLAY_MODES: { value: DisplayMode; label: string; desc: string }[] = [
   { value: 'full_history', label: 'Full history', desc: '90-day uptime bars + %' },
   { value: 'response_time', label: 'Response time', desc: 'Latency graph' },
   { value: 'current_status', label: 'Current only', desc: 'Just a status dot' },
 ]
-
 const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50'
 </script>
 
 <template>
   <div class="p-6 max-w-3xl space-y-6">
+    <!-- Header -->
     <div class="flex items-center gap-3">
-      <button
-        class="size-8 rounded-lg border border-border flex items-center justify-center hover:bg-accent transition-colors"
-        @click="router.push('/admin/status-pages')"
-      >
+      <button class="size-8 rounded-lg border border-border flex items-center justify-center hover:bg-accent transition-colors" @click="router.push('/admin/status-pages')">
         <ArrowLeft class="size-4 text-muted-foreground" :stroke-width="1.75" />
       </button>
-      <h1 class="text-2xl font-semibold tracking-tight">
-        {{ page?.name ?? 'Edit Status Page' }}
-      </h1>
+      <h1 class="text-2xl font-semibold tracking-tight">{{ page?.name ?? 'Edit Status Page' }}</h1>
     </div>
 
     <div v-if="loading" class="text-sm text-muted-foreground">Loading...</div>
 
     <template v-else-if="page">
-      <!-- Page settings card -->
+
+      <!-- ── Page settings ── -->
       <div class="rounded-xl border border-border bg-card p-5 space-y-4">
         <h2 class="text-sm font-medium">Page settings</h2>
         <div class="grid grid-cols-2 gap-4">
@@ -328,13 +356,61 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
             <label class="text-xs text-muted-foreground">Description <span class="text-muted-foreground/50">(shown on public page)</span></label>
             <input v-model="page.description" type="text" placeholder="Brief description of your services" :class="INPUT">
           </div>
-          <div class="space-y-1">
-            <label class="text-xs text-muted-foreground">Logo URL <span class="text-muted-foreground/50">(optional)</span></label>
-            <input v-model="page.logoUrl" type="url" placeholder="https://..." :class="INPUT">
+        </div>
+
+        <!-- Logo -->
+        <div class="space-y-2">
+          <label class="text-xs text-muted-foreground">Logo</label>
+          <div class="flex items-center gap-3">
+            <div class="size-12 rounded-lg border border-border bg-muted flex items-center justify-center overflow-hidden shrink-0">
+              <img v-if="page.logoUrl" :src="page.logoUrl" alt="Logo" class="size-full object-contain p-1">
+              <Globe v-else class="size-5 text-muted-foreground/40" :stroke-width="1.5" />
+            </div>
+            <div class="space-y-1">
+              <button
+                class="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border text-xs font-medium hover:bg-accent transition-colors disabled:opacity-50"
+                :disabled="uploadingLogo"
+                @click="logoFileInput?.click()"
+              >
+                <Upload v-if="!uploadingLogo" class="size-3.5" :stroke-width="1.75" />
+                <RefreshCw v-else class="size-3.5 animate-spin" :stroke-width="1.75" />
+                {{ uploadingLogo ? 'Uploading...' : page.logoUrl ? 'Replace logo' : 'Upload logo' }}
+              </button>
+              <p class="text-xs text-muted-foreground/60">PNG, JPG, SVG · max 2 MB</p>
+            </div>
+            <input ref="logoFileInput" type="file" accept="image/*" class="hidden" @change="onLogoSelected">
           </div>
-          <div class="space-y-1">
-            <label class="text-xs text-muted-foreground">Custom domain <span class="text-muted-foreground/50">(optional)</span></label>
+        </div>
+
+        <!-- Custom domain -->
+        <div class="space-y-2">
+          <label class="text-xs text-muted-foreground">Custom domain <span class="text-muted-foreground/50">(optional)</span></label>
+          <div class="flex items-center gap-2">
             <input v-model="page.customDomain" type="text" placeholder="status.example.com" :class="INPUT">
+            <button
+              v-if="page.customDomain"
+              class="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-xs font-medium hover:bg-accent transition-colors disabled:opacity-50"
+              :disabled="verifying"
+              @click="verifyDomain"
+            >
+              <RefreshCw v-if="verifying" class="size-3 animate-spin" :stroke-width="1.75" />
+              {{ verifying ? 'Checking...' : 'Verify DNS' }}
+            </button>
+          </div>
+
+          <!-- DNS instructions -->
+          <div v-if="page.customDomain" class="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+            <p class="text-xs font-medium">DNS record required</p>
+            <div class="grid grid-cols-3 gap-2 text-xs">
+              <div><span class="text-muted-foreground">Type</span><p class="font-mono mt-0.5">CNAME</p></div>
+              <div><span class="text-muted-foreground">Name</span><p class="font-mono mt-0.5">{{ page.customDomain.split('.').slice(0, -2).join('.') || '@' }}</p></div>
+              <div><span class="text-muted-foreground">Value</span><p class="font-mono mt-0.5 truncate">{{ hostname }}</p></div>
+            </div>
+            <div v-if="verifyResult" class="flex items-center gap-2 mt-1">
+              <span v-if="verifyResult.verified" class="text-xs text-green-500 font-medium">✓ DNS verified</span>
+              <span v-else class="text-xs text-amber-500">{{ verifyResult.error ?? 'Not resolved yet' }}</span>
+              <span v-if="verifyResult.addresses.length" class="text-xs text-muted-foreground">→ {{ verifyResult.addresses.join(', ') }}</span>
+            </div>
           </div>
         </div>
 
@@ -343,44 +419,100 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
             <component :is="page.isPublic ? Globe : Lock" class="size-4 text-muted-foreground" :stroke-width="1.75" />
             <span>{{ page.isPublic ? 'Public — anyone with the link can view' : 'Private — requires sign-in' }}</span>
           </div>
-          <button
-            class="relative shrink-0 w-9 h-5 rounded-full transition-colors"
-            :class="page.isPublic ? 'bg-primary' : 'bg-muted'"
-            @click="page.isPublic = !page.isPublic"
-          >
+          <button class="relative shrink-0 w-9 h-5 rounded-full transition-colors" :class="page.isPublic ? 'bg-primary' : 'bg-muted'" @click="page.isPublic = !page.isPublic">
             <div :class="['absolute top-0.5 size-4 rounded-full bg-white shadow transition-transform', page.isPublic ? 'translate-x-4' : 'translate-x-0.5']" />
           </button>
         </div>
 
         <div class="flex items-center gap-2 pt-1">
-          <button
-            :disabled="savingMeta"
-            class="px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
-            :class="savedMeta ? 'bg-green-500/10 text-green-500' : 'bg-primary/10 text-primary hover:bg-primary/20'"
-            @click="saveMeta"
-          >
-            {{ savingMeta ? 'Saving...' : savedMeta ? 'Saved!' : 'Save' }}
+          <button :disabled="savingMeta" class="px-4 py-2 rounded-lg bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 transition-colors disabled:opacity-50" @click="saveMeta">
+            {{ savingMeta ? 'Saving...' : 'Save' }}
           </button>
-          <a :href="`/status/${page.slug}`" target="_blank" class="text-xs text-muted-foreground hover:text-foreground transition-colors">
-            Preview →
+          <a :href="`/status/${page.slug}`" target="_blank" class="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+            Preview <ExternalLink class="size-3" :stroke-width="1.75" />
           </a>
+          <button class="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors ml-auto" @click="showPreview = !showPreview">
+            <Monitor class="size-3.5" :stroke-width="1.75" />
+            {{ showPreview ? 'Hide preview' : 'Inline preview' }}
+          </button>
         </div>
       </div>
 
-      <!-- Incidents & Maintenance -->
+      <!-- ── Inline preview ── -->
+      <div v-if="showPreview" class="rounded-xl border border-border overflow-hidden">
+        <div class="flex items-center gap-2 px-4 py-2 bg-muted/30 border-b border-border">
+          <div class="flex gap-1.5">
+            <div class="size-2.5 rounded-full bg-red-400/60" />
+            <div class="size-2.5 rounded-full bg-amber-400/60" />
+            <div class="size-2.5 rounded-full bg-green-400/60" />
+          </div>
+          <span class="text-xs text-muted-foreground font-mono flex-1 text-center">/status/{{ page.slug }}</span>
+        </div>
+        <iframe :src="`/status/${page.slug}`" class="w-full h-96 border-0" title="Status page preview" />
+      </div>
+
+      <!-- ── Design ── -->
+      <div class="rounded-xl border border-border bg-card p-5 space-y-5">
+        <div class="flex items-center gap-2">
+          <Palette class="size-4 text-muted-foreground" :stroke-width="1.75" />
+          <h2 class="text-sm font-medium">Design</h2>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div class="space-y-1.5">
+            <label class="text-xs text-muted-foreground">Accent color</label>
+            <div class="flex items-center gap-2">
+              <input type="color" v-model="theme.accentColor" class="size-8 rounded-lg border border-border cursor-pointer bg-transparent p-0.5">
+              <input v-model="theme.accentColor" type="text" placeholder="#7dd3c0" class="flex-1 px-2 py-1.5 rounded-lg border border-border bg-background text-xs font-mono focus:outline-none focus:ring-2 focus:ring-primary/50">
+            </div>
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs text-muted-foreground">Background color <span class="text-muted-foreground/50">(leave blank for default)</span></label>
+            <div class="flex items-center gap-2">
+              <input type="color" v-model="theme.bgColor" class="size-8 rounded-lg border border-border cursor-pointer bg-transparent p-0.5">
+              <input v-model="theme.bgColor" type="text" placeholder="#0f1117" class="flex-1 px-2 py-1.5 rounded-lg border border-border bg-background text-xs font-mono focus:outline-none focus:ring-2 focus:ring-primary/50">
+            </div>
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs text-muted-foreground">Text color <span class="text-muted-foreground/50">(leave blank for default)</span></label>
+            <div class="flex items-center gap-2">
+              <input type="color" v-model="theme.textColor" class="size-8 rounded-lg border border-border cursor-pointer bg-transparent p-0.5">
+              <input v-model="theme.textColor" type="text" placeholder="#f1f5f9" class="flex-1 px-2 py-1.5 rounded-lg border border-border bg-background text-xs font-mono focus:outline-none focus:ring-2 focus:ring-primary/50">
+            </div>
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs text-muted-foreground">Font</label>
+            <select v-model="theme.fontFamily" class="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+              <option v-for="f in FONT_OPTIONS" :key="f.value" :value="f.value">{{ f.label }}</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="space-y-1.5">
+          <label class="text-xs text-muted-foreground">Custom CSS <span class="text-muted-foreground/50">(applied to #sp-root)</span></label>
+          <textarea
+            v-model="theme.customCss"
+            rows="4"
+            placeholder="/* e.g. .rounded-xl { border-radius: 0.25rem; } */"
+            class="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs font-mono placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+          />
+        </div>
+
+        <button :disabled="savingTheme" class="px-4 py-2 rounded-lg bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 transition-colors disabled:opacity-50" @click="saveTheme">
+          {{ savingTheme ? 'Saving...' : 'Save design' }}
+        </button>
+      </div>
+
+      <!-- ── Incidents & Maintenance ── -->
       <div class="space-y-3">
         <div class="flex items-center justify-between">
           <h2 class="text-sm font-medium">Incidents & Maintenance</h2>
-          <button
-            class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-medium hover:bg-accent transition-colors"
-            @click="openNewIncident"
-          >
+          <button class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-medium hover:bg-accent transition-colors" @click="openNewIncident">
             <Plus class="size-3.5" :stroke-width="1.75" />
             New
           </button>
         </div>
 
-        <!-- Active incidents -->
         <div v-if="activeIncidents.length === 0 && resolvedIncidents.length === 0" class="rounded-xl border border-dashed border-border p-6 text-center">
           <p class="text-sm text-muted-foreground">No incidents or maintenance windows. Nice.</p>
         </div>
@@ -390,21 +522,17 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
             <div class="flex items-center gap-2 min-w-0">
               <component :is="incident.type === 'maintenance' ? Wrench : AlertTriangle" class="size-4 shrink-0 text-muted-foreground" :stroke-width="1.75" />
               <span class="text-sm font-medium truncate">{{ incident.title }}</span>
-              <span :class="['text-xs font-medium px-1.5 py-0.5 rounded-md shrink-0', STATUS_COLORS[incident.status]]">
-                {{ incident.status.replace('_', ' ') }}
-              </span>
+              <span :class="['text-xs font-medium px-1.5 py-0.5 rounded-md shrink-0', STATUS_COLORS[incident.status]]">{{ incident.status.replace('_', ' ') }}</span>
             </div>
             <div class="flex items-center gap-1 shrink-0">
-              <button
-                class="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-green-500 hover:bg-green-500/10 transition-colors"
-                @click="resolveIncident(incident)"
-              >
+              <button class="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-green-500 hover:bg-green-500/10 transition-colors" @click="resolveIncident(incident)">
                 <CheckCircle2 class="size-3.5" :stroke-width="1.75" />
                 {{ incident.type === 'maintenance' ? 'Complete' : 'Resolve' }}
               </button>
               <button class="size-7 rounded-lg flex items-center justify-center hover:bg-accent transition-colors" @click="openEditIncident(incident)">
                 <svg class="size-3.5 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                 </svg>
               </button>
               <button class="size-7 rounded-lg flex items-center justify-center hover:bg-accent transition-colors" @click="deleteIncident(incident)">
@@ -416,7 +544,6 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
           <p v-if="incident.scheduledAt" class="text-xs text-muted-foreground pl-6">Scheduled: {{ new Date(incident.scheduledAt).toLocaleString() }}</p>
         </div>
 
-        <!-- Resolved/completed (collapsed list) -->
         <details v-if="resolvedIncidents.length > 0" class="rounded-xl border border-border overflow-hidden">
           <summary class="px-4 py-3 text-xs text-muted-foreground cursor-pointer hover:bg-accent transition-colors select-none">
             {{ resolvedIncidents.length }} resolved / completed
@@ -426,9 +553,7 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
               <div class="flex items-center gap-2 min-w-0">
                 <component :is="incident.type === 'maintenance' ? Wrench : AlertTriangle" class="size-3.5 shrink-0 text-muted-foreground/50" :stroke-width="1.75" />
                 <span class="text-xs text-muted-foreground truncate">{{ incident.title }}</span>
-                <span :class="['text-xs font-medium px-1.5 py-0.5 rounded-md shrink-0', STATUS_COLORS[incident.status]]">
-                  {{ incident.status }}
-                </span>
+                <span :class="['text-xs font-medium px-1.5 py-0.5 rounded-md shrink-0', STATUS_COLORS[incident.status]]">{{ incident.status }}</span>
               </div>
               <button class="size-6 rounded-lg flex items-center justify-center hover:bg-accent transition-colors shrink-0" @click="deleteIncident(incident)">
                 <Trash2 class="size-3 text-muted-foreground" :stroke-width="1.75" />
@@ -438,15 +563,11 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
         </details>
       </div>
 
-      <!-- Checks section -->
+      <!-- ── Checks ── -->
       <div class="space-y-3">
         <div class="flex items-center justify-between">
           <h2 class="text-sm font-medium">Checks <span class="text-muted-foreground font-normal">({{ checks.length }})</span></h2>
-          <button
-            v-if="availableChecks.length > 0"
-            class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-medium hover:bg-accent transition-colors"
-            @click="showAddPicker = !showAddPicker"
-          >
+          <button v-if="availableChecks.length > 0" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-medium hover:bg-accent transition-colors" @click="showAddPicker = !showAddPicker">
             <Plus class="size-3.5" :stroke-width="1.75" />
             Add check
           </button>
@@ -454,12 +575,7 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
 
         <div v-if="showAddPicker" class="rounded-xl border border-border bg-card p-4 space-y-2">
           <p class="text-xs text-muted-foreground mb-2">Select a health check to add:</p>
-          <button
-            v-for="hc in availableChecks"
-            :key="hc.id"
-            class="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-accent transition-colors text-left"
-            @click="addCheck(hc)"
-          >
+          <button v-for="hc in availableChecks" :key="hc.id" class="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-accent transition-colors text-left" @click="addCheck(hc)">
             <span class="text-sm font-medium">{{ hc.name }}</span>
             <span class="text-xs text-muted-foreground font-mono truncate max-w-48">{{ hc.url }}</span>
           </button>
@@ -468,7 +584,7 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
         <p v-if="saveError" class="text-xs text-red-500">{{ saveError }}</p>
 
         <div v-if="checks.length === 0" class="rounded-xl border border-dashed border-border p-8 text-center">
-          <p class="text-sm text-muted-foreground">No checks added yet. Add some health checks to display on this page.</p>
+          <p class="text-sm text-muted-foreground">No checks added yet.</p>
         </div>
 
         <div v-for="(check, i) in checks" :key="check.healthCheckId" class="rounded-xl border border-border bg-card p-5 space-y-4">
@@ -481,7 +597,6 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
                 <ChevronDown class="size-3.5 text-muted-foreground" :stroke-width="2" />
               </button>
             </div>
-
             <div class="flex-1 space-y-3">
               <div class="flex items-center justify-between">
                 <div>
@@ -492,7 +607,6 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
                   <Trash2 class="size-3.5 text-muted-foreground" :stroke-width="1.75" />
                 </button>
               </div>
-
               <div class="grid grid-cols-2 gap-3">
                 <div class="space-y-1">
                   <label class="text-xs text-muted-foreground">Display name <span class="text-muted-foreground/50">(optional)</span></label>
@@ -505,13 +619,8 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
                   </select>
                 </div>
               </div>
-
               <div class="flex items-center gap-2">
-                <button
-                  class="relative shrink-0 w-8 h-4 rounded-full transition-colors"
-                  :class="check.showUrl ? 'bg-primary' : 'bg-muted'"
-                  @click="check.showUrl = !check.showUrl; saveChecks()"
-                >
+                <button class="relative shrink-0 w-8 h-4 rounded-full transition-colors" :class="check.showUrl ? 'bg-primary' : 'bg-muted'" @click="check.showUrl = !check.showUrl; saveChecks()">
                   <div :class="['absolute top-0.5 size-3 rounded-full bg-white shadow transition-transform', check.showUrl ? 'translate-x-4' : 'translate-x-0.5']" />
                 </button>
                 <span class="text-xs text-muted-foreground">Show URL on status page</span>
@@ -520,10 +629,11 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
           </div>
         </div>
       </div>
+
     </template>
   </div>
 
-  <!-- Incident modal -->
+  <!-- ── Incident modal ── -->
   <Teleport to="body">
     <div v-if="showIncidentModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div class="absolute inset-0 bg-black/50" @click="showIncidentModal = false" />
@@ -535,7 +645,6 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
           </button>
         </div>
 
-        <!-- Type toggle (only on new) -->
         <div v-if="!editingIncident" class="flex gap-2">
           <button
             v-for="t in [{ value: 'incident', label: 'Incident', icon: AlertTriangle }, { value: 'maintenance', label: 'Maintenance', icon: Wrench }]"
@@ -574,11 +683,7 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
 
         <div class="flex justify-end gap-2 pt-1">
           <button class="px-4 py-2 rounded-lg border border-border text-sm hover:bg-accent transition-colors" @click="showIncidentModal = false">Cancel</button>
-          <button
-            :disabled="!incidentForm.title || savingIncident"
-            class="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
-            @click="saveIncident"
-          >
+          <button :disabled="!incidentForm.title || savingIncident" class="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50" @click="saveIncident">
             {{ savingIncident ? 'Saving...' : editingIncident ? 'Update' : 'Create' }}
           </button>
         </div>

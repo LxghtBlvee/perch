@@ -1,5 +1,6 @@
 services:
   hub:
+    image: lxghtblvee/perch-hub:latest
     build:
       context: .
       dockerfile: apps/hub/Dockerfile
@@ -16,12 +17,15 @@ services:
       PERCH_ADMIN_EMAIL: ${PERCH_ADMIN_EMAIL:-}
       PERCH_ADMIN_PASSWORD: ${PERCH_ADMIN_PASSWORD:-}
       PERCH_SESSION_DAYS: ${PERCH_SESSION_DAYS:-30}
+    volumes:
+      - hub-uploads:/app/apps/hub/uploads
     depends_on:
       db:
         condition: service_healthy
     restart: unless-stopped
 
   agent:
+    image: lxghtblvee/perch-agent:latest
     build:
       context: .
       dockerfile: apps/agent/Dockerfile
@@ -55,3 +59,4 @@ services:
 volumes:
   db-data:
   agent-data:
+  hub-uploads:
