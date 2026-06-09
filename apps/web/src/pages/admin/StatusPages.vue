@@ -72,11 +72,11 @@ async function createPage() {
     } else {
       const text = await res.text()
       let msg = 'Failed to create status page'
-      try { msg = (JSON.parse(text) as { error?: string }).error ?? msg } catch (_e) {}
+      try { msg = (JSON.parse(text) as { error?: string }).error ?? msg } catch { /* ignore invalid JSON */ }
       createError.value = msg
       toast.error(msg)
     }
-  } catch (_e) {
+  } catch {
     creating.value = false
     createError.value = 'Network error — please try again'
     toast.error('Network error — please try again')
