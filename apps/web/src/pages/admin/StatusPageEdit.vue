@@ -189,14 +189,19 @@ async function onLogoSelected(e: Event) {
 async function verifyDomain() {
   verifying.value = true
   verifyResult.value = null
-  const res = await fetch(`/api/admin/status-pages/${pageId}/verify-domain`, {
-    headers: { Authorization: `Bearer ${auth.token}` },
-  })
-  const data = await res.json() as { addresses: string[]; verified: boolean; error?: string }
-  verifyResult.value = data
-  verifying.value = false
-  if (data.verified) toast.success('DNS verified — domain resolves correctly')
-  else toast.warning(data.error ?? 'Domain does not resolve yet')
+  try {
+    const res = await fetch(`/api/admin/status-pages/${pageId}/verify-domain`, {
+      headers: { Authorization: `Bearer ${auth.token}` },
+    })
+    const data = await res.json() as { addresses: string[]; verified: boolean; error?: string }
+    verifyResult.value = data
+    if (data.verified) toast.success('DNS verified — domain resolves correctly')
+    else toast.warning(data.error ?? 'Domain does not resolve yet')
+  } catch {
+    toast.error('Verification request failed — please try again')
+  } finally {
+    verifying.value = false
+  }
 }
 
 // ── Theme save ─────────────────────────────────────────────────────────────
@@ -364,13 +369,20 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
             >
           </div>
           <div class="space-y-1">
-            <label class="text-xs text-muted-foreground">Slug</label>
+            <label class="text-xs text-muted-foreground">
+              Slug
+              <span
+                v-if="page.customDomain"
+                class="text-muted-foreground/50 ml-1"
+              >(overridden by custom domain)</span>
+            </label>
             <div class="flex items-center gap-2">
               <span class="text-xs text-muted-foreground shrink-0">/status/</span>
               <input
                 v-model="page.slug"
                 type="text"
                 :class="INPUT"
+                :disabled="!!page.customDomain"
               >
             </div>
           </div>
@@ -531,7 +543,7 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
             {{ savingMeta ? 'Saving...' : 'Save' }}
           </button>
           <a
-            :href="`/status/${page.slug}`"
+            :href="page.customDomain ? `https://${page.customDomain}` : `/status/${page.slug}`"
             target="_blank"
             class="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
           >

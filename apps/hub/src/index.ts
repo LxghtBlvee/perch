@@ -4,7 +4,10 @@ import { swagger } from '@elysiajs/swagger'
 import { staticPlugin } from '@elysiajs/static'
 import { join } from 'path'
 import { mkdir } from 'fs/promises'
+import { eq } from 'drizzle-orm'
 import { env } from './config/env.validation'
+import { db } from './db'
+import { statusPages } from './db/schema'
 import { statusRoutes } from './routes/status'
 import { agentRoutes } from './routes/agents'
 import { containerRoutes } from './routes/containers'
@@ -47,6 +50,20 @@ const app = new Elysia()
   .use(agentWs)
   .use(liveWs)
   .use(staticPlugin({ assets: uploadsDir, prefix: '/uploads' }))
+  // Custom domain: redirect root of a custom domain to its status page slug
+  .get('/', async ({ request, set }) => {
+    const host = request.headers.get('host')?.split(':')[0] ?? ''
+    const [page] = await db.select({ slug: statusPages.slug })
+      .from(statusPages)
+      .where(eq(statusPages.customDomain, host))
+      .limit(1)
+    if (page) {
+      set.redirect = `/status/${page.slug}`
+      set.status = 302
+      return
+    }
+    return Bun.file(join(webDist, 'index.html'))
+  })
   .use(staticPlugin({ assets: webDist, prefix: '/' }))
   .onError(({ code }) => {
     if (code === 'NOT_FOUND') return Bun.file(join(webDist, 'index.html'))

@@ -140,7 +140,8 @@ export const statusPageRoutes = new Elysia()
 
         try {
             const { lookup } = await import('node:dns/promises')
-            const results = await lookup(page.customDomain, { all: true })
+            const timeout = new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
+            const results = await Promise.race([lookup(page.customDomain, { all: true }), timeout])
             return { domain: page.customDomain, addresses: results.map((r: { address: string }) => r.address), verified: results.length > 0 }
         } catch {
             return { domain: page.customDomain, addresses: [], verified: false, error: 'DNS lookup failed — domain may not resolve yet' }

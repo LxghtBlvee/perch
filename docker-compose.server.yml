@@ -1,0 +1,82 @@
+services:
+  hub:
+    image: lxghtblvee/perch-hub:latest
+    environment:
+      PERCH_HUB_TOKEN: ${PERCH_HUB_TOKEN}
+      PERCH_DB_HOST: db
+      PERCH_DB_PORT: 5432
+      PERCH_DB_USER: ${PERCH_DB_USER:-perch}
+      PERCH_DB_PASS: ${PERCH_DB_PASS}
+      PERCH_DB_NAME: ${PERCH_DB_NAME:-perch}
+      PERCH_ADMIN_EMAIL: ${PERCH_ADMIN_EMAIL:-}
+      PERCH_ADMIN_PASSWORD: ${PERCH_ADMIN_PASSWORD:-}
+      PERCH_SESSION_DAYS: ${PERCH_SESSION_DAYS:-30}
+    volumes:
+      - hub-uploads:/app/apps/hub/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - proxy
+      - internal
+    labels:
+      - "traefik.enable=true"
+      # Primary router: hub's own domain
+      - "traefik.http.routers.perch.rule=Host(`metrics.lxghtblvee.dev`)"
+      - "traefik.http.routers.perch.entrypoints=websecure"
+      - "traefik.http.routers.perch.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.perch.middlewares=secure-headers@file"
+      - "traefik.http.routers.perch.priority=10"
+      - "traefik.http.services.perch.loadbalancer.server.port=8484"
+      # Catch-all router: forwards custom status page domains to hub (priority 1 = lowest)
+      # Add a Cloudflare-proxied CNAME for each custom domain pointing to metrics.lxghtblvee.dev
+      - "traefik.http.routers.perch-custom.rule=HostRegexp(`.+`)"
+      - "traefik.http.routers.perch-custom.entrypoints=websecure"
+      - "traefik.http.routers.perch-custom.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.perch-custom.service=perch"
+      - "traefik.http.routers.perch-custom.priority=1"
+
+  agent:
+    image: lxghtblvee/perch-agent:latest
+    environment:
+      PERCH_HUB_URL: http://hub:8484
+      PERCH_HUB_TOKEN: ${PERCH_HUB_TOKEN}
+      PERCH_INTERVAL: 5000
+      PERCH_AGENT_ID_FILE: /data/agent.id
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - agent-data:/data
+    depends_on:
+      - hub
+    restart: unless-stopped
+    networks:
+      - internal
+
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${PERCH_DB_USER:-perch}
+      POSTGRES_PASSWORD: ${PERCH_DB_PASS}
+      POSTGRES_DB: ${PERCH_DB_NAME:-perch}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PERCH_DB_USER:-perch} -d ${PERCH_DB_NAME:-perch}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - internal
+
+volumes:
+  db-data:
+  agent-data:
+  hub-uploads:
+
+networks:
+  proxy:
+    external: true
+  internal:
+    internal: true
