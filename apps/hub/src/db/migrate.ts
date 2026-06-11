@@ -242,6 +242,12 @@ async function migrate() {
         )
     `)
 
+    // Performance indexes for cleanup queries and common lookups
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at)`)
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)`)
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_health_check_results_checked_at ON health_check_results(checked_at)`)
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_alert_history_triggered_at ON alert_history(triggered_at)`)
+
     console.warn('[db] Schema applied.')
 }
 

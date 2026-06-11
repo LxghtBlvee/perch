@@ -1,4 +1,4 @@
-import { eq, and } from 'drizzle-orm'
+import { eq, and, gt } from 'drizzle-orm'
 import { db } from '../db'
 import { users, sessions, oauthAccounts, instanceSettings } from '../db/schema'
 import { env } from '../config/env.validation'
@@ -39,14 +39,16 @@ export async function createRecoveryToken(userId: string): Promise<string> {
 
 export async function useRecoveryToken(token: string): Promise<string | null> {
     const tokenHash = hashToken(token)
-    const [user] = await db.select().from(users).where(eq(users.recoveryTokenHash, tokenHash)).limit(1)
-    if (!user || !user.recoveryTokenExpiresAt) return null
-    if (user.recoveryTokenExpiresAt < new Date()) {
-        await db.update(users).set({ recoveryTokenHash: null, recoveryTokenExpiresAt: null }).where(eq(users.id, user.id))
-        return null
-    }
-    // Consume token (one-time use)
-    await db.update(users).set({ recoveryTokenHash: null, recoveryTokenExpiresAt: null }).where(eq(users.id, user.id))
+    // Atomic: clears the token only if it exists and hasn't expired — prevents TOCTOU
+    const [user] = await db
+        .update(users)
+        .set({ recoveryTokenHash: null, recoveryTokenExpiresAt: null, updatedAt: new Date() })
+        .where(and(
+            eq(users.recoveryTokenHash, tokenHash),
+            gt(users.recoveryTokenExpiresAt, new Date()),
+        ))
+        .returning()
+    if (!user) return null
     return createSession(user.id)
 }
 
@@ -102,34 +104,35 @@ export async function findOrCreateOAuthUser(opts: {
 
     if (existing) return existing.user
 
-    const [byEmail] = await db
-        .select()
-        .from(users)
-        .where(eq(users.email, opts.email))
-        .limit(1)
+    // Atomic upsert — ON CONFLICT DO NOTHING prevents duplicate users if two OAuth
+    // logins race with the same new email address
+    const [created] = await db
+        .insert(users)
+        .values({
+            email: opts.email,
+            name: opts.name ?? null,
+            avatarUrl: opts.avatarUrl ?? null,
+            role: 'member',
+        })
+        .onConflictDoNothing()
+        .returning()
 
-    let userId: string;
-
-    if (byEmail) {
-        userId = byEmail.id;
-    } else {
-        const [created] = await db
-            .insert(users)
-            .values({
-                email: opts.email,
-                name: opts.name ?? null,
-                avatarUrl: opts.avatarUrl ?? null,
-                role: 'member',
-            })
-            .returning()
+    let userId: string
+    if (created) {
         userId = created.id
+    } else {
+        // Another concurrent request already created this user — fetch them
+        const [byEmail] = await db.select().from(users).where(eq(users.email, opts.email)).limit(1)
+        if (!byEmail) throw new Error('Unexpected: user not found after insert conflict')
+        userId = byEmail.id
     }
 
+    // Link OAuth account — ON CONFLICT DO NOTHING handles a concurrent insert race
     await db.insert(oauthAccounts).values({
         userId,
         provider: opts.provider,
         providerUserId: opts.providerUserId,
-    })
+    }).onConflictDoNothing()
 
     const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
     return user;
