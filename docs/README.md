@@ -13,14 +13,31 @@ Welcome to the Perch documentation. These docs are for people deploying and usin
 - [Docker Swarm](./docker/swarm.md) — multi-node clusters
 - [Portainer](./docker/portainer.md) — deploy and manage from a GUI
 
+## Reverse Proxy
+
+- [nginx](./reverse-proxy/nginx.md)
+- [Traefik](./reverse-proxy/traefik.md)
+- [Caddy](./reverse-proxy/caddy.md)
+
 ## Features
 
 - [Health Checks](./features/health-checks.md) — track uptime and latency on your HTTP endpoints
 - [Alerts](./features/alerts.md) — get notified on Discord, Slack, or ntfy when things go down
 - [Status Pages](./features/status-pages.md) — public-facing status pages with custom domains and theming
-- [Data Sources](./features/data-sources.md) — connect Prometheus, Loki, InfluxDB, and Graphite
+- Data Sources — connect external metric and log stores
+  - [Prometheus](./features/data-sources/prometheus.md)
+  - [Loki](./features/data-sources/loki.md)
+  - [InfluxDB](./features/data-sources/influxdb.md)
+  - [Graphite](./features/data-sources/graphite.md)
 
 ## Auth & Users
 
-- [SSO / OAuth](./auth/sso.md) — set up GitHub, Google, Microsoft, GitLab, Discord, Okta, or a custom OIDC provider
 - [User Management](./auth/users.md) — roles, account recovery, and managing who has access
+- SSO / OAuth — sign in with an external provider
+  - [GitHub](./auth/sso/github.md)
+  - [Google](./auth/sso/google.md)
+  - [Microsoft](./auth/sso/microsoft.md)
+  - [GitLab](./auth/sso/gitlab.md)
+  - [Discord](./auth/sso/discord.md)
+  - [Okta](./auth/sso/okta.md)
+  - [Custom OIDC](./auth/sso/custom.md)
