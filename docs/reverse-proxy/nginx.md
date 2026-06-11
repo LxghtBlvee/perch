@@ -30,6 +30,9 @@ server {
         # WebSocket support
         proxy_set_header Upgrade    $http_upgrade;
         proxy_set_header Connection "upgrade";
+
+        # Keep WebSocket connections alive
+        proxy_read_timeout 3600s;
     }
 }
 ```

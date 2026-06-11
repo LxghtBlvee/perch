@@ -4,18 +4,19 @@ Let users sign in with their GitLab account. Works with both GitLab.com and self
 
 ## Setup
 
-1. Go to your GitLab profile settings and open **Applications**
-2. Click **Add new application**
-3. Set the redirect URI to `https://your-hub-url/api/auth/callback/gitlab`
-4. Enable the `read_user` scope
-5. Click **Save application**, then copy the **Application ID** and **Secret**
-6. Paste both into the GitLab card in Perch (**Admin > Auth**) and enable it
+1. Go to your GitLab profile: click your avatar in the top-right, then **Edit profile**
+2. In the left sidebar, go to **Access > Applications**
+3. Click **Add new application**
+4. Set the **Redirect URI** to `https://your-hub-url/api/auth/callback/gitlab`
+5. Enable the `openid` and `email` scopes
+6. Click **Save application**, then copy the **Application ID** and **Secret**
+7. Paste both into the GitLab card in Perch (**Admin > Auth**) and enable it
 
 ## Self-hosted GitLab
 
 If you're running your own GitLab instance, fill in the **Base URL** field with your instance URL (e.g. `https://gitlab.yourcompany.com`). Leave it blank to use `https://gitlab.com`.
 
-Create the OAuth application in your GitLab instance's admin area under **Admin > Applications** rather than in a user profile, so it's available to all users.
+For a self-hosted instance, create the OAuth application in the admin area under **Admin > Applications** so it's available to all users, rather than under a personal profile.
 
 ## Domain restriction
 

@@ -63,7 +63,7 @@ labels:
   - "traefik.http.services.perch.loadbalancer.server.port=8484"
 
   # Catch-all router — custom status page domains
-  - "traefik.http.routers.perch-custom.rule=HostRegexp(`{host:.+}`)"
+  - "traefik.http.routers.perch-custom.rule=HostRegexp(.+)"
   - "traefik.http.routers.perch-custom.entrypoints=websecure"
   - "traefik.http.routers.perch-custom.tls.certresolver=letsencrypt"
   - "traefik.http.routers.perch-custom.priority=1"
