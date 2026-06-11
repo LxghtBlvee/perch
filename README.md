@@ -7,10 +7,10 @@
 </p>
 
 <p align="center">
-  <img alt="License" src="https://img.shields.io/badge/license-AGPL--3.0-7dd3c0?style=flat-square" />
-  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white" />
-  <img alt="Bun" src="https://img.shields.io/badge/Bun-runtime-fbf0df?style=flat-square&logo=bun&logoColor=000000" />
-  <img alt="Docker Hub" src="https://img.shields.io/badge/Docker_Hub-lxghtblvee-2496ED?style=flat-square&logo=docker&logoColor=white" />
+  <a href="./LICENSE"><img alt="License" src="https://img.shields.io/badge/license-AGPL--3.0-7dd3c0?style=flat-square" /></a>
+  <a href="https://www.typescriptlang.org/"><img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white" /></a>
+  <a href="https://bun.sh"><img alt="Bun" src="https://img.shields.io/badge/Bun-runtime-fbf0df?style=flat-square&logo=bun&logoColor=000000" /></a>
+  <a href="https://hub.docker.com/u/lxghtblvee"><img alt="Docker Hub" src="https://img.shields.io/badge/Docker_Hub-lxghtblvee-2496ED?style=flat-square&logo=docker&logoColor=white" /></a>
 </p>
 
 ---
