@@ -187,10 +187,12 @@ async function onLogoSelected(e: Event) {
 
 // ── Domain verify ──────────────────────────────────────────────────────────
 async function verifyDomain() {
+  if (!page.value?.customDomain) return
   verifying.value = true
   verifyResult.value = null
   try {
-    const res = await fetch(`/api/admin/status-pages/${pageId}/verify-domain`, {
+    const params = new URLSearchParams({ domain: page.value.customDomain })
+    const res = await fetch(`/api/admin/status-pages/${pageId}/verify-domain?${params}`, {
       headers: { Authorization: `Bearer ${auth.token}` },
     })
     const data = await res.json() as { addresses: string[]; verified: boolean; error?: string }
@@ -368,12 +370,15 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
               :class="INPUT"
             >
           </div>
-          <div class="space-y-1">
+          <div
+            class="space-y-1 transition-opacity"
+            :class="page.customDomain ? 'opacity-40 pointer-events-none select-none' : ''"
+          >
             <label class="text-xs text-muted-foreground">
               Slug
               <span
                 v-if="page.customDomain"
-                class="text-muted-foreground/50 ml-1"
+                class="ml-1"
               >(overridden by custom domain)</span>
             </label>
             <div class="flex items-center gap-2">
@@ -382,7 +387,6 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
                 v-model="page.slug"
                 type="text"
                 :class="INPUT"
-                :disabled="!!page.customDomain"
               >
             </div>
           </div>
