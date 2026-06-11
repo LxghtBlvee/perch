@@ -40,4 +40,4 @@ Welcome to the Perch documentation. These docs are for people deploying and usin
   - [GitLab](./auth/sso/gitlab.md)
   - [Discord](./auth/sso/discord.md)
   - [Okta](./auth/sso/okta.md)
-  - [Custom OIDC](./auth/sso/custom.md)
+  - Custom OIDC — [Authentik](./auth/sso/custom/authentik.md), [Keycloak](./auth/sso/custom/keycloak.md), [Authelia](./auth/sso/custom/authelia.md), [Dex](./auth/sso/custom/dex.md)

@@ -16,7 +16,12 @@ When a user signs in with an OAuth provider, Perch creates or finds a local acco
 - [GitLab](./gitlab.md)
 - [Discord](./discord.md)
 - [Okta](./okta.md)
-- [Custom OIDC](./custom.md) — Authentik, Keycloak, Authelia, and anything else OIDC-compatible
+- Custom OIDC — self-hosted identity providers
+  - [Overview](./custom/README.md)
+  - [Authentik](./custom/authentik.md)
+  - [Keycloak](./custom/keycloak.md)
+  - [Authelia](./custom/authelia.md)
+  - [Dex](./custom/dex.md)
 
 ## Disabling a provider
 
