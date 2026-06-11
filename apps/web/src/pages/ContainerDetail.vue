@@ -4,10 +4,12 @@ import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, RefreshCw, Cpu, MemoryStick } from 'lucide-vue-next'
 import { usePerchStore } from '@/stores/perch'
 import { formatBytes, formatPercent } from '@/lib/utils'
+import { useApi } from '@/composables/useApi'
 
 const route = useRoute()
 const router = useRouter()
 const store = usePerchStore()
+const { apiFetch } = useApi()
 
 const agentId = route.params.agentId as string
 const containerId = route.params.containerId as string
@@ -24,7 +26,7 @@ async function fetchLogs() {
   logsLoading.value = true
   logsError.value = null
   try {
-    const res = await fetch(`/api/agents/${agentId}/containers/${containerId}/logs?tail=${tail.value}`)
+    const res = await apiFetch(`/api/agents/${agentId}/containers/${containerId}/logs?tail=${tail.value}`)
     const data = await res.json()
     if (!res.ok) throw new Error(data.error ?? 'Failed to fetch logs')
     logs.value = data.logs

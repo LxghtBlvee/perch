@@ -3,9 +3,11 @@ import { ref, watch } from 'vue'
 import { Plus, Trash2 } from 'lucide-vue-next'
 import { usePerchStore } from '@/stores/perch'
 import { useRouter } from 'vue-router'
+import { useApi } from '@/composables/useApi'
 
 const store = usePerchStore()
 const router = useRouter()
+const { apiFetch } = useApi()
 
 const showForm = ref(false)
 const form = ref({ name: '', url: '', interval: 60 })
@@ -15,7 +17,7 @@ const history = ref<Record<string, HistoryEntry[]>>({})
 
 async function loadHistory(id: string) {
   try {
-    const res = await fetch(`/api/health-checks/${id}/history`)
+    const res = await apiFetch(`/api/health-checks/${id}/history`)
     history.value[id] = await res.json()
   } catch {
     history.value[id] = []
@@ -81,7 +83,7 @@ function relativeTime(iso: string | null): string {
 
 async function createCheck() {
   if (!form.value.name || !form.value.url) return
-  const res = await fetch('/api/health-checks', {
+  const res = await apiFetch('/api/health-checks', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(form.value),
@@ -94,7 +96,7 @@ async function createCheck() {
 }
 
 async function deleteCheck(id: string) {
-  await fetch(`/api/health-checks/${id}`, { method: 'DELETE' })
+  await apiFetch(`/api/health-checks/${id}`, { method: 'DELETE' })
   store.healthChecks = store.healthChecks.filter(h => h.id !== id)
   delete history.value[id]
 }

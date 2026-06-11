@@ -3,10 +3,12 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import { usePerchStore } from '@/stores/perch'
+import { useApi } from '@/composables/useApi'
 
 const route = useRoute()
 const router = useRouter()
 const store = usePerchStore()
+const { apiFetch } = useApi()
 
 const id = route.params.id as string
 const check = computed(() => store.healthChecks.find(h => h.id === id))
@@ -23,7 +25,7 @@ function countryFlag(code: string): string {
 async function fetchHistory() {
   loading.value = true
   try {
-    const res = await fetch(`/api/health-checks/${id}/history`)
+    const res = await apiFetch(`/api/health-checks/${id}/history`)
     history.value = await res.json()
   } finally {
     loading.value = false

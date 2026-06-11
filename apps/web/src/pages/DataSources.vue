@@ -2,6 +2,9 @@
 import { ref, onMounted } from 'vue'
 import { Plus, Trash2, CheckCircle, XCircle, Loader, Database, Star } from 'lucide-vue-next'
 import type { DataSource, DataSourceType } from '@perch/types'
+import { useApi } from '@/composables/useApi'
+
+const { apiFetch } = useApi()
 
 const sources = ref<DataSource[]>([])
 const loading = ref(true)
@@ -29,7 +32,7 @@ const TYPE_META: Record<DataSourceType, { label: string; placeholder: string; co
 async function fetchSources() {
   loading.value = true
   try {
-    const res = await fetch('/api/data-sources')
+    const res = await apiFetch('/api/data-sources')
     sources.value = await res.json()
   } finally {
     loading.value = false
@@ -44,7 +47,7 @@ async function save() {
   }
   saving.value = true
   try {
-    const res = await fetch('/api/data-sources', {
+    const res = await apiFetch('/api/data-sources', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(form.value),
@@ -65,14 +68,14 @@ async function save() {
 }
 
 async function remove(id: string) {
-  await fetch(`/api/data-sources/${id}`, { method: 'DELETE' })
+  await apiFetch(`/api/data-sources/${id}`, { method: 'DELETE' })
   sources.value = sources.value.filter(s => s.id !== id)
 }
 
 async function test(id: string) {
   testResults.value[id] = 'testing'
   try {
-    const res = await fetch(`/api/data-sources/${id}/test`, { method: 'POST' })
+    const res = await apiFetch(`/api/data-sources/${id}/test`, { method: 'POST' })
     const data = await res.json()
     testResults.value[id] = data.ok ? 'ok' : 'fail'
   } catch {

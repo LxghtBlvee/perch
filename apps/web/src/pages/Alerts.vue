@@ -10,8 +10,10 @@ import type {
   HealthCheck,
 } from '@perch/types'
 import { usePerchStore } from '@/stores/perch'
+import { useApi } from '@/composables/useApi'
 
 const store = usePerchStore()
+const { apiFetch } = useApi()
 
 // ── Data ──────────────────────────────────────────────────
 const destinations = ref<AlertDestination[]>([])
@@ -77,7 +79,7 @@ async function saveDest() {
       ntfyPriority: destForm.value.type === 'ntfy' ? destForm.value.ntfyPriority : undefined,
     }
     if (editingDest.value) {
-      const res = await fetch(`/api/alerts/destinations/${editingDest.value.id}`, {
+      const res = await apiFetch(`/api/alerts/destinations/${editingDest.value.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -87,7 +89,7 @@ async function saveDest() {
       const idx = destinations.value.findIndex(d => d.id === updated.id)
       if (idx !== -1) destinations.value[idx] = updated
     } else {
-      const res = await fetch('/api/alerts/destinations', {
+      const res = await apiFetch('/api/alerts/destinations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -104,14 +106,14 @@ async function saveDest() {
 }
 
 async function deleteDest(id: string) {
-  await fetch(`/api/alerts/destinations/${id}`, { method: 'DELETE' })
+  await apiFetch(`/api/alerts/destinations/${id}`, { method: 'DELETE' })
   destinations.value = destinations.value.filter(d => d.id !== id)
 }
 
 async function testDest(id: string) {
   testState.value[id] = 'testing'
   try {
-    const res = await fetch(`/api/alerts/destinations/${id}/test`, { method: 'POST' })
+    const res = await apiFetch(`/api/alerts/destinations/${id}/test`, { method: 'POST' })
     const data = await res.json()
     testState.value[id] = data.ok ? 'ok' : 'fail'
   } catch {
@@ -196,13 +198,13 @@ async function saveRule() {
 
     let res: Response
     if (editingRule.value) {
-      res = await fetch(`/api/alerts/rules/${editingRule.value.id}`, {
+      res = await apiFetch(`/api/alerts/rules/${editingRule.value.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
     } else {
-      res = await fetch('/api/alerts/rules', {
+      res = await apiFetch('/api/alerts/rules', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -220,25 +222,25 @@ async function saveRule() {
 }
 
 async function toggleRule(id: string) {
-  const res = await fetch(`/api/alerts/rules/${id}/toggle`, { method: 'PATCH' })
+  const res = await apiFetch(`/api/alerts/rules/${id}/toggle`, { method: 'PATCH' })
   const updated: AlertRule = await res.json()
   const idx = rules.value.findIndex(r => r.id === id)
   if (idx !== -1) rules.value[idx] = updated
 }
 
 async function deleteRule(id: string) {
-  await fetch(`/api/alerts/rules/${id}`, { method: 'DELETE' })
+  await apiFetch(`/api/alerts/rules/${id}`, { method: 'DELETE' })
   rules.value = rules.value.filter(r => r.id !== id)
 }
 
 // ── Data fetching ─────────────────────────────────────────
 async function fetchRules() {
-  const res = await fetch('/api/alerts/rules')
+  const res = await apiFetch('/api/alerts/rules')
   rules.value = await res.json()
 }
 
 async function fetchHistory() {
-  const res = await fetch('/api/alerts/history?limit=50')
+  const res = await apiFetch('/api/alerts/history?limit=50')
   history.value = await res.json()
 }
 
@@ -246,8 +248,8 @@ onMounted(async () => {
   loading.value = true
   try {
     const [destRes, hcRes] = await Promise.all([
-      fetch('/api/alerts/destinations'),
-      fetch('/api/health-checks'),
+      apiFetch('/api/alerts/destinations'),
+      apiFetch('/api/health-checks'),
     ])
     destinations.value = await destRes.json()
     healthChecks.value = await hcRes.json()
