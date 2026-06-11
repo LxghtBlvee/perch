@@ -133,23 +133,28 @@ export const statusPageRoutes = new Elysia()
         body: t.Object({ file: t.File() }),
     })
 
-    .get('/api/admin/status-pages/:id/verify-domain', async ({ request, set, params, error }) => {
+    .get('/api/admin/status-pages/:id/verify-domain', async ({ request, set, params, query, error }) => {
         const admin = await requireAdminUser(request, set)
         if (!admin) return { error: set.status === 401 ? 'Unauthorized' : 'Forbidden' }
 
-        const [page] = await db.select({ customDomain: statusPages.customDomain }).from(statusPages).where(eq(statusPages.id, params.id)).limit(1)
-        if (!page) return error(404, { error: 'Not found' })
-        if (!page.customDomain) return error(400, { error: 'No custom domain configured' })
+        // Use domain from query param if provided, otherwise fall back to DB value
+        let domain = query.domain ?? null
+        if (!domain) {
+            const [page] = await db.select({ customDomain: statusPages.customDomain }).from(statusPages).where(eq(statusPages.id, params.id)).limit(1)
+            if (!page) return error(404, { error: 'Not found' })
+            domain = page.customDomain
+        }
+        if (!domain) return error(400, { error: 'No custom domain configured' })
 
         try {
             const { lookup } = await import('node:dns/promises')
             const timeout = new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
-            const results = await Promise.race([lookup(page.customDomain, { all: true }), timeout])
-            return { domain: page.customDomain, addresses: results.map((r: { address: string }) => r.address), verified: results.length > 0 }
+            const results = await Promise.race([lookup(domain, { all: true }), timeout])
+            return { domain, addresses: results.map((r: { address: string }) => r.address), verified: results.length > 0 }
         } catch {
-            return { domain: page.customDomain, addresses: [], verified: false, error: 'DNS lookup failed — domain may not resolve yet' }
+            return { domain, addresses: [], verified: false, error: 'DNS lookup failed — domain may not resolve yet' }
         }
-    }, { params: t.Object({ id: t.String() }) })
+    }, { params: t.Object({ id: t.String() }), query: t.Object({ domain: t.Optional(t.String()) }) })
 
     .delete('/api/admin/status-pages/:id', async ({ request, set, params, error }) => {
         const admin = await requireAdminUser(request, set)
