@@ -56,10 +56,11 @@ export const agentRoutes = new Elysia({ prefix: '/api/agents' })
     const user = await requireAuthUser(request, set)
     if (!user) return { error: 'Unauthorized' }
 
-    await db.delete(agents).where(eq(agents.id, params.id))
+    const [deleted] = await db.delete(agents).where(eq(agents.id, params.id)).returning()
     agentRegistry.unregister(params.id)
     liveRegistry.broadcast({ type: 'agent_disconnected', agentId: params.id })
 
+    if (!deleted) { set.status = 404; return { error: 'Agent not found' } }
     return { success: true }
   })
 

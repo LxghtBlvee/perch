@@ -19,4 +19,7 @@ export const env = {
     adminPassword: Bun.env.PERCH_ADMIN_PASSWORD,
     // Session expiry in days (default 30)
     sessionDays: parseInt(Bun.env.PERCH_SESSION_DAYS ?? '30'),
+    // Optional: explicit base URL for OAuth callbacks (e.g. https://metrics.example.com)
+    // If set, takes priority over x-forwarded-proto/host headers
+    baseUrl: Bun.env.PERCH_BASE_URL,
 }

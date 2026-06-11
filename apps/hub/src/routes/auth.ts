@@ -2,6 +2,7 @@ import Elysia, { t } from 'elysia'
 import { eq } from 'drizzle-orm'
 import { db } from '../db'
 import { users, oauthProviders, instanceSettings } from '../db/schema'
+import { env } from '../config/env.validation'
 import {
     createSession,
     deleteSession,
@@ -16,27 +17,30 @@ import { requireAuthUser } from '../middleware/auth'
 // In-memory OAuth state store (CSRF protection)
 const oauthStateStore = new Map<string, { provider: string; expiresAt: number }>()
 
-// In-memory login rate limiter: max 10 attempts per email per 15 minutes
-const loginAttempts = new Map<string, { count: number; resetAt: number }>()
-const LOGIN_MAX_ATTEMPTS = 10
+// In-memory login failure tracker: configurable max failures per email per 15 minutes
+const loginFailures = new Map<string, { count: number; resetAt: number }>()
 const LOGIN_WINDOW_MS = 15 * 60 * 1000
+const LOGIN_FALLBACK_MAX_ATTEMPTS = 10
 
-function checkLoginRateLimit(email: string): { allowed: boolean; retryAfterMs: number } {
+/** Check if an email is currently blocked — does NOT mutate state */
+function isLoginBlocked(email: string, maxAttempts: number): { blocked: boolean; retryAfterMs: number } {
+    const now = Date.now()
+    const entry = loginFailures.get(email.toLowerCase())
+    if (!entry || entry.resetAt < now) return { blocked: false, retryAfterMs: 0 }
+    if (entry.count >= maxAttempts) return { blocked: true, retryAfterMs: entry.resetAt - now }
+    return { blocked: false, retryAfterMs: 0 }
+}
+
+/** Record a failed login attempt — only called on actual failures */
+function recordLoginFailure(email: string): void {
     const now = Date.now()
     const key = email.toLowerCase()
-    const entry = loginAttempts.get(key)
-
+    const entry = loginFailures.get(key)
     if (!entry || entry.resetAt < now) {
-        loginAttempts.set(key, { count: 1, resetAt: now + LOGIN_WINDOW_MS })
-        return { allowed: true, retryAfterMs: 0 }
+        loginFailures.set(key, { count: 1, resetAt: now + LOGIN_WINDOW_MS })
+    } else {
+        entry.count++
     }
-
-    if (entry.count >= LOGIN_MAX_ATTEMPTS) {
-        return { allowed: false, retryAfterMs: entry.resetAt - now }
-    }
-
-    entry.count++
-    return { allowed: true, retryAfterMs: 0 }
 }
 
 function generateState(): string {
@@ -46,6 +50,8 @@ function generateState(): string {
 }
 
 function getCallbackBase(request: Request): string {
+    // PERCH_BASE_URL is the safe, explicit override — always use it if set
+    if (env.baseUrl) return env.baseUrl.replace(/\/$/, '')
     const proto = request.headers.get('x-forwarded-proto') ?? 'http'
     const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host') ?? 'localhost:8484'
     return `${proto}://${host}`
@@ -100,21 +106,39 @@ export const authRoutes = new Elysia({ prefix: '/api/auth' })
     .post('/login', async ({ body, error }) => {
         const { email, password } = body
 
-        const rateLimit = checkLoginRateLimit(email)
-        if (!rateLimit.allowed) {
-            const retryAfterSecs = Math.ceil(rateLimit.retryAfterMs / 1000)
-            return error(429, { error: `Too many login attempts. Try again in ${retryAfterSecs} seconds.` })
+        // Read instance settings once — covers lockout config + maintenance mode
+        const [settings] = await db.select({
+            maintenanceModeEnabled: instanceSettings.maintenanceModeEnabled,
+            loginLockoutEnabled: instanceSettings.loginLockoutEnabled,
+            loginLockoutThreshold: instanceSettings.loginLockoutThreshold,
+        }).from(instanceSettings).where(eq(instanceSettings.id, 1)).limit(1)
+
+        const lockoutEnabled = settings?.loginLockoutEnabled !== false
+        const maxAttempts = lockoutEnabled
+            ? (settings?.loginLockoutThreshold ?? LOGIN_FALLBACK_MAX_ATTEMPTS)
+            : Infinity
+
+        if (lockoutEnabled) {
+            const rateLimit = isLoginBlocked(email, maxAttempts)
+            if (rateLimit.blocked) {
+                const retryAfterSecs = Math.ceil(rateLimit.retryAfterMs / 1000)
+                return error(429, { error: `Too many login attempts. Try again in ${retryAfterSecs} seconds.` })
+            }
         }
 
         const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1)
-        if (!user || !user.passwordHash) return error(401, { error: 'Invalid credentials' })
+        if (!user || !user.passwordHash) {
+            recordLoginFailure(email)
+            return error(401, { error: 'Invalid credentials' })
+        }
 
         const ok = await verifyPassword(password, user.passwordHash)
-        if (!ok) return error(401, { error: 'Invalid credentials' })
+        if (!ok) {
+            recordLoginFailure(email)
+            return error(401, { error: 'Invalid credentials' })
+        }
 
         // Maintenance mode: block non-admin logins
-        const [settings] = await db.select({ maintenanceModeEnabled: instanceSettings.maintenanceModeEnabled })
-            .from(instanceSettings).where(eq(instanceSettings.id, 1)).limit(1)
         if (settings?.maintenanceModeEnabled && user.role !== 'admin') {
             return error(503, { error: 'Perch is in maintenance mode. Only admins can sign in.' })
         }
@@ -162,16 +186,24 @@ export const authRoutes = new Elysia({ prefix: '/api/auth' })
         if (body.name !== undefined) updates.name = body.name || null
 
         if (body.email && body.email !== user.email) {
+            // Email changes require password confirmation to prevent account takeover via stolen session
+            if (!body.currentPassword) { set.status = 400; return { error: 'Current password required to change email' } }
+            if (!user.passwordHash) { set.status = 400; return { error: 'Cannot change email on an OAuth-only account without a password set' } }
+            const emailPasswordOk = await verifyPassword(body.currentPassword, user.passwordHash)
+            if (!emailPasswordOk) { set.status = 401; return { error: 'Current password incorrect' } }
             const [existing] = await db.select().from(users).where(eq(users.email, body.email)).limit(1)
             if (existing) { set.status = 409; return { error: 'Email already in use' } }
             updates.email = body.email
         }
 
         if (body.newPassword) {
-            if (!body.currentPassword) { set.status = 400; return { error: 'Current password required' } }
-            if (!user.passwordHash) { set.status = 400; return { error: 'No password set on this account' } }
-            const ok = await verifyPassword(body.currentPassword, user.passwordHash)
-            if (!ok) { set.status = 401; return { error: 'Current password incorrect' } }
+            if (user.passwordHash) {
+                // Account already has a password — require current password to change it
+                if (!body.currentPassword) { set.status = 400; return { error: 'Current password required' } }
+                const ok = await verifyPassword(body.currentPassword, user.passwordHash)
+                if (!ok) { set.status = 401; return { error: 'Current password incorrect' } }
+            }
+            // OAuth-only accounts (no passwordHash) can set a password without currentPassword
             updates.passwordHash = await hashPassword(body.newPassword)
         }
 
@@ -313,6 +345,14 @@ export const authRoutes = new Elysia({ prefix: '/api/auth' })
             }
 
             const oauthUser = await findOrCreateOAuthUser({ provider, providerUserId: userInfo.id, email: userInfo.email, name: userInfo.name, avatarUrl: userInfo.avatar })
+
+            // Maintenance mode: block non-admin OAuth logins (same check as password login)
+            const [settings] = await db.select({ maintenanceModeEnabled: instanceSettings.maintenanceModeEnabled })
+                .from(instanceSettings).where(eq(instanceSettings.id, 1)).limit(1)
+            if (settings?.maintenanceModeEnabled && oauthUser.role !== 'admin') {
+                return redirect(`${base}/login?error=maintenance`)
+            }
+
             const token = await createSession(oauthUser.id)
             return redirect(`/?token=${token}`)
 

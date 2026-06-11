@@ -4,10 +4,10 @@ import { swagger } from '@elysiajs/swagger'
 import { staticPlugin } from '@elysiajs/static'
 import { join } from 'path'
 import { mkdir } from 'fs/promises'
-import { eq } from 'drizzle-orm'
+import { eq, lt } from 'drizzle-orm'
 import { env } from './config/env.validation'
 import { db } from './db'
-import { statusPages } from './db/schema'
+import { statusPages, sessions, healthCheckResults, alertHistory, instanceSettings } from './db/schema'
 import { statusRoutes } from './routes/status'
 import { agentRoutes } from './routes/agents'
 import { containerRoutes } from './routes/containers'
@@ -28,6 +28,39 @@ import { seedAdmin } from './services/auth'
 await initLocation()
 await healthChecker.start()
 await seedAdmin()
+
+// ── Cleanup job ──────────────────────────────────────────────────────────────
+async function runCleanup(): Promise<void> {
+    try {
+        const now = new Date()
+
+        // Delete expired sessions
+        await db.delete(sessions).where(lt(sessions.expiresAt, now))
+
+        // Read retention settings
+        const [settings] = await db
+            .select({
+                healthCheckResultsRetentionDays: instanceSettings.healthCheckResultsRetentionDays,
+                alertHistoryRetentionDays: instanceSettings.alertHistoryRetentionDays,
+            })
+            .from(instanceSettings)
+            .where(eq(instanceSettings.id, 1))
+            .limit(1)
+
+        if (settings) {
+            const hcrCutoff = new Date(now.getTime() - settings.healthCheckResultsRetentionDays * 86_400_000)
+            await db.delete(healthCheckResults).where(lt(healthCheckResults.checkedAt, hcrCutoff))
+
+            const ahCutoff = new Date(now.getTime() - settings.alertHistoryRetentionDays * 86_400_000)
+            await db.delete(alertHistory).where(lt(alertHistory.triggeredAt, ahCutoff))
+        }
+    } catch (err) {
+        console.error('[cleanup] error:', err)
+    }
+}
+
+void runCleanup()
+setInterval(() => void runCleanup(), 60 * 60 * 1000) // every hour
 
 const webDist = join(process.cwd(), '../web/dist')
 const uploadsDir = join(process.cwd(), 'uploads')

@@ -1,5 +1,5 @@
 import Elysia, { t } from 'elysia'
-import { eq, and, ne, desc, inArray, isNull, or } from 'drizzle-orm'
+import { eq, and, ne, desc, inArray, isNull } from 'drizzle-orm'
 import { join } from 'path'
 import { mkdir } from 'fs/promises'
 import { db } from '../db'
@@ -344,13 +344,11 @@ export const statusPageRoutes = new Elysia()
             .from(statusPageIncidents)
             .where(and(
                 eq(statusPageIncidents.statusPageId, page.id),
-                or(isNull(statusPageIncidents.resolvedAt), eq(statusPageIncidents.status, 'investigating')),
+                isNull(statusPageIncidents.resolvedAt),
             ))
             .orderBy(desc(statusPageIncidents.createdAt))
 
-        const activeIncidents = incidents.filter(i =>
-            i.status !== 'resolved' && i.status !== 'completed'
-        ).map(i => ({
+        const activeIncidents = incidents.map(i => ({
             id: i.id,
             type: i.type,
             title: i.title,

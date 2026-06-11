@@ -1,4 +1,4 @@
-import { onMounted, onUnmounted } from 'vue'
+import { onMounted, onUnmounted, watch } from 'vue'
 import { usePerchStore } from '@/stores/perch'
 import { useAuthStore } from '@/stores/auth'
 import type { LiveMessage } from '@perch/types'
@@ -10,6 +10,16 @@ export function usePerchSocket() {
     const auth = useAuthStore()
     let ws: WebSocket | null = null
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+
+    function disconnect() {
+        if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null }
+        if (ws) {
+            ws.onclose = null // prevent auto-reconnect on intentional close
+            ws.close()
+            ws = null
+        }
+        store.connected = false
+    }
 
     function connect() {
         if (!auth.token) return
@@ -31,8 +41,11 @@ export function usePerchSocket() {
 
     onMounted(connect)
 
-    onUnmounted(() => {
-        if (reconnectTimer) clearTimeout(reconnectTimer)
-        ws?.close()
+    onUnmounted(disconnect)
+
+    // Reconnect when the token changes — handles logout+login without a page reload
+    watch(() => auth.token, (newToken) => {
+        disconnect()
+        if (newToken) connect()
     })
 }
