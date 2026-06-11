@@ -114,10 +114,13 @@ export const statusPageRoutes = new Elysia()
         if (!file.type.startsWith('image/')) return error(400, { error: 'File must be an image' })
         if (file.size > 2 * 1024 * 1024) return error(400, { error: 'File must be under 2 MB' })
 
+        const ALLOWED_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg']
+        const ext = (file.name.split('.').pop() ?? '').toLowerCase()
+        if (!ALLOWED_EXTENSIONS.includes(ext)) return error(400, { error: 'Invalid file type. Allowed: png, jpg, jpeg, gif, webp, svg' })
+
         const uploadsDir = join(process.cwd(), 'uploads')
         await mkdir(uploadsDir, { recursive: true })
 
-        const ext = (file.name.split('.').pop() ?? 'png').toLowerCase()
         const filename = `sp-logo-${params.id}-${Date.now()}.${ext}`
         await Bun.write(join(uploadsDir, filename), await file.arrayBuffer())
 

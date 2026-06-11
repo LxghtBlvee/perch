@@ -16,6 +16,29 @@ import { requireAuthUser } from '../middleware/auth'
 // In-memory OAuth state store (CSRF protection)
 const oauthStateStore = new Map<string, { provider: string; expiresAt: number }>()
 
+// In-memory login rate limiter: max 10 attempts per email per 15 minutes
+const loginAttempts = new Map<string, { count: number; resetAt: number }>()
+const LOGIN_MAX_ATTEMPTS = 10
+const LOGIN_WINDOW_MS = 15 * 60 * 1000
+
+function checkLoginRateLimit(email: string): { allowed: boolean; retryAfterMs: number } {
+    const now = Date.now()
+    const key = email.toLowerCase()
+    const entry = loginAttempts.get(key)
+
+    if (!entry || entry.resetAt < now) {
+        loginAttempts.set(key, { count: 1, resetAt: now + LOGIN_WINDOW_MS })
+        return { allowed: true, retryAfterMs: 0 }
+    }
+
+    if (entry.count >= LOGIN_MAX_ATTEMPTS) {
+        return { allowed: false, retryAfterMs: entry.resetAt - now }
+    }
+
+    entry.count++
+    return { allowed: true, retryAfterMs: 0 }
+}
+
 function generateState(): string {
     const bytes = new Uint8Array(16)
     crypto.getRandomValues(bytes)
@@ -76,6 +99,13 @@ export const authRoutes = new Elysia({ prefix: '/api/auth' })
     // Email/password login
     .post('/login', async ({ body, error }) => {
         const { email, password } = body
+
+        const rateLimit = checkLoginRateLimit(email)
+        if (!rateLimit.allowed) {
+            const retryAfterSecs = Math.ceil(rateLimit.retryAfterMs / 1000)
+            return error(429, { error: `Too many login attempts. Try again in ${retryAfterSecs} seconds.` })
+        }
+
         const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1)
         if (!user || !user.passwordHash) return error(401, { error: 'Invalid credentials' })
 

@@ -2,6 +2,7 @@ import Elysia, { t } from 'elysia'
 import { eq } from 'drizzle-orm'
 import { db } from '../db'
 import { dataSources } from '../db/schema'
+import { requireAuthUser } from '../middleware/auth'
 
 const dataSourceBody = t.Object({
     name: t.String({ minLength: 1 }),
@@ -16,9 +17,15 @@ const dataSourceBody = t.Object({
 })
 
 export const dataSourceRoutes = new Elysia({ prefix: '/api/data-sources' })
-    .get('/', () => db.select().from(dataSources).orderBy(dataSources.createdAt))
+    .get('/', async ({ request, set }) => {
+        const user = await requireAuthUser(request, set)
+        if (!user) return { error: 'Unauthorized' }
+        return db.select().from(dataSources).orderBy(dataSources.createdAt)
+    })
 
-    .post('/', async ({ body }) => {
+    .post('/', async ({ body, request, set }) => {
+        const user = await requireAuthUser(request, set)
+        if (!user) return { error: 'Unauthorized' }
         // If marking as default, clear existing default first
         if (body.isDefault) {
             await db.update(dataSources).set({ isDefault: false })
@@ -32,7 +39,9 @@ export const dataSourceRoutes = new Elysia({ prefix: '/api/data-sources' })
         return ds
     }, { body: dataSourceBody })
 
-    .patch('/:id', async ({ params, body }) => {
+    .patch('/:id', async ({ params, body, request, set }) => {
+        const user = await requireAuthUser(request, set)
+        if (!user) return { error: 'Unauthorized' }
         if (body.isDefault) {
             await db.update(dataSources).set({ isDefault: false })
         }
@@ -44,13 +53,17 @@ export const dataSourceRoutes = new Elysia({ prefix: '/api/data-sources' })
         return ds
     }, { body: t.Partial(dataSourceBody) })
 
-    .delete('/:id', async ({ params }) => {
+    .delete('/:id', async ({ params, request, set }) => {
+        const user = await requireAuthUser(request, set)
+        if (!user) return { error: 'Unauthorized' }
         await db.delete(dataSources).where(eq(dataSources.id, params.id))
         return { success: true }
     })
 
     // Proxy: test connectivity to a data source
-    .post('/:id/test', async ({ params }) => {
+    .post('/:id/test', async ({ params, request, set }) => {
+        const user = await requireAuthUser(request, set)
+        if (!user) return { error: 'Unauthorized' }
         const [ds] = await db.select().from(dataSources).where(eq(dataSources.id, params.id))
         if (!ds) return { ok: false, error: 'Not found' }
         try {

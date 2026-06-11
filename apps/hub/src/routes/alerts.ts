@@ -3,14 +3,19 @@ import { desc, eq } from 'drizzle-orm'
 import { db } from '../db'
 import { alertDestinations, alertRules, alertHistory } from '../db/schema'
 import { alertManager } from '../services/alert-manager'
+import { requireAuthUser } from '../middleware/auth'
 
 export const alertRoutes = new Elysia({ prefix: '/api/alerts' })
 
-  .get('/destinations', () =>
-    db.select().from(alertDestinations).orderBy(alertDestinations.createdAt)
-  )
+  .get('/destinations', async ({ request, set }) => {
+    const user = await requireAuthUser(request, set)
+    if (!user) return { error: 'Unauthorized' }
+    return db.select().from(alertDestinations).orderBy(alertDestinations.createdAt)
+  })
 
-  .post('/destinations', async ({ body }) => {
+  .post('/destinations', async ({ body, request, set }) => {
+    const user = await requireAuthUser(request, set)
+    if (!user) return { error: 'Unauthorized' }
     const [dest] = await db.insert(alertDestinations).values({
       name: body.name,
       type: body.type,
@@ -29,7 +34,9 @@ export const alertRoutes = new Elysia({ prefix: '/api/alerts' })
     }),
   })
 
-  .put('/destinations/:id', async ({ params, body }) => {
+  .put('/destinations/:id', async ({ params, body, request, set }) => {
+    const user = await requireAuthUser(request, set)
+    if (!user) return { error: 'Unauthorized' }
     const [dest] = await db
       .update(alertDestinations)
       .set({ ...body, updatedAt: new Date() })
@@ -46,12 +53,16 @@ export const alertRoutes = new Elysia({ prefix: '/api/alerts' })
     })),
   })
 
-  .delete('/destinations/:id', async ({ params }) => {
+  .delete('/destinations/:id', async ({ params, request, set }) => {
+    const user = await requireAuthUser(request, set)
+    if (!user) return { error: 'Unauthorized' }
     await db.delete(alertDestinations).where(eq(alertDestinations.id, params.id))
     return { success: true }
   })
 
-  .post('/destinations/:id/test', async ({ params }) => {
+  .post('/destinations/:id/test', async ({ params, request, set }) => {
+    const user = await requireAuthUser(request, set)
+    if (!user) return { error: 'Unauthorized' }
     try {
       await alertManager.testDestination(params.id)
       return { ok: true }
@@ -60,7 +71,9 @@ export const alertRoutes = new Elysia({ prefix: '/api/alerts' })
     }
   })
 
-  .get('/rules', async () => {
+  .get('/rules', async ({ request, set }) => {
+    const user = await requireAuthUser(request, set)
+    if (!user) return { error: 'Unauthorized' }
     const rows = await db
       .select({ rule: alertRules, destination: alertDestinations })
       .from(alertRules)
@@ -74,7 +87,9 @@ export const alertRoutes = new Elysia({ prefix: '/api/alerts' })
     }))
   })
 
-  .post('/rules', async ({ body }) => {
+  .post('/rules', async ({ body, request, set }) => {
+    const user = await requireAuthUser(request, set)
+    if (!user) return { error: 'Unauthorized' }
     const [rule] = await db.insert(alertRules).values({
       name: body.name,
       type: body.type,
@@ -99,7 +114,9 @@ export const alertRoutes = new Elysia({ prefix: '/api/alerts' })
     }),
   })
 
-  .put('/rules/:id', async ({ params, body }) => {
+  .put('/rules/:id', async ({ params, body, request, set }) => {
+    const user = await requireAuthUser(request, set)
+    if (!user) return { error: 'Unauthorized' }
     const [rule] = await db
       .update(alertRules)
       .set({
@@ -122,7 +139,9 @@ export const alertRoutes = new Elysia({ prefix: '/api/alerts' })
     })),
   })
 
-  .patch('/rules/:id/toggle', async ({ params, set }) => {
+  .patch('/rules/:id/toggle', async ({ params, request, set }) => {
+    const user = await requireAuthUser(request, set)
+    if (!user) return { error: 'Unauthorized' }
     const [current] = await db.select().from(alertRules).where(eq(alertRules.id, params.id))
     if (!current) { set.status = 404; return { error: 'Not found' } }
     const [rule] = await db
@@ -133,12 +152,16 @@ export const alertRoutes = new Elysia({ prefix: '/api/alerts' })
     return { ...rule, events: rule.events ? JSON.parse(rule.events) : null }
   })
 
-  .delete('/rules/:id', async ({ params }) => {
+  .delete('/rules/:id', async ({ params, request, set }) => {
+    const user = await requireAuthUser(request, set)
+    if (!user) return { error: 'Unauthorized' }
     await db.delete(alertRules).where(eq(alertRules.id, params.id))
     return { success: true }
   })
 
-  .get('/history', async ({ query }) => {
+  .get('/history', async ({ query, request, set }) => {
+    const user = await requireAuthUser(request, set)
+    if (!user) return { error: 'Unauthorized' }
     const limit = Math.min(Number(query.limit ?? 50), 200)
     const offset = Number(query.offset ?? 0)
     return db

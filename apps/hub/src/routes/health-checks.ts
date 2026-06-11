@@ -3,10 +3,17 @@ import { eq } from 'drizzle-orm'
 import { db } from '../db'
 import { healthChecks, healthCheckResults } from '../db/schema'
 import { healthChecker } from '../services/health-checker'
+import { requireAuthUser } from '../middleware/auth'
 
 export const healthCheckRoutes = new Elysia({ prefix: '/api/health-checks' })
-  .get('/', () => db.select().from(healthChecks))
-  .post('/', async ({ body }) => {
+  .get('/', async ({ request, set }) => {
+    const user = await requireAuthUser(request, set)
+    if (!user) return { error: 'Unauthorized' }
+    return db.select().from(healthChecks)
+  })
+  .post('/', async ({ body, request, set }) => {
+    const user = await requireAuthUser(request, set)
+    if (!user) return { error: 'Unauthorized' }
     const [check] = await db.insert(healthChecks).values(body).returning()
     healthChecker.schedule(check.id, check.interval)
     return check
@@ -17,13 +24,17 @@ export const healthCheckRoutes = new Elysia({ prefix: '/api/health-checks' })
       interval: t.Number({ default: 60 }),
     }),
   })
-  .get('/:id/history', ({ params }) =>
-    db.select()
+  .get('/:id/history', async ({ params, request, set }) => {
+    const user = await requireAuthUser(request, set)
+    if (!user) return { error: 'Unauthorized' }
+    return db.select()
       .from(healthCheckResults)
       .where(eq(healthCheckResults.healthCheckId, params.id))
       .orderBy(healthCheckResults.checkedAt)
-  )
-  .patch('/:id', async ({ params, body }) => {
+  })
+  .patch('/:id', async ({ params, body, request, set }) => {
+    const user = await requireAuthUser(request, set)
+    if (!user) return { error: 'Unauthorized' }
     const [check] = await db
       .update(healthChecks)
       .set({ ...body, updatedAt: new Date() })
@@ -40,7 +51,9 @@ export const healthCheckRoutes = new Elysia({ prefix: '/api/health-checks' })
       })
     ),
   })
-  .delete('/:id', async ({ params }) => {
+  .delete('/:id', async ({ params, request, set }) => {
+    const user = await requireAuthUser(request, set)
+    if (!user) return { error: 'Unauthorized' }
     healthChecker.cancel(params.id)
     await db.delete(healthChecks).where(eq(healthChecks.id, params.id))
     return { success: true }

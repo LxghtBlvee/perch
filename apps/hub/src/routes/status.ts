@@ -11,6 +11,11 @@ export const statusRoutes = new Elysia().get('/api/status', () => {
             total: agents.length,
             online: agents.filter(a => a.agent.status === 'online').length,
         },
-        location: getLocation(),
+        location: (() => {
+            const loc = getLocation()
+            if (!loc) return null
+            const { ip: _ip, ...safeLocation } = loc
+            return safeLocation
+        })(),
     }
 })

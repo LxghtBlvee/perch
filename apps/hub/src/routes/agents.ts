@@ -7,18 +7,28 @@ import { liveRegistry } from '../services/live-registry'
 import { requireAuthUser } from '../middleware/auth'
 
 export const agentRoutes = new Elysia({ prefix: '/api/agents' })
-  .get('/', () => agentRegistry.getAll())
-  .get('/:id', ({ params, set }) => {
+  .get('/', async ({ request, set }) => {
+    const user = await requireAuthUser(request, set)
+    if (!user) return { error: 'Unauthorized' }
+    return agentRegistry.getAll()
+  })
+  .get('/:id', async ({ params, request, set }) => {
+    const user = await requireAuthUser(request, set)
+    if (!user) return { error: 'Unauthorized' }
     const entry = agentRegistry.get(params.id)
     if (!entry) { set.status = 404; return { message: 'Agent not found' } }
     return entry
   })
-  .get('/:id/metrics', ({ params, set }) => {
+  .get('/:id/metrics', async ({ params, request, set }) => {
+    const user = await requireAuthUser(request, set)
+    if (!user) return { error: 'Unauthorized' }
     const entry = agentRegistry.get(params.id)
     if (!entry) { set.status = 404; return { message: 'Agent not found' } }
     return entry.metrics
   })
-  .get('/:id/containers', ({ params, set }) => {
+  .get('/:id/containers', async ({ params, request, set }) => {
+    const user = await requireAuthUser(request, set)
+    if (!user) return { error: 'Unauthorized' }
     const entry = agentRegistry.get(params.id)
     if (!entry) { set.status = 404; return { message: 'Agent not found' } }
     return entry.containers
@@ -53,7 +63,9 @@ export const agentRoutes = new Elysia({ prefix: '/api/agents' })
     return { success: true }
   })
 
-  .get('/:id/containers/:containerId/logs', async ({ params, query, set }) => {
+  .get('/:id/containers/:containerId/logs', async ({ params, query, request, set }) => {
+    const user = await requireAuthUser(request, set)
+    if (!user) return { error: 'Unauthorized' }
     const entry = agentRegistry.get(params.id)
     if (!entry) { set.status = 404; return { message: 'Agent not found' } }
     try {
