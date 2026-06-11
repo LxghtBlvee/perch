@@ -2,20 +2,21 @@
 import Sidebar from '@/components/layout/Sidebar.vue'
 import ToastContainer from '@/components/ToastContainer.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import StatusPage from '@/pages/StatusPage.vue'
 import { usePerchSocket } from '@/composables/usePerchSocket'
 import { useAuthStore } from '@/stores/auth'
-import { useRoute, useRouter } from 'vue-router'
-import { computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
+import { computed, onMounted, ref } from 'vue'
 import { useColorMode } from '@/composables/useColorMode'
 
 const auth = useAuthStore()
 const route = useRoute()
-const router = useRouter()
 
 // Color mode is initialized by the composable import
 useColorMode()
 
 const isPublicRoute = computed(() => route.meta.public === true)
+const customDomainSlug = ref<string | null>(null)
 
 // Handle OAuth token redirect: /?token=xxx
 const urlParams = new URLSearchParams(location.search)
@@ -27,14 +28,13 @@ if (oauthToken) {
 
 usePerchSocket()
 
-// Custom domain detection: if this hostname has a status page, route to it
+// Custom domain detection: render status page at / without changing the URL
 onMounted(async () => {
-  if (window.location.pathname !== '/') return
   try {
     const res = await fetch('/api/status-by-domain')
     if (res.ok) {
       const { slug } = await res.json() as { slug: string }
-      router.replace(`/status/${slug}`)
+      customDomainSlug.value = slug
     }
   } catch { /* not a custom domain */ }
 })
@@ -42,10 +42,18 @@ onMounted(async () => {
 
 <template>
   <div class="flex h-screen bg-background text-foreground overflow-hidden">
-    <Sidebar v-if="!isPublicRoute" />
-    <main class="flex-1 overflow-y-auto">
-      <RouterView />
-    </main>
+    <!-- Custom domain: render status page at / keeping the URL clean -->
+    <template v-if="customDomainSlug">
+      <main class="flex-1 overflow-y-auto">
+        <StatusPage :forced-slug="customDomainSlug" />
+      </main>
+    </template>
+    <template v-else>
+      <Sidebar v-if="!isPublicRoute" />
+      <main class="flex-1 overflow-y-auto">
+        <RouterView />
+      </main>
+    </template>
     <ToastContainer />
     <ConfirmDialog />
   </div>

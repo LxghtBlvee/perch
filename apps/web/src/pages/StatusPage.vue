@@ -3,9 +3,11 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
+const props = defineProps<{ forcedSlug?: string }>()
+
 const route = useRoute()
 const auth = useAuthStore()
-const slug = route.params.slug as string
+const slug = props.forcedSlug ?? (route.params.slug as string)
 
 type DisplayMode = 'full_history' | 'response_time' | 'current_status'
 type IncidentStatus = 'investigating' | 'identified' | 'monitoring' | 'resolved' | 'scheduled' | 'in_progress' | 'completed'
@@ -153,6 +155,7 @@ onMounted(async () => {
   if (res.ok) {
     data.value = await res.json() as PageData
     applyTheme(data.value.themeJson ?? null)
+    document.title = `${data.value.name} — Status`
   } else if (res.status === 404) {
     error.value = 'Status page not found.'
   } else if (res.status === 401) {
@@ -166,6 +169,7 @@ onMounted(async () => {
 onUnmounted(() => {
   document.getElementById('sp-theme')?.remove()
   document.getElementById('sp-font')?.remove()
+  document.title = 'Perch'
 })
 
 const overallStatus = computed(() => {
