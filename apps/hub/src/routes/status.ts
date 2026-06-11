@@ -14,7 +14,7 @@ export const statusRoutes = new Elysia().get('/api/status', () => {
         location: (() => {
             const loc = getLocation()
             if (!loc) return null
-            const { ip: _ip, ...safeLocation } = loc
+            const { ip: _, ...safeLocation } = loc
             return safeLocation
         })(),
     }
