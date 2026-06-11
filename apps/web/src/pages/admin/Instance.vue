@@ -54,17 +54,23 @@ const loading = ref(true)
 const saving = ref(false)
 const saveError = ref('')
 const saveSuccess = ref(false)
+const version = ref<string | null>(null)
 
 const hasChanges = computed(() => JSON.stringify(saved.value) !== JSON.stringify(local.value))
 
 onMounted(async () => {
-  const res = await fetch('/api/admin/instance-settings', {
-    headers: { Authorization: `Bearer ${auth.token}` },
-  })
-  if (res.ok) {
-    const data = await res.json() as InstanceSettings
+  const [settingsRes, versionRes] = await Promise.all([
+    fetch('/api/admin/instance-settings', { headers: { Authorization: `Bearer ${auth.token}` } }),
+    fetch('/api/admin/instance-settings/version', { headers: { Authorization: `Bearer ${auth.token}` } }),
+  ])
+  if (settingsRes.ok) {
+    const data = await settingsRes.json() as InstanceSettings
     saved.value = { ...defaults, ...data }
     local.value = { ...defaults, ...data }
+  }
+  if (versionRes.ok) {
+    const data = await versionRes.json() as { version: string }
+    version.value = data.version
   }
   loading.value = false
 })
@@ -159,7 +165,7 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
             </p>
           </div>
           <p class="text-2xl font-mono font-semibold text-primary mt-4">
-            v0.0.1
+            {{ version ?? '...' }}
           </p>
         </div>
         <div class="col-span-3">
