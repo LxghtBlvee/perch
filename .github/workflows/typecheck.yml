@@ -1,0 +1,29 @@
+name: Typecheck
+
+on:
+  push:
+    branches: [live]
+  pull_request:
+    branches: [live]
+
+jobs:
+  typecheck:
+    name: TypeScript
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Typecheck hub
+        run: bunx tsc --noEmit -p apps/hub/tsconfig.json
+
+      - name: Typecheck agent
+        run: bunx tsc --noEmit -p apps/agent/tsconfig.json
+
+      - name: Typecheck web
+        run: bunx vue-tsc --noEmit -p apps/web/tsconfig.json
