@@ -9,6 +9,10 @@
     "dev:hub": "bun run --cwd apps/hub dev",
     "dev:web": "bun run --cwd apps/web dev",
     "dev:agent": "bun run --cwd apps/agent dev",
+    "typecheck": "bun run typecheck:hub && bun run typecheck:agent && bun run typecheck:web",
+    "typecheck:hub": "bunx tsc --noEmit -p apps/hub/tsconfig.json",
+    "typecheck:agent": "bunx tsc --noEmit -p apps/agent/tsconfig.json",
+    "typecheck:web": "bunx vue-tsc --noEmit -p apps/web/tsconfig.json",
     "lint": "bunx eslint .",
     "lint:fix": "bunx eslint . --fix"
   },

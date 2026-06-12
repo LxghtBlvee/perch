@@ -1,4 +1,4 @@
-import Elysia, { t, error } from 'elysia'
+import Elysia, { t } from 'elysia'
 import { eq } from 'drizzle-orm'
 import { db } from '../db'
 import { oauthProviders } from '../db/schema'
@@ -42,7 +42,7 @@ export const oauthSettingsRoutes = new Elysia({ prefix: '/api/settings/oauth' })
         if (!admin) return { error: set.status === 401 ? 'Unauthorized' : 'Forbidden' }
 
         const provider = params.provider as ProviderType
-        if (!PROVIDERS.includes(provider)) return error(400, { error: 'Unknown provider' })
+        if (!PROVIDERS.includes(provider)) { set.status = 400; return { error: 'Unknown provider' } }
 
         const [existing] = await db
             .select()

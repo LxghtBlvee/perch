@@ -1,4 +1,4 @@
-import Elysia, { t, error } from 'elysia'
+import Elysia, { t } from 'elysia'
 import { eq } from 'drizzle-orm'
 import { db } from '../db'
 import { users } from '../db/schema'
@@ -26,7 +26,7 @@ export const userRoutes = new Elysia({ prefix: '/api/users' })
         if (!admin) return { error: set.status === 401 ? 'Unauthorized' : 'Forbidden' }
 
         const [existing] = await db.select().from(users).where(eq(users.email, body.email)).limit(1)
-        if (existing) return error(409, { error: 'Email already in use' })
+        if (existing) { set.status = 409; return { error: 'Email already in use' } }
 
         const passwordHash = await hashPassword(body.password)
         const [user] = await db
@@ -50,7 +50,7 @@ export const userRoutes = new Elysia({ prefix: '/api/users' })
         if (!admin) return { error: set.status === 401 ? 'Unauthorized' : 'Forbidden' }
 
         const [user] = await db.select().from(users).where(eq(users.id, params.id)).limit(1)
-        if (!user) return error(404, { error: 'User not found' })
+        if (!user) { set.status = 404; return { error: 'User not found' } }
 
         return {
             id: user.id,
@@ -71,7 +71,7 @@ export const userRoutes = new Elysia({ prefix: '/api/users' })
         if (!admin) return { error: set.status === 401 ? 'Unauthorized' : 'Forbidden' }
 
         const [user] = await db.select().from(users).where(eq(users.id, params.id)).limit(1)
-        if (!user) return error(404, { error: 'User not found' })
+        if (!user) { set.status = 404; return { error: 'User not found' } }
 
         const token = await createRecoveryToken(user.id)
         return { token, path: `/api/auth/recover?token=${token}` }
@@ -85,7 +85,7 @@ export const userRoutes = new Elysia({ prefix: '/api/users' })
         if (!admin) return { error: set.status === 401 ? 'Unauthorized' : 'Forbidden' }
 
         if (params.id === admin.id && body.role === 'member') {
-            return error(400, { error: 'Cannot demote yourself' })
+            { set.status = 400; return { error: 'Cannot demote yourself' } }
         }
 
         const [user] = await db
@@ -94,7 +94,7 @@ export const userRoutes = new Elysia({ prefix: '/api/users' })
             .where(eq(users.id, params.id))
             .returning()
 
-        if (!user) return error(404, { error: 'User not found' })
+        if (!user) { set.status = 404; return { error: 'User not found' } }
         return { id: user.id, email: user.email, name: user.name, avatarUrl: user.avatarUrl, role: user.role, createdAt: user.createdAt.toISOString() }
     }, {
         params: t.Object({ id: t.String() }),
@@ -106,10 +106,10 @@ export const userRoutes = new Elysia({ prefix: '/api/users' })
         const admin = await requireAdminUser(request, set)
         if (!admin) return { error: set.status === 401 ? 'Unauthorized' : 'Forbidden' }
 
-        if (params.id === admin.id) return error(400, { error: 'Cannot delete yourself' })
+        if (params.id === admin.id) { set.status = 400; return { error: 'Cannot delete yourself' } }
 
         const [deleted] = await db.delete(users).where(eq(users.id, params.id)).returning()
-        if (!deleted) return error(404, { error: 'User not found' })
+        if (!deleted) { set.status = 404; return { error: 'User not found' } }
         return { ok: true }
     }, {
         params: t.Object({ id: t.String() }),

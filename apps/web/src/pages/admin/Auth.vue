@@ -30,7 +30,8 @@ const PROVIDER_META: Record<ProviderConfig['provider'], {
   desc: string
   icon: string
   docsUrl: string
-  color: string
+  bg: string
+  iconSize: string
 }> = {
   github: {
     label: 'GitHub',

@@ -1,4 +1,4 @@
-import { Elysia, error } from 'elysia'
+import { Elysia } from 'elysia'
 import { cors } from '@elysiajs/cors'
 import { swagger } from '@elysiajs/swagger'
 import { staticPlugin } from '@elysiajs/static'
@@ -85,13 +85,13 @@ const app = new Elysia()
   // Let Vue handle custom domain detection at the root
   .get('/', () => Bun.file(join(webDist, 'index.html')))
   // Custom domain: Vue calls this on mount to detect if it should show a status page
-  .get('/api/status-by-domain', async ({ request }) => {
+  .get('/api/status-by-domain', async ({ request, set }) => {
     const host = request.headers.get('host')?.split(':')[0] ?? ''
     const [page] = await db.select({ slug: statusPages.slug })
       .from(statusPages)
       .where(eq(statusPages.customDomain, host))
       .limit(1)
-    if (!page) return error(404, { error: 'Not a custom domain' })
+    if (!page) { set.status = 404; return { error: 'Not a custom domain' } }
     return { slug: page.slug }
   })
   .use(staticPlugin({ assets: webDist, prefix: '/' }))

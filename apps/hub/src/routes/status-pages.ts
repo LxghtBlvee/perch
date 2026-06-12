@@ -1,4 +1,4 @@
-import Elysia, { t, error } from 'elysia'
+import Elysia, { t } from 'elysia'
 import { eq, and, ne, desc, inArray, isNull } from 'drizzle-orm'
 import { join } from 'path'
 import { mkdir } from 'fs/promises'
@@ -26,7 +26,7 @@ export const statusPageRoutes = new Elysia()
         if (!admin) return { error: set.status === 401 ? 'Unauthorized' : 'Forbidden' }
 
         const [existing] = await db.select().from(statusPages).where(eq(statusPages.slug, body.slug)).limit(1)
-        if (existing) return error(409, { error: 'Slug already in use' })
+        if (existing) { set.status = 409; return { error: 'Slug already in use' } }
 
         const [page] = await db.insert(statusPages).values({
             slug: body.slug,
@@ -48,7 +48,7 @@ export const statusPageRoutes = new Elysia()
         if (!admin) return { error: set.status === 401 ? 'Unauthorized' : 'Forbidden' }
 
         const [page] = await db.select().from(statusPages).where(eq(statusPages.id, params.id)).limit(1)
-        if (!page) return error(404, { error: 'Not found' })
+        if (!page) { set.status = 404; return { error: 'Not found' } }
 
         const checks = await db
             .select({
@@ -78,7 +78,7 @@ export const statusPageRoutes = new Elysia()
                 .from(statusPages)
                 .where(and(eq(statusPages.slug, body.slug), ne(statusPages.id, params.id)))
                 .limit(1)
-            if (conflict) return error(409, { error: 'Slug already in use' })
+            if (conflict) { set.status = 409; return { error: 'Slug already in use' } }
         }
 
         const [updated] = await db
@@ -87,7 +87,7 @@ export const statusPageRoutes = new Elysia()
             .where(eq(statusPages.id, params.id))
             .returning()
 
-        if (!updated) return error(404, { error: 'Not found' })
+        if (!updated) { set.status = 404; return { error: 'Not found' } }
         return updated
     }, {
         params: t.Object({ id: t.String() }),
@@ -107,16 +107,16 @@ export const statusPageRoutes = new Elysia()
         if (!admin) return { error: set.status === 401 ? 'Unauthorized' : 'Forbidden' }
 
         const [page] = await db.select({ id: statusPages.id }).from(statusPages).where(eq(statusPages.id, params.id)).limit(1)
-        if (!page) return error(404, { error: 'Not found' })
+        if (!page) { set.status = 404; return { error: 'Not found' } }
 
         const file = body.file as File
-        if (!file || file.size === 0) return error(400, { error: 'No file provided' })
-        if (!file.type.startsWith('image/')) return error(400, { error: 'File must be an image' })
-        if (file.size > 2 * 1024 * 1024) return error(400, { error: 'File must be under 2 MB' })
+        if (!file || file.size === 0) { set.status = 400; return { error: 'No file provided' } }
+        if (!file.type.startsWith('image/')) { set.status = 400; return { error: 'File must be an image' } }
+        if (file.size > 2 * 1024 * 1024) { set.status = 400; return { error: 'File must be under 2 MB' } }
 
         const ALLOWED_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg']
         const ext = (file.name.split('.').pop() ?? '').toLowerCase()
-        if (!ALLOWED_EXTENSIONS.includes(ext)) return error(400, { error: 'Invalid file type. Allowed: png, jpg, jpeg, gif, webp, svg' })
+        if (!ALLOWED_EXTENSIONS.includes(ext)) { set.status = 400; return { error: 'Invalid file type. Allowed: png, jpg, jpeg, gif, webp, svg' } }
 
         const uploadsDir = join(process.cwd(), 'uploads')
         await mkdir(uploadsDir, { recursive: true })
@@ -141,10 +141,10 @@ export const statusPageRoutes = new Elysia()
         let domain = query.domain ?? null
         if (!domain) {
             const [page] = await db.select({ customDomain: statusPages.customDomain }).from(statusPages).where(eq(statusPages.id, params.id)).limit(1)
-            if (!page) return error(404, { error: 'Not found' })
+            if (!page) { set.status = 404; return { error: 'Not found' } }
             domain = page.customDomain
         }
-        if (!domain) return error(400, { error: 'No custom domain configured' })
+        if (!domain) { set.status = 400; return { error: 'No custom domain configured' } }
 
         try {
             const { lookup } = await import('node:dns/promises')
@@ -161,7 +161,7 @@ export const statusPageRoutes = new Elysia()
         if (!admin) return { error: set.status === 401 ? 'Unauthorized' : 'Forbidden' }
 
         const [deleted] = await db.delete(statusPages).where(eq(statusPages.id, params.id)).returning()
-        if (!deleted) return error(404, { error: 'Not found' })
+        if (!deleted) { set.status = 404; return { error: 'Not found' } }
         return { ok: true }
     }, { params: t.Object({ id: t.String() }) })
 
@@ -170,7 +170,7 @@ export const statusPageRoutes = new Elysia()
         if (!admin) return { error: set.status === 401 ? 'Unauthorized' : 'Forbidden' }
 
         const [page] = await db.select().from(statusPages).where(eq(statusPages.id, params.id)).limit(1)
-        if (!page) return error(404, { error: 'Not found' })
+        if (!page) { set.status = 404; return { error: 'Not found' } }
 
         await db.delete(statusPageChecks).where(eq(statusPageChecks.statusPageId, params.id))
 
@@ -211,7 +211,7 @@ export const statusPageRoutes = new Elysia()
         if (!admin) return { error: set.status === 401 ? 'Unauthorized' : 'Forbidden' }
 
         const [page] = await db.select({ id: statusPages.id }).from(statusPages).where(eq(statusPages.id, params.id)).limit(1)
-        if (!page) return error(404, { error: 'Not found' })
+        if (!page) { set.status = 404; return { error: 'Not found' } }
 
         const incidents = await db
             .select()
@@ -227,7 +227,7 @@ export const statusPageRoutes = new Elysia()
         if (!admin) return { error: set.status === 401 ? 'Unauthorized' : 'Forbidden' }
 
         const [page] = await db.select({ id: statusPages.id }).from(statusPages).where(eq(statusPages.id, params.id)).limit(1)
-        if (!page) return error(404, { error: 'Not found' })
+        if (!page) { set.status = 404; return { error: 'Not found' } }
 
         const defaultStatus = body.type === 'maintenance' ? 'scheduled' as const : 'investigating' as const
 
@@ -279,7 +279,7 @@ export const statusPageRoutes = new Elysia()
             ))
             .returning()
 
-        if (!updated) return error(404, { error: 'Not found' })
+        if (!updated) { set.status = 404; return { error: 'Not found' } }
         return updated
     }, {
         params: t.Object({ id: t.String(), incidentId: t.String() }),
@@ -307,7 +307,7 @@ export const statusPageRoutes = new Elysia()
             ))
             .returning()
 
-        if (!deleted) return error(404, { error: 'Not found' })
+        if (!deleted) { set.status = 404; return { error: 'Not found' } }
         return { ok: true }
     }, { params: t.Object({ id: t.String(), incidentId: t.String() }) })
 
@@ -315,7 +315,7 @@ export const statusPageRoutes = new Elysia()
 
     .get('/api/status/:slug', async ({ request, set, params }) => {
         const [page] = await db.select().from(statusPages).where(eq(statusPages.slug, params.slug)).limit(1)
-        if (!page) return error(404, { error: 'Not found' })
+        if (!page) { set.status = 404; return { error: 'Not found' } }
 
         if (!page.isPublic) {
             const user = await getAuthUser(request)
