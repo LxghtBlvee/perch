@@ -2,6 +2,7 @@
 import { computed, ref, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, Cpu, MemoryStick, HardDrive, Clock, Pencil, Trash2, Check, X } from 'lucide-vue-next'
+import Tooltip from '@/components/Tooltip.vue'
 import { usePerchStore } from '@/stores/perch'
 import { useAuthStore } from '@/stores/auth'
 import { useConfirm } from '@/composables/useConfirm'
@@ -63,15 +64,17 @@ async function deleteAgent() {
 <template>
   <div class="p-6 space-y-6">
     <div class="flex items-center gap-4">
-      <button
-        class="size-8 rounded-lg border border-border flex items-center justify-center hover:bg-accent transition-colors"
-        @click="router.back()"
-      >
-        <ArrowLeft
-          class="size-4"
-          :stroke-width="2"
-        />
-      </button>
+      <Tooltip text="Go back">
+        <button
+          class="size-8 rounded-lg border border-border flex items-center justify-center hover:bg-accent transition-colors"
+          @click="router.back()"
+        >
+          <ArrowLeft
+            class="size-4"
+            :stroke-width="2"
+          />
+        </button>
+      </Tooltip>
       <div class="flex-1 min-w-0">
         <!-- Inline rename -->
         <div
@@ -85,24 +88,28 @@ async function deleteAgent() {
             @keydown.enter="saveRename"
             @keydown.escape="cancelRename"
           >
-          <button
-            class="size-7 rounded flex items-center justify-center text-green-500 hover:bg-accent transition-colors"
-            @click="saveRename"
-          >
-            <Check
-              class="size-4"
-              :stroke-width="2.5"
-            />
-          </button>
-          <button
-            class="size-7 rounded flex items-center justify-center text-muted-foreground hover:bg-accent transition-colors"
-            @click="cancelRename"
-          >
-            <X
-              class="size-4"
-              :stroke-width="2.5"
-            />
-          </button>
+          <Tooltip text="Save">
+            <button
+              class="size-7 rounded flex items-center justify-center text-green-500 hover:bg-accent transition-colors"
+              @click="saveRename"
+            >
+              <Check
+                class="size-4"
+                :stroke-width="2.5"
+              />
+            </button>
+          </Tooltip>
+          <Tooltip text="Cancel">
+            <button
+              class="size-7 rounded flex items-center justify-center text-muted-foreground hover:bg-accent transition-colors"
+              @click="cancelRename"
+            >
+              <X
+                class="size-4"
+                :stroke-width="2.5"
+              />
+            </button>
+          </Tooltip>
         </div>
         <div
           v-else
@@ -111,17 +118,20 @@ async function deleteAgent() {
           <h1 class="text-2xl font-semibold tracking-tight">
             {{ entry?.agent.displayName ?? entry?.agent.hostname ?? 'Agent' }}
           </h1>
-          <button
+          <Tooltip
             v-if="entry"
-            class="size-6 rounded flex items-center justify-center text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-accent transition-all"
-            title="Rename agent"
-            @click="startRename"
+            text="Rename agent"
           >
-            <Pencil
-              class="size-3.5"
-              :stroke-width="1.75"
-            />
-          </button>
+            <button
+              class="size-6 rounded flex items-center justify-center text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-accent transition-all"
+              @click="startRename"
+            >
+              <Pencil
+                class="size-3.5"
+                :stroke-width="1.75"
+              />
+            </button>
+          </Tooltip>
         </div>
         <p class="text-sm text-muted-foreground font-mono">
           {{ entry?.agent.displayName ? entry.agent.hostname + ' · ' : '' }}{{ entry?.agent.ip }}
@@ -133,17 +143,20 @@ async function deleteAgent() {
       >
         {{ entry.agent.status }}
       </span>
-      <button
+      <Tooltip
         v-if="entry"
-        class="size-8 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-red-400 hover:border-red-400/40 transition-colors shrink-0"
-        title="Remove agent"
-        @click="deleteAgent"
+        text="Remove agent"
       >
-        <Trash2
-          class="size-4"
-          :stroke-width="1.75"
-        />
-      </button>
+        <button
+          class="size-8 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-red-400 hover:border-red-400/40 transition-colors shrink-0"
+          @click="deleteAgent"
+        >
+          <Trash2
+            class="size-4"
+            :stroke-width="1.75"
+          />
+        </button>
+      </Tooltip>
     </div>
 
     <div

@@ -2,16 +2,20 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-vue-next'
+import Tooltip from '@/components/Tooltip.vue'
 import { usePerchStore } from '@/stores/perch'
 import { useApi } from '@/composables/useApi'
+import { useCache } from '@/composables/useCache'
 
 const route = useRoute()
 const router = useRouter()
 const store = usePerchStore()
-const { apiFetch } = useApi()
+const { apiFetch, cachedFetch } = useApi()
+const { invalidate } = useCache()
 
 const id = route.params.id as string
 const check = computed(() => store.healthChecks.find(h => h.id === id))
+const historyKey = `/api/health-checks/${id}/history`
 
 type HistoryEntry = { status: 'up' | 'down'; latency: number | null; checkedAt: string }
 const history = ref<HistoryEntry[]>([])
@@ -22,11 +26,11 @@ function countryFlag(code: string): string {
   return [...code.toUpperCase()].map(c => String.fromCodePoint(c.charCodeAt(0) + 127397)).join('')
 }
 
-async function fetchHistory() {
+async function fetchHistory(bust = false) {
   loading.value = true
   try {
-    const res = await apiFetch(`/api/health-checks/${id}/history`)
-    history.value = await res.json()
+    if (bust) invalidate(historyKey)
+    history.value = await cachedFetch<HistoryEntry[]>(historyKey, 30_000)
   } finally {
     loading.value = false
   }
@@ -188,15 +192,17 @@ function xLabel(pts: NonNullable<typeof chartData.value>, i: number): string {
   <div class="p-6 space-y-6">
     <!-- Header -->
     <div class="flex items-center gap-4">
-      <button
-        class="size-8 rounded-lg border border-border flex items-center justify-center hover:bg-accent transition-colors"
-        @click="router.back()"
-      >
-        <ArrowLeft
-          class="size-4"
-          :stroke-width="2"
-        />
-      </button>
+      <Tooltip text="Go back">
+        <button
+          class="size-8 rounded-lg border border-border flex items-center justify-center hover:bg-accent transition-colors"
+          @click="router.back()"
+        >
+          <ArrowLeft
+            class="size-4"
+            :stroke-width="2"
+          />
+        </button>
+      </Tooltip>
       <div class="flex items-center gap-3 flex-1 min-w-0">
         <span class="relative flex size-3 shrink-0">
           <span
@@ -231,7 +237,7 @@ function xLabel(pts: NonNullable<typeof chartData.value>, i: number): string {
       <button
         class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-border hover:bg-accent transition-colors"
         :class="{ 'opacity-50 pointer-events-none': loading }"
-        @click="fetchHistory"
+        @click="fetchHistory(true)"
       >
         <RefreshCw
           class="size-3"
@@ -250,8 +256,42 @@ function xLabel(pts: NonNullable<typeof chartData.value>, i: number): string {
     </div>
 
     <template v-else>
+      <!-- Skeleton — history loading -->
+      <template v-if="loading">
+        <div class="grid grid-cols-3 md:grid-cols-6 gap-4">
+          <div
+            v-for="i in 6"
+            :key="i"
+            class="rounded-xl border border-border bg-card p-4 space-y-2"
+          >
+            <div class="h-3 w-16 bg-muted rounded animate-pulse" />
+            <div class="h-7 w-12 bg-muted rounded animate-pulse" />
+            <div class="h-3 w-20 bg-muted rounded animate-pulse" />
+          </div>
+        </div>
+        <div class="rounded-xl border border-border bg-card p-5 space-y-4">
+          <div class="h-3 w-28 bg-muted rounded animate-pulse" />
+          <div class="h-32 bg-muted/50 rounded-lg animate-pulse" />
+        </div>
+        <div class="rounded-xl border border-border bg-card p-5 space-y-3">
+          <div class="h-3 w-24 bg-muted rounded animate-pulse" />
+          <div class="flex gap-px h-8">
+            <div
+              v-for="i in 90"
+              :key="i"
+              class="flex-1 rounded-[2px] bg-muted animate-pulse"
+            />
+          </div>
+        </div>
+      </template>
+
+      <!-- Real content (hidden during initial history load) -->
+      <template v-else>
+
       <!-- Stats -->
-      <div class="grid grid-cols-3 md:grid-cols-6 gap-4">
+      <div
+        class="grid grid-cols-3 md:grid-cols-6 gap-4"
+      >
         <div class="rounded-xl border border-border bg-card p-4">
           <p class="text-xs text-muted-foreground mb-1">
             Status
@@ -564,31 +604,43 @@ function xLabel(pts: NonNullable<typeof chartData.value>, i: number): string {
             {{ page * PAGE_SIZE + 1 }}–{{ Math.min((page + 1) * PAGE_SIZE, sortedHistory.length) }} of {{ sortedHistory.length }}
           </span>
           <div class="flex items-center gap-1">
-            <button
-              class="size-7 rounded-md flex items-center justify-center hover:bg-accent transition-colors disabled:opacity-30 disabled:pointer-events-none"
-              :disabled="page === 0"
-              @click="prevPage"
+            <Tooltip
+              text="Previous page"
+              side="top"
             >
-              <ChevronLeft
-                class="size-4 text-muted-foreground"
-                :stroke-width="1.75"
-              />
-            </button>
+              <button
+                class="size-7 rounded-md flex items-center justify-center hover:bg-accent transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                :disabled="page === 0"
+                @click="prevPage"
+              >
+                <ChevronLeft
+                  class="size-4 text-muted-foreground"
+                  :stroke-width="1.75"
+                />
+              </button>
+            </Tooltip>
             <span class="text-xs text-muted-foreground px-1">{{ page + 1 }} / {{ totalPages }}</span>
-            <button
-              class="size-7 rounded-md flex items-center justify-center hover:bg-accent transition-colors disabled:opacity-30 disabled:pointer-events-none"
-              :disabled="page === totalPages - 1"
-              @click="nextPage"
+            <Tooltip
+              text="Next page"
+              side="top"
             >
-              <ChevronRight
-                class="size-4 text-muted-foreground"
-                :stroke-width="1.75"
-              />
-            </button>
+              <button
+                class="size-7 rounded-md flex items-center justify-center hover:bg-accent transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                :disabled="page === totalPages - 1"
+                @click="nextPage"
+              >
+                <ChevronRight
+                  class="size-4 text-muted-foreground"
+                  :stroke-width="1.75"
+                />
+              </button>
+            </Tooltip>
           </div>
         </div>
       </div>
-    </template>
+
+      </template><!-- end v-else (real content) -->
+    </template><!-- end v-else (check exists) -->
   </div>
 </template>
 

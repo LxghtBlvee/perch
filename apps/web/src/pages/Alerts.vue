@@ -11,9 +11,16 @@ import type {
 } from '@perch/types'
 import { usePerchStore } from '@/stores/perch'
 import { useApi } from '@/composables/useApi'
+import { useCache } from '@/composables/useCache'
+import Tooltip from '@/components/Tooltip.vue'
 
 const store = usePerchStore()
-const { apiFetch } = useApi()
+const { apiFetch, cachedFetch } = useApi()
+const { invalidate } = useCache()
+
+const DEST_CACHE_KEY = '/api/alerts/destinations'
+const RULES_CACHE_KEY = '/api/alerts/rules'
+const HC_CACHE_KEY = '/api/health-checks'
 
 // ── Data ──────────────────────────────────────────────────
 const destinations = ref<AlertDestination[]>([])
@@ -97,6 +104,7 @@ async function saveDest() {
       if (!res.ok) throw new Error(await res.text())
       destinations.value.push(await res.json())
     }
+    invalidate(DEST_CACHE_KEY)
     showDestModal.value = false
   } catch (e) {
     destError.value = String(e)
@@ -106,8 +114,15 @@ async function saveDest() {
 }
 
 async function deleteDest(id: string) {
-  await apiFetch(`/api/alerts/destinations/${id}`, { method: 'DELETE' })
+  const prev = [...destinations.value]
   destinations.value = destinations.value.filter(d => d.id !== id)
+  invalidate(DEST_CACHE_KEY)
+  try {
+    const res = await apiFetch(`/api/alerts/destinations/${id}`, { method: 'DELETE' })
+    if (!res.ok) throw new Error()
+  } catch {
+    destinations.value = prev
+  }
 }
 
 async function testDest(id: string) {
@@ -212,6 +227,7 @@ async function saveRule() {
     }
     if (!res.ok) throw new Error(await res.text())
     // refresh rules to get denormalized destination info
+    invalidate(RULES_CACHE_KEY)
     await fetchRules()
     showRuleModal.value = false
   } catch (e) {
@@ -222,21 +238,35 @@ async function saveRule() {
 }
 
 async function toggleRule(id: string) {
-  const res = await apiFetch(`/api/alerts/rules/${id}/toggle`, { method: 'PATCH' })
-  const updated: AlertRule = await res.json()
   const idx = rules.value.findIndex(r => r.id === id)
-  if (idx !== -1) rules.value[idx] = updated
+  if (idx === -1) return
+  const prevEnabled = rules.value[idx].enabled
+  rules.value[idx] = { ...rules.value[idx], enabled: !prevEnabled }
+  try {
+    const res = await apiFetch(`/api/alerts/rules/${id}/toggle`, { method: 'PATCH' })
+    if (!res.ok) throw new Error()
+    const updated: AlertRule = await res.json()
+    rules.value[idx] = updated
+  } catch {
+    rules.value[idx] = { ...rules.value[idx], enabled: prevEnabled }
+  }
 }
 
 async function deleteRule(id: string) {
-  await apiFetch(`/api/alerts/rules/${id}`, { method: 'DELETE' })
+  const prev = [...rules.value]
   rules.value = rules.value.filter(r => r.id !== id)
+  invalidate(RULES_CACHE_KEY)
+  try {
+    const res = await apiFetch(`/api/alerts/rules/${id}`, { method: 'DELETE' })
+    if (!res.ok) throw new Error()
+  } catch {
+    rules.value = prev
+  }
 }
 
 // ── Data fetching ─────────────────────────────────────────
 async function fetchRules() {
-  const res = await apiFetch('/api/alerts/rules')
-  rules.value = await res.json()
+  rules.value = await cachedFetch<AlertRule[]>(RULES_CACHE_KEY, 30_000)
 }
 
 async function fetchHistory() {
@@ -247,12 +277,12 @@ async function fetchHistory() {
 onMounted(async () => {
   loading.value = true
   try {
-    const [destRes, hcRes] = await Promise.all([
-      apiFetch('/api/alerts/destinations'),
-      apiFetch('/api/health-checks'),
+    const [dests, hcs] = await Promise.all([
+      cachedFetch<AlertDestination[]>(DEST_CACHE_KEY, 30_000),
+      cachedFetch<HealthCheck[]>(HC_CACHE_KEY, 30_000),
     ])
-    destinations.value = await destRes.json()
-    healthChecks.value = await hcRes.json()
+    destinations.value = dests
+    healthChecks.value = hcs
     await fetchRules()
   } finally {
     loading.value = false
@@ -297,16 +327,51 @@ function timeAgo(iso: string) {
       </div>
     </div>
 
-    <!-- Loading -->
+    <!-- Loading skeleton -->
     <div
       v-if="loading"
-      class="space-y-4"
+      class="space-y-6"
     >
-      <div
-        v-for="i in 3"
-        :key="i"
-        class="h-16 rounded-xl border border-border bg-card animate-pulse"
-      />
+      <!-- Destinations section -->
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="h-3 w-24 bg-muted rounded animate-pulse" />
+          <div class="h-7 w-28 bg-muted rounded-lg animate-pulse" />
+        </div>
+        <div
+          v-for="i in 2"
+          :key="`d${i}`"
+          class="rounded-xl border border-border bg-card p-4 flex items-center gap-4"
+        >
+          <div class="size-10 rounded-lg bg-muted animate-pulse shrink-0" />
+          <div class="flex-1 space-y-2">
+            <div class="h-3.5 w-32 bg-muted rounded animate-pulse" />
+            <div class="h-3 w-48 bg-muted rounded animate-pulse" />
+          </div>
+          <div class="h-7 w-16 bg-muted rounded-lg animate-pulse" />
+          <div class="size-8 rounded-lg bg-muted animate-pulse" />
+        </div>
+      </div>
+      <!-- Rules section -->
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="h-3 w-16 bg-muted rounded animate-pulse" />
+          <div class="h-7 w-20 bg-muted rounded-lg animate-pulse" />
+        </div>
+        <div
+          v-for="i in 2"
+          :key="`r${i}`"
+          class="rounded-xl border border-border bg-card p-4 flex items-center gap-4"
+        >
+          <div class="size-8 rounded-lg bg-muted animate-pulse shrink-0" />
+          <div class="flex-1 space-y-2">
+            <div class="h-3.5 w-40 bg-muted rounded animate-pulse" />
+            <div class="h-3 w-56 bg-muted rounded animate-pulse" />
+          </div>
+          <div class="h-5 w-9 bg-muted rounded-full animate-pulse" />
+          <div class="size-8 rounded-lg bg-muted animate-pulse" />
+        </div>
+      </div>
     </div>
 
     <template v-else>
@@ -395,26 +460,30 @@ function timeAgo(iso: string) {
           </button>
 
           <!-- Edit -->
-          <button
-            class="size-8 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:bg-accent transition-colors shrink-0"
-            @click="openEditDest(dest)"
-          >
-            <Pencil
-              class="size-3.5"
-              :stroke-width="1.75"
-            />
-          </button>
+          <Tooltip text="Edit destination">
+            <button
+              class="size-8 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:bg-accent transition-colors shrink-0"
+              @click="openEditDest(dest)"
+            >
+              <Pencil
+                class="size-3.5"
+                :stroke-width="1.75"
+              />
+            </button>
+          </Tooltip>
 
           <!-- Delete -->
-          <button
-            class="size-8 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-red-400 hover:border-red-400/40 transition-colors shrink-0"
-            @click="deleteDest(dest.id)"
-          >
-            <Trash2
-              class="size-3.5"
-              :stroke-width="2"
-            />
-          </button>
+          <Tooltip text="Delete destination">
+            <button
+              class="size-8 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-red-400 hover:border-red-400/40 transition-colors shrink-0"
+              @click="deleteDest(dest.id)"
+            >
+              <Trash2
+                class="size-3.5"
+                :stroke-width="2"
+              />
+            </button>
+          </Tooltip>
         </div>
       </section>
 
@@ -498,43 +567,49 @@ function timeAgo(iso: string) {
           </div>
 
           <!-- Toggle -->
-          <button
-            class="shrink-0 text-muted-foreground hover:text-primary transition-colors"
-            @click="toggleRule(rule.id)"
-          >
-            <ToggleRight
-              v-if="rule.enabled"
-              class="size-5 text-primary"
-              :stroke-width="1.75"
-            />
-            <ToggleLeft
-              v-else
-              class="size-5"
-              :stroke-width="1.75"
-            />
-          </button>
+          <Tooltip :text="rule.enabled ? 'Disable rule' : 'Enable rule'">
+            <button
+              class="shrink-0 text-muted-foreground hover:text-primary transition-colors"
+              @click="toggleRule(rule.id)"
+            >
+              <ToggleRight
+                v-if="rule.enabled"
+                class="size-5 text-primary"
+                :stroke-width="1.75"
+              />
+              <ToggleLeft
+                v-else
+                class="size-5"
+                :stroke-width="1.75"
+              />
+            </button>
+          </Tooltip>
 
           <!-- Edit -->
-          <button
-            class="size-8 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:bg-accent transition-colors shrink-0"
-            @click="openEditRule(rule)"
-          >
-            <Pencil
-              class="size-3.5"
-              :stroke-width="1.75"
-            />
-          </button>
+          <Tooltip text="Edit rule">
+            <button
+              class="size-8 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:bg-accent transition-colors shrink-0"
+              @click="openEditRule(rule)"
+            >
+              <Pencil
+                class="size-3.5"
+                :stroke-width="1.75"
+              />
+            </button>
+          </Tooltip>
 
           <!-- Delete -->
-          <button
-            class="size-8 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-red-400 hover:border-red-400/40 transition-colors shrink-0"
-            @click="deleteRule(rule.id)"
-          >
-            <Trash2
-              class="size-3.5"
-              :stroke-width="2"
-            />
-          </button>
+          <Tooltip text="Delete rule">
+            <button
+              class="size-8 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-red-400 hover:border-red-400/40 transition-colors shrink-0"
+              @click="deleteRule(rule.id)"
+            >
+              <Trash2
+                class="size-3.5"
+                :stroke-width="2"
+              />
+            </button>
+          </Tooltip>
         </div>
       </section>
 

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { Plus, Trash2 } from 'lucide-vue-next'
+import { Plus, Trash2, HeartPulse } from 'lucide-vue-next'
+import Tooltip from '@/components/Tooltip.vue'
 import { usePerchStore } from '@/stores/perch'
 import { useRouter } from 'vue-router'
 import { useApi } from '@/composables/useApi'
@@ -9,6 +10,9 @@ const store = usePerchStore()
 const router = useRouter()
 const { apiFetch } = useApi()
 
+// Track per-check history loading so we can show shimmer bars
+const historyLoading = ref<Record<string, boolean>>({})
+
 const showForm = ref(false)
 const form = ref({ name: '', url: '', interval: 60 })
 
@@ -16,11 +20,14 @@ type HistoryEntry = { status: 'up' | 'down'; latency: number | null; checkedAt: 
 const history = ref<Record<string, HistoryEntry[]>>({})
 
 async function loadHistory(id: string) {
+  historyLoading.value[id] = true
   try {
     const res = await apiFetch(`/api/health-checks/${id}/history`)
     history.value[id] = await res.json()
   } catch {
     history.value[id] = []
+  } finally {
+    historyLoading.value[id] = false
   }
 }
 
@@ -96,9 +103,18 @@ async function createCheck() {
 }
 
 async function deleteCheck(id: string) {
-  await apiFetch(`/api/health-checks/${id}`, { method: 'DELETE' })
+  // Optimistic: remove immediately, restore on error
+  const prevChecks = [...store.healthChecks]
+  const prevHistory = { ...history.value }
   store.healthChecks = store.healthChecks.filter(h => h.id !== id)
   delete history.value[id]
+  try {
+    const res = await apiFetch(`/api/health-checks/${id}`, { method: 'DELETE' })
+    if (!res.ok) throw new Error()
+  } catch {
+    store.healthChecks = prevChecks
+    history.value = prevHistory
+  }
 }
 </script>
 
@@ -176,16 +192,78 @@ async function deleteCheck(id: string) {
       </div>
     </div>
 
+    <!-- Pre-connection skeleton -->
+    <div
+      v-if="!store.connected"
+      class="space-y-3"
+    >
+      <div
+        v-for="i in 3"
+        :key="i"
+        class="rounded-xl border border-border bg-card p-5 space-y-4"
+      >
+        <div class="flex items-center gap-3">
+          <div class="size-2.5 rounded-full bg-muted animate-pulse shrink-0" />
+          <div class="flex-1 space-y-1.5">
+            <div class="h-3.5 w-32 bg-muted rounded animate-pulse" />
+            <div class="h-3 w-48 bg-muted rounded animate-pulse" />
+          </div>
+          <div class="flex gap-6">
+            <div class="space-y-1.5 text-right">
+              <div class="h-3 w-10 bg-muted rounded animate-pulse ml-auto" />
+              <div class="h-3.5 w-14 bg-muted rounded animate-pulse" />
+            </div>
+            <div class="space-y-1.5 text-right">
+              <div class="h-3 w-12 bg-muted rounded animate-pulse ml-auto" />
+              <div class="h-3.5 w-10 bg-muted rounded animate-pulse" />
+            </div>
+          </div>
+          <div class="size-8 rounded-lg bg-muted animate-pulse" />
+        </div>
+        <div class="flex gap-px h-8">
+          <div
+            v-for="j in 60"
+            :key="j"
+            class="flex-1 rounded-[2px] bg-muted animate-pulse"
+          />
+        </div>
+      </div>
+    </div>
+
     <!-- Empty state -->
     <div
-      v-if="store.healthChecks.length === 0 && !showForm"
-      class="rounded-xl border border-dashed border-border p-12 text-center text-muted-foreground text-sm"
+      v-else-if="store.healthChecks.length === 0 && !showForm"
+      class="rounded-xl border border-dashed border-border p-16 flex flex-col items-center gap-4 text-center"
     >
-      No health checks configured yet.
+      <HeartPulse
+        class="size-10 text-muted-foreground/30"
+        :stroke-width="1.25"
+      />
+      <div>
+        <p class="text-sm font-medium text-muted-foreground">
+          No health checks yet
+        </p>
+        <p class="text-xs text-muted-foreground/60 mt-1">
+          Monitor HTTP endpoints and get alerted when they go down.
+        </p>
+      </div>
+      <button
+        class="flex items-center gap-2 text-sm px-3 py-2 rounded-lg bg-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity"
+        @click="showForm = true"
+      >
+        <Plus
+          class="size-4"
+          :stroke-width="2"
+        />
+        Add your first check
+      </button>
     </div>
 
     <!-- Checks -->
-    <div class="space-y-3">
+    <div
+      v-else
+      class="space-y-3"
+    >
       <div
         v-for="check in store.healthChecks"
         :key="check.id"
@@ -250,15 +328,17 @@ async function deleteCheck(id: string) {
             </div>
           </div>
 
-          <button
-            class="size-8 rounded-lg border border-border flex items-center justify-center hover:bg-destructive/10 hover:border-destructive/30 hover:text-destructive transition-colors ml-1"
-            @click.stop="deleteCheck(check.id)"
-          >
-            <Trash2
-              class="size-3.5"
-              :stroke-width="2"
-            />
-          </button>
+          <Tooltip text="Delete check">
+            <button
+              class="size-8 rounded-lg border border-border flex items-center justify-center hover:bg-destructive/10 hover:border-destructive/30 hover:text-destructive transition-colors ml-1"
+              @click.stop="deleteCheck(check.id)"
+            >
+              <Trash2
+                class="size-3.5"
+                :stroke-width="2"
+              />
+            </button>
+          </Tooltip>
         </div>
 
         <!-- Heartbeat bars -->
@@ -271,6 +351,7 @@ async function deleteCheck(id: string) {
               'bg-green-500': slot?.status === 'up',
               'bg-red-500': slot?.status === 'down',
               'bg-muted': slot === null,
+              'animate-pulse': historyLoading[check.id],
             }"
             :title="slot
               ? `${slot.status === 'up' ? 'Up' : 'Down'} · ${slot.latency != null ? slot.latency + 'ms' : 'N/A'} · ${new Date(slot.checkedAt).toLocaleString()}`

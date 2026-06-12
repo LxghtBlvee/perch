@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { LayoutDashboard, Server, HeartPulse, Bell, Database, Settings, Users, LogOut, Sliders, Globe, KeyRound } from 'lucide-vue-next'
+import Tooltip from '@/components/Tooltip.vue'
 import { usePerchStore } from '@/stores/perch'
 import { useAuthStore } from '@/stores/auth'
 import { cn } from '@/lib/utils'
@@ -223,16 +224,20 @@ async function handleLogout() {
             </p>
           </div>
         </RouterLink>
-        <button
-          class="size-6 rounded flex items-center justify-center hover:bg-accent transition-colors shrink-0"
-          title="Sign out"
-          @click="handleLogout"
+        <Tooltip
+          text="Sign out"
+          side="top"
         >
-          <LogOut
-            class="size-3.5 text-muted-foreground"
-            :stroke-width="1.75"
-          />
-        </button>
+          <button
+            class="size-6 rounded flex items-center justify-center hover:bg-accent transition-colors shrink-0"
+            @click="handleLogout"
+          >
+            <LogOut
+              class="size-3.5 text-muted-foreground"
+              :stroke-width="1.75"
+            />
+          </button>
+        </Tooltip>
       </div>
     </div>
   </aside>

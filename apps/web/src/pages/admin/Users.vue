@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { Trash2, ShieldCheck, ShieldMinus, X, Copy, Check, RefreshCw } from 'lucide-vue-next'
+import Tooltip from '@/components/Tooltip.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useConfirm } from '@/composables/useConfirm'
 import type { ManagedUser } from '@perch/types'
@@ -233,9 +234,22 @@ function formatDateTime(iso: string) {
       <div class="flex-1 rounded-xl border border-border bg-card divide-y divide-border">
         <div
           v-if="loading"
-          class="p-8 text-center text-sm text-muted-foreground"
+          class="divide-y divide-border"
         >
-          Loading...
+          <div
+            v-for="i in 4"
+            :key="i"
+            class="flex items-center gap-4 p-4 animate-pulse"
+          >
+            <div class="size-8 rounded-full bg-muted shrink-0" />
+            <div class="flex-1 space-y-1.5">
+              <div class="h-3.5 w-32 bg-muted rounded" />
+              <div class="h-3 w-48 bg-muted rounded" />
+            </div>
+            <div class="h-5 w-14 bg-muted rounded-full" />
+            <div class="h-3 w-20 bg-muted rounded hidden sm:block" />
+            <div class="size-8 rounded-lg bg-muted" />
+          </div>
         </div>
         <div
           v-for="user in users"
@@ -291,32 +305,34 @@ function formatDateTime(iso: string) {
               class="flex items-center gap-1"
               @click.stop
             >
-              <button
-                class="size-8 rounded-lg flex items-center justify-center hover:bg-accent transition-colors"
-                :title="user.role === 'admin' ? 'Demote to member' : 'Promote to admin'"
-                @click="toggleRole(user)"
-              >
-                <ShieldCheck
-                  v-if="user.role === 'member'"
-                  class="size-4 text-muted-foreground"
-                  :stroke-width="1.75"
-                />
-                <ShieldMinus
-                  v-else
-                  class="size-4 text-muted-foreground"
-                  :stroke-width="1.75"
-                />
-              </button>
-              <button
-                class="size-8 rounded-lg flex items-center justify-center hover:bg-accent transition-colors"
-                title="Delete user"
-                @click="deleteUser(user)"
-              >
-                <Trash2
-                  class="size-4 text-muted-foreground"
-                  :stroke-width="1.75"
-                />
-              </button>
+              <Tooltip :text="user.role === 'admin' ? 'Demote to member' : 'Promote to admin'">
+                <button
+                  class="size-8 rounded-lg flex items-center justify-center hover:bg-accent transition-colors"
+                  @click="toggleRole(user)"
+                >
+                  <ShieldCheck
+                    v-if="user.role === 'member'"
+                    class="size-4 text-muted-foreground"
+                    :stroke-width="1.75"
+                  />
+                  <ShieldMinus
+                    v-else
+                    class="size-4 text-muted-foreground"
+                    :stroke-width="1.75"
+                  />
+                </button>
+              </Tooltip>
+              <Tooltip text="Delete user">
+                <button
+                  class="size-8 rounded-lg flex items-center justify-center hover:bg-accent transition-colors"
+                  @click="deleteUser(user)"
+                >
+                  <Trash2
+                    class="size-4 text-muted-foreground"
+                    :stroke-width="1.75"
+                  />
+                </button>
+              </Tooltip>
             </div>
             <div
               v-else
@@ -398,12 +414,10 @@ function formatDateTime(iso: string) {
             <p class="text-xs text-muted-foreground">
               Last login
             </p>
-            <p
+            <div
               v-if="detailLoading"
-              class="text-sm mt-0.5 text-muted-foreground"
-            >
-              Loading...
-            </p>
+              class="h-3.5 w-28 bg-muted rounded animate-pulse mt-1"
+            />
             <p
               v-else-if="selectedUser.lastLoginAt"
               class="text-sm mt-0.5"

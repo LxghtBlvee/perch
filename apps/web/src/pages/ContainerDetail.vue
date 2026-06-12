@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, RefreshCw, Cpu, MemoryStick } from 'lucide-vue-next'
+import Tooltip from '@/components/Tooltip.vue'
 import { usePerchStore } from '@/stores/perch'
 import { formatBytes, formatPercent } from '@/lib/utils'
 import { useApi } from '@/composables/useApi'
@@ -44,15 +45,17 @@ onMounted(fetchLogs)
   <div class="p-6 space-y-6">
     <!-- Header -->
     <div class="flex items-center gap-4">
-      <button
-        class="size-8 rounded-lg border border-border flex items-center justify-center hover:bg-accent transition-colors"
-        @click="router.back()"
-      >
-        <ArrowLeft
-          class="size-4"
-          :stroke-width="2"
-        />
-      </button>
+      <Tooltip text="Go back">
+        <button
+          class="size-8 rounded-lg border border-border flex items-center justify-center hover:bg-accent transition-colors"
+          @click="router.back()"
+        >
+          <ArrowLeft
+            class="size-4"
+            :stroke-width="2"
+          />
+        </button>
+      </Tooltip>
       <div>
         <h1 class="text-2xl font-semibold tracking-tight font-mono">
           {{ container?.name ?? containerId }}
@@ -216,11 +219,24 @@ onMounted(fetchLogs)
           {{ logsError }}
         </div>
 
+        <!-- Log skeleton -->
+        <div
+          v-else-if="logsLoading"
+          class="rounded-xl border border-border bg-black/40 p-4 space-y-2 max-h-[520px] overflow-hidden"
+        >
+          <div
+            v-for="i in 18"
+            :key="i"
+            class="h-3 rounded animate-pulse bg-green-400/10"
+            :style="{ width: `${45 + (i * 37) % 55}%` }"
+          />
+        </div>
+
         <div
           v-else
           class="rounded-xl border border-border bg-black/40 overflow-hidden"
         >
-          <pre class="p-4 text-xs font-mono text-green-400/90 overflow-auto max-h-[520px] whitespace-pre-wrap break-all leading-relaxed">{{ logs || (logsLoading ? 'Loading...' : 'No logs.') }}</pre>
+          <pre class="p-4 text-xs font-mono text-green-400/90 overflow-auto max-h-[520px] whitespace-pre-wrap break-all leading-relaxed">{{ logs || 'No logs.' }}</pre>
         </div>
       </div>
     </template>

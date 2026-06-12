@@ -189,9 +189,17 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
 
     <div
       v-if="loading"
-      class="text-sm text-muted-foreground"
+      class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3"
     >
-      Loading...
+      <div
+        v-for="i in 6"
+        :key="i"
+        class="rounded-xl border border-border bg-card p-4 space-y-3 animate-pulse"
+      >
+        <div class="size-8 rounded-lg bg-muted" />
+        <div class="h-3.5 w-20 bg-muted rounded" />
+        <div class="h-3 w-16 bg-muted rounded" />
+      </div>
     </div>
 
     <!-- Provider cards grid -->

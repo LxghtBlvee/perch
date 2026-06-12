@@ -350,9 +350,29 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
 
     <div
       v-if="loading"
-      class="text-sm text-muted-foreground"
+      class="space-y-4"
     >
-      Loading...
+      <div class="rounded-xl border border-border bg-card p-5 space-y-4 animate-pulse">
+        <div class="h-3.5 w-24 bg-muted rounded" />
+        <div class="grid grid-cols-2 gap-4">
+          <div class="space-y-2">
+            <div class="h-3 w-12 bg-muted rounded" />
+            <div class="h-9 bg-muted rounded-lg" />
+          </div>
+          <div class="space-y-2">
+            <div class="h-3 w-10 bg-muted rounded" />
+            <div class="h-9 bg-muted rounded-lg" />
+          </div>
+        </div>
+      </div>
+      <div class="rounded-xl border border-border bg-card p-5 space-y-3 animate-pulse">
+        <div class="h-3.5 w-32 bg-muted rounded" />
+        <div
+          v-for="i in 3"
+          :key="i"
+          class="h-14 bg-muted rounded-xl"
+        />
+      </div>
     </div>
 
     <template v-else-if="page">

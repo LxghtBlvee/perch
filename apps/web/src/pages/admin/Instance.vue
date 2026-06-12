@@ -234,9 +234,22 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
 
     <div
       v-if="loading"
-      class="text-sm text-muted-foreground"
+      class="space-y-6"
     >
-      Loading...
+      <div
+        v-for="i in 2"
+        :key="i"
+        class="space-y-3"
+      >
+        <div class="h-3 w-32 bg-muted rounded animate-pulse" />
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div
+            v-for="j in 3"
+            :key="j"
+            class="h-24 rounded-xl border border-border bg-card animate-pulse"
+          />
+        </div>
+      </div>
     </div>
 
     <template v-else>

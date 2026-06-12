@@ -1,10 +1,15 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { Plus, Trash2, CheckCircle, XCircle, Loader, Database, Star } from 'lucide-vue-next'
+import Tooltip from '@/components/Tooltip.vue'
 import type { DataSource, DataSourceType } from '@perch/types'
 import { useApi } from '@/composables/useApi'
+import { useCache } from '@/composables/useCache'
 
-const { apiFetch } = useApi()
+const { apiFetch, cachedFetch } = useApi()
+const { invalidate } = useCache()
+
+const DS_CACHE_KEY = '/api/data-sources'
 
 const sources = ref<DataSource[]>([])
 const loading = ref(true)
@@ -32,8 +37,7 @@ const TYPE_META: Record<DataSourceType, { label: string; placeholder: string; co
 async function fetchSources() {
   loading.value = true
   try {
-    const res = await apiFetch('/api/data-sources')
-    sources.value = await res.json()
+    sources.value = await cachedFetch<DataSource[]>(DS_CACHE_KEY, 60_000)
   } finally {
     loading.value = false
   }
@@ -58,6 +62,7 @@ async function save() {
       sources.value.forEach(s => { s.isDefault = false })
     }
     sources.value.push(ds)
+    invalidate(DS_CACHE_KEY)
     showForm.value = false
     form.value = defaultForm()
   } catch (e) {
@@ -68,8 +73,15 @@ async function save() {
 }
 
 async function remove(id: string) {
-  await apiFetch(`/api/data-sources/${id}`, { method: 'DELETE' })
+  const prev = [...sources.value]
   sources.value = sources.value.filter(s => s.id !== id)
+  invalidate(DS_CACHE_KEY)
+  try {
+    const res = await apiFetch(`/api/data-sources/${id}`, { method: 'DELETE' })
+    if (!res.ok) throw new Error()
+  } catch {
+    sources.value = prev
+  }
 }
 
 async function test(id: string) {
@@ -315,15 +327,17 @@ onMounted(fetchSources)
         </button>
 
         <!-- Delete -->
-        <button
-          class="size-8 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-red-400 hover:border-red-400/40 transition-colors shrink-0"
-          @click="remove(ds.id)"
-        >
-          <Trash2
-            class="size-3.5"
-            :stroke-width="2"
-          />
-        </button>
+        <Tooltip text="Remove">
+          <button
+            class="size-8 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-red-400 hover:border-red-400/40 transition-colors shrink-0"
+            @click="remove(ds.id)"
+          >
+            <Trash2
+              class="size-3.5"
+              :stroke-width="2"
+            />
+          </button>
+        </Tooltip>
       </div>
     </div>
   </div>

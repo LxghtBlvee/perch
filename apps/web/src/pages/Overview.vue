@@ -3,14 +3,14 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { Server, Container, HeartPulse, Cpu, MemoryStick, PlusCircle } from 'lucide-vue-next'
 import { usePerchStore } from '@/stores/perch'
-import { useAuthStore } from '@/stores/auth'
 import { useColorMode } from '@/composables/useColorMode'
+import { useApi } from '@/composables/useApi'
 import { formatPercent, formatBytes, formatUptime } from '@/lib/utils'
 
 const store = usePerchStore()
 const router = useRouter()
-const auth = useAuthStore()
 const { isDark } = useColorMode()
+const { cachedFetch } = useApi()
 
 const enabledPlatforms = ref<string[]>(['docker'])
 
@@ -40,16 +40,13 @@ function iconFor(p: PlatformDef) {
 }
 
 onMounted(async () => {
-  if (!auth.token) return
   try {
-    const res = await fetch('/api/admin/instance-settings', {
-      headers: { Authorization: `Bearer ${auth.token}` },
-    })
-    if (res.ok) {
-      const data = await res.json() as { enabledPlatforms?: string }
-      if (data.enabledPlatforms) {
-        enabledPlatforms.value = JSON.parse(data.enabledPlatforms) as string[]
-      }
+    const data = await cachedFetch<{ enabledPlatforms?: string }>(
+      '/api/admin/instance-settings',
+      5 * 60_000,
+    )
+    if (data.enabledPlatforms) {
+      enabledPlatforms.value = JSON.parse(data.enabledPlatforms) as string[]
     }
   } catch { /* fall back to docker only */ }
 })

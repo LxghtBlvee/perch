@@ -290,9 +290,26 @@ function buildChart(history: CheckResult[], width: number, height: number): stri
       <!-- Loading -->
       <div
         v-if="loading"
-        class="text-sm text-muted-foreground"
+        class="space-y-4"
       >
-        Loading...
+        <div class="h-5 w-48 bg-muted rounded animate-pulse" />
+        <div
+          v-for="i in 3"
+          :key="i"
+          class="rounded-xl border border-border bg-card p-5 animate-pulse space-y-3"
+        >
+          <div class="flex items-center gap-3">
+            <div class="size-2.5 rounded-full bg-muted shrink-0" />
+            <div class="h-3.5 w-40 bg-muted rounded" />
+          </div>
+          <div class="flex gap-px h-6">
+            <div
+              v-for="j in 60"
+              :key="j"
+              class="flex-1 rounded-[2px] bg-muted"
+            />
+          </div>
+        </div>
       </div>
 
       <!-- Error -->

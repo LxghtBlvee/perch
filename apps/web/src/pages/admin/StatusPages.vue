@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Plus, Globe, Lock, Trash2, Copy, Check, ExternalLink } from 'lucide-vue-next'
+import Tooltip from '@/components/Tooltip.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import { useConfirm } from '@/composables/useConfirm'
@@ -135,9 +136,31 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
 
     <div
       v-if="loading"
-      class="text-sm text-muted-foreground"
+      class="rounded-xl border border-border overflow-hidden"
     >
-      Loading...
+      <div class="divide-y divide-border">
+        <div
+          v-for="i in 3"
+          :key="i"
+          class="grid grid-cols-[1fr_auto_auto_auto] gap-4 items-center px-5 py-4 animate-pulse"
+        >
+          <div class="space-y-1.5">
+            <div class="h-3.5 w-36 bg-muted rounded" />
+            <div class="h-3 w-24 bg-muted rounded" />
+          </div>
+          <div class="w-20 flex justify-center">
+            <div class="h-5 w-14 bg-muted rounded-full" />
+          </div>
+          <div class="w-14 flex justify-center">
+            <div class="h-3 w-4 bg-muted rounded" />
+          </div>
+          <div class="w-24 flex justify-end gap-1">
+            <div class="size-7 bg-muted rounded-lg" />
+            <div class="size-7 bg-muted rounded-lg" />
+            <div class="size-7 bg-muted rounded-lg" />
+          </div>
+        </div>
+      </div>
     </div>
 
     <div
@@ -217,44 +240,47 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
             class="w-24 flex items-center justify-end gap-1"
             @click.stop
           >
-            <a
-              :href="`/status/${page.slug}`"
-              target="_blank"
-              class="size-7 rounded-lg flex items-center justify-center hover:bg-accent transition-colors"
-              title="Open"
-            >
-              <ExternalLink
-                class="size-3.5 text-muted-foreground"
-                :stroke-width="1.75"
-              />
-            </a>
-            <button
-              class="size-7 rounded-lg flex items-center justify-center hover:bg-accent transition-colors"
-              title="Copy link"
-              @click="copyLink(page.slug, page.id)"
-            >
-              <Check
-                v-if="copiedId === page.id"
-                class="size-3.5 text-green-500"
-                :stroke-width="2"
-              />
-              <Copy
-                v-else
-                class="size-3.5 text-muted-foreground"
-                :stroke-width="1.75"
-              />
-            </button>
-            <button
-              class="size-7 rounded-lg flex items-center justify-center hover:bg-accent transition-colors disabled:opacity-50"
-              title="Delete"
-              :disabled="deletingId === page.id"
-              @click="deletePage(page.id, page.name)"
-            >
-              <Trash2
-                class="size-3.5 text-muted-foreground"
-                :stroke-width="1.75"
-              />
-            </button>
+            <Tooltip text="Open status page">
+              <a
+                :href="`/status/${page.slug}`"
+                target="_blank"
+                class="size-7 rounded-lg flex items-center justify-center hover:bg-accent transition-colors"
+              >
+                <ExternalLink
+                  class="size-3.5 text-muted-foreground"
+                  :stroke-width="1.75"
+                />
+              </a>
+            </Tooltip>
+            <Tooltip :text="copiedId === page.id ? 'Copied!' : 'Copy link'">
+              <button
+                class="size-7 rounded-lg flex items-center justify-center hover:bg-accent transition-colors"
+                @click="copyLink(page.slug, page.id)"
+              >
+                <Check
+                  v-if="copiedId === page.id"
+                  class="size-3.5 text-green-500"
+                  :stroke-width="2"
+                />
+                <Copy
+                  v-else
+                  class="size-3.5 text-muted-foreground"
+                  :stroke-width="1.75"
+                />
+              </button>
+            </Tooltip>
+            <Tooltip text="Delete">
+              <button
+                class="size-7 rounded-lg flex items-center justify-center hover:bg-accent transition-colors disabled:opacity-50"
+                :disabled="deletingId === page.id"
+                @click="deletePage(page.id, page.name)"
+              >
+                <Trash2
+                  class="size-3.5 text-muted-foreground"
+                  :stroke-width="1.75"
+                />
+              </button>
+            </Tooltip>
           </div>
         </div>
       </div>

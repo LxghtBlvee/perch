@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { AuthUser } from '@perch/types'
+import { clearApiCache } from '@/composables/useCache'
 
 const TOKEN_KEY = 'perch_token'
 
@@ -63,6 +64,7 @@ export const useAuthStore = defineStore('auth', () => {
                 headers: { Authorization: `Bearer ${token.value}` },
             }).catch(() => {})
         }
+        clearApiCache()
         clearAuth()
     }
 
