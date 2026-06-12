@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import { Eye, EyeOff, KeyRound } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
+import { useColorMode } from '@/composables/useColorMode'
 
 const showToken = ref(false)
 
@@ -26,6 +27,41 @@ interface InstanceSettings {
   healthCheckResultsRetentionDays: number
   maintenanceModeEnabled: boolean
   statusPageEnabled: boolean
+  enabledPlatforms: string
+}
+
+interface PlatformDef {
+  id: string
+  name: string
+  lightIcon: string
+  darkIcon: string
+}
+
+const { isDark } = useColorMode()
+
+const PLATFORM_DEFS: PlatformDef[] = [
+  { id: 'docker',     name: 'Docker',     lightIcon: '/icons/integrations/docker.svg',        darkIcon: '/icons/integrations/docker.svg'        },
+  { id: 'kubernetes', name: 'Kubernetes', lightIcon: '/icons/integrations/kubernetes.svg',    darkIcon: '/icons/integrations/kubernetes.svg'    },
+  { id: 'podman',     name: 'Podman',     lightIcon: '/icons/integrations/podman.svg',        darkIcon: '/icons/integrations/podman.svg'        },
+  { id: 'proxmox',    name: 'Proxmox',    lightIcon: '/icons/integrations/proxmox-light.svg', darkIcon: '/icons/integrations/proxmox-dark.svg'  },
+  { id: 'nomad',      name: 'Nomad',      lightIcon: '/icons/integrations/nomad.svg',         darkIcon: '/icons/integrations/nomad.svg'         },
+  { id: 'lxc',        name: 'LXC / LXD', lightIcon: '/icons/integrations/lxc.svg',           darkIcon: '/icons/integrations/lxc.svg'           },
+]
+
+function platformIconFor(p: PlatformDef) {
+  return isDark.value ? p.darkIcon : p.lightIcon
+}
+
+function isPlatformEnabled(id: string) {
+  try { return (JSON.parse(local.value.enabledPlatforms) as string[]).includes(id) } catch { return false }
+}
+
+function togglePlatform(id: string) {
+  try {
+    const current = JSON.parse(local.value.enabledPlatforms) as string[]
+    const next = current.includes(id) ? current.filter(p => p !== id) : [...current, id]
+    local.value.enabledPlatforms = JSON.stringify(next)
+  } catch { /* ignore */ }
 }
 
 const defaults: InstanceSettings = {
@@ -46,6 +82,7 @@ const defaults: InstanceSettings = {
   healthCheckResultsRetentionDays: 90,
   maintenanceModeEnabled: false,
   statusPageEnabled: false,
+  enabledPlatforms: '["docker"]',
 }
 
 const saved = ref<InstanceSettings>({ ...defaults })
@@ -567,6 +604,48 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
               Only admins can sign in while this is on.
             </p>
           </div>
+        </div>
+      </section>
+
+      <!-- Monitored Platforms -->
+      <section>
+        <h2 class="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+          Monitored Platforms
+        </h2>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <button
+            v-for="platform in PLATFORM_DEFS"
+            :key="platform.id"
+            class="flex items-center gap-3 rounded-xl border p-4 text-left transition-colors"
+            :class="isPlatformEnabled(platform.id) ? 'border-primary bg-primary/5' : 'border-border bg-card hover:bg-accent/40'"
+            @click="togglePlatform(platform.id)"
+          >
+            <img
+              :src="platformIconFor(platform)"
+              :alt="platform.name"
+              class="size-6 object-contain shrink-0"
+            >
+            <span class="text-sm font-medium flex-1">{{ platform.name }}</span>
+            <div
+              class="size-4 rounded-full border shrink-0 flex items-center justify-center transition-colors"
+              :class="isPlatformEnabled(platform.id) ? 'border-primary bg-primary' : 'border-border'"
+            >
+              <svg
+                v-if="isPlatformEnabled(platform.id)"
+                class="size-2.5 text-primary-foreground"
+                viewBox="0 0 10 10"
+                fill="none"
+              >
+                <path
+                  d="M1.5 5l2.5 2.5 4.5-4.5"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </div>
+          </button>
         </div>
       </section>
 

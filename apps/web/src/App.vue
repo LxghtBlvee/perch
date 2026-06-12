@@ -2,6 +2,7 @@
 import Sidebar from '@/components/layout/Sidebar.vue'
 import ToastContainer from '@/components/ToastContainer.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import OnboardingModal from '@/components/OnboardingModal.vue'
 import StatusPage from '@/pages/StatusPage.vue'
 import { usePerchSocket } from '@/composables/usePerchSocket'
 import { useAuthStore } from '@/stores/auth'
@@ -56,5 +57,6 @@ onMounted(async () => {
     </template>
     <ToastContainer />
     <ConfirmDialog />
+    <OnboardingModal />
   </div>
 </template>

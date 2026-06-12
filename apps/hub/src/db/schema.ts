@@ -145,6 +145,9 @@ export const instanceSettings = pgTable('instance_settings', {
     maintenanceModeEnabled: boolean('maintenance_mode_enabled').notNull().default(false),
     // Status pages
     statusPageEnabled: boolean('status_page_enabled').notNull().default(false),
+    // Onboarding
+    onboardingCompleted: boolean('onboarding_completed').notNull().default(false),
+    enabledPlatforms: text('enabled_platforms').notNull().default('["docker"]'),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
 

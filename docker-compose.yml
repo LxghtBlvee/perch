@@ -1,6 +1,5 @@
 services:
   hub:
-    image: lxghtblvee/perch-hub:latest
     build:
       context: .
       dockerfile: apps/hub/Dockerfile
@@ -25,7 +24,6 @@ services:
     restart: unless-stopped
 
   agent:
-    image: lxghtblvee/perch-agent:latest
     build:
       context: .
       dockerfile: apps/agent/Dockerfile

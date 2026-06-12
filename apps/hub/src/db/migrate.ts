@@ -242,6 +242,9 @@ async function migrate() {
         )
     `)
 
+    await db.execute(sql`ALTER TABLE instance_settings ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN NOT NULL DEFAULT false`)
+    await db.execute(sql`ALTER TABLE instance_settings ADD COLUMN IF NOT EXISTS enabled_platforms TEXT NOT NULL DEFAULT '["docker"]'`)
+
     // Performance indexes for cleanup queries and common lookups
     await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at)`)
     await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)`)

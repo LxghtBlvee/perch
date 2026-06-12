@@ -1,12 +1,58 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { Server, Container, HeartPulse, Cpu, MemoryStick } from 'lucide-vue-next'
+import { Server, Container, HeartPulse, Cpu, MemoryStick, PlusCircle } from 'lucide-vue-next'
 import { usePerchStore } from '@/stores/perch'
+import { useAuthStore } from '@/stores/auth'
+import { useColorMode } from '@/composables/useColorMode'
 import { formatPercent, formatBytes, formatUptime } from '@/lib/utils'
 
 const store = usePerchStore()
 const router = useRouter()
+const auth = useAuthStore()
+const { isDark } = useColorMode()
+
+const enabledPlatforms = ref<string[]>(['docker'])
+
+interface PlatformDef {
+  id: string
+  name: string
+  lightIcon: string
+  darkIcon: string
+  available: boolean
+}
+
+const PLATFORM_DEFS: PlatformDef[] = [
+  { id: 'docker',     name: 'Docker',     lightIcon: '/icons/integrations/docker.svg',        darkIcon: '/icons/integrations/docker.svg',        available: true  },
+  { id: 'kubernetes', name: 'Kubernetes', lightIcon: '/icons/integrations/kubernetes.svg',    darkIcon: '/icons/integrations/kubernetes.svg',    available: false },
+  { id: 'podman',     name: 'Podman',     lightIcon: '/icons/integrations/podman.svg',        darkIcon: '/icons/integrations/podman.svg',        available: false },
+  { id: 'proxmox',    name: 'Proxmox',    lightIcon: '/icons/integrations/proxmox-light.svg', darkIcon: '/icons/integrations/proxmox-dark.svg',  available: false },
+  { id: 'nomad',      name: 'Nomad',      lightIcon: '/icons/integrations/nomad.svg',         darkIcon: '/icons/integrations/nomad.svg',         available: false },
+  { id: 'lxc',        name: 'LXC / LXD', lightIcon: '/icons/integrations/lxc.svg',           darkIcon: '/icons/integrations/lxc.svg',           available: false },
+]
+
+const activePlatforms = computed(() =>
+  PLATFORM_DEFS.filter(p => enabledPlatforms.value.includes(p.id))
+)
+
+function iconFor(p: PlatformDef) {
+  return isDark.value ? p.darkIcon : p.lightIcon
+}
+
+onMounted(async () => {
+  if (!auth.token) return
+  try {
+    const res = await fetch('/api/admin/instance-settings', {
+      headers: { Authorization: `Bearer ${auth.token}` },
+    })
+    if (res.ok) {
+      const data = await res.json() as { enabledPlatforms?: string }
+      if (data.enabledPlatforms) {
+        enabledPlatforms.value = JSON.parse(data.enabledPlatforms) as string[]
+      }
+    }
+  } catch { /* fall back to docker only */ }
+})
 
 const stats = computed(() => ({
   agentsOnline: store.agents.filter(a => a.agent.status === 'online').length,
@@ -82,103 +128,177 @@ const stats = computed(() => ({
       </div>
     </div>
 
-    <!-- Agent cards -->
-    <div>
-      <h2 class="text-sm font-medium text-muted-foreground mb-3">
-        Agents
-      </h2>
-
-      <div
-        v-if="store.agents.length === 0"
-        class="rounded-xl border border-dashed border-border p-12 flex flex-col items-center gap-3 text-center"
-      >
-        <Server
-          class="size-8 text-muted-foreground/40"
-          :stroke-width="1.5"
-        />
-        <p class="text-sm text-muted-foreground">
-          No agents connected yet.
-        </p>
-        <p class="text-xs text-muted-foreground/60">
-          Deploy the Perch agent on a host to start seeing data.
-        </p>
-      </div>
-
-      <div
-        v-else
-        class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"
-      >
-        <button
-          v-for="entry in store.agents"
-          :key="entry.agent.id"
-          class="rounded-xl border border-border bg-card p-5 text-left hover:border-primary/40 transition-colors cursor-pointer"
-          @click="router.push(`/agents/${entry.agent.id}`)"
+    <!-- Platform sections -->
+    <div
+      v-for="platform in activePlatforms"
+      :key="platform.id"
+      class="space-y-3"
+    >
+      <!-- Section header -->
+      <div class="flex items-center gap-3">
+        <img
+          :src="iconFor(platform)"
+          :alt="platform.name"
+          class="size-5 object-contain shrink-0"
         >
-          <div class="flex items-start justify-between mb-4">
-            <div>
-              <p class="font-semibold text-sm">
-                {{ entry.agent.hostname }}
-              </p>
-              <p class="text-xs text-muted-foreground font-mono mt-0.5">
-                {{ entry.agent.ip }}
-              </p>
-            </div>
-            <span :class="['text-xs px-2 py-0.5 rounded-full font-medium', entry.agent.status === 'online' ? 'bg-green-500/10 text-green-600 dark:text-green-400' : 'bg-amber-500/10 text-amber-600']">
-              {{ entry.agent.status }}
-            </span>
-          </div>
-
-          <div
-            v-if="entry.metrics"
-            class="space-y-3"
-          >
-            <div class="space-y-1">
-              <div class="flex justify-between text-xs text-muted-foreground">
-                <span class="flex items-center gap-1.5"><Cpu
-                  class="size-3"
-                  :stroke-width="2"
-                /> CPU</span>
-                <span>{{ formatPercent(entry.metrics.cpu.usage) }}</span>
-              </div>
-              <div class="h-1.5 bg-muted rounded-full overflow-hidden">
-                <div
-                  class="h-full bg-primary rounded-full transition-all"
-                  :style="{ width: `${Math.min(entry.metrics.cpu.usage, 100)}%` }"
-                />
-              </div>
-            </div>
-
-            <div class="space-y-1">
-              <div class="flex justify-between text-xs text-muted-foreground">
-                <span class="flex items-center gap-1.5"><MemoryStick
-                  class="size-3"
-                  :stroke-width="2"
-                /> Memory</span>
-                <span>{{ formatBytes(entry.metrics.memory.used) }} / {{ formatBytes(entry.metrics.memory.total) }}</span>
-              </div>
-              <div class="h-1.5 bg-muted rounded-full overflow-hidden">
-                <div
-                  class="h-full bg-primary rounded-full transition-all"
-                  :style="{ width: `${Math.min((entry.metrics.memory.used / entry.metrics.memory.total) * 100, 100)}%` }"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div
-            v-else
-            class="space-y-2"
-          >
-            <div class="h-4 bg-muted rounded animate-pulse" />
-            <div class="h-4 bg-muted rounded animate-pulse w-3/4" />
-          </div>
-
-          <div class="mt-4 pt-4 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
-            <span>{{ entry.containers.filter(c => c.status === 'running').length }} / {{ entry.containers.length }} containers</span>
-            <span v-if="entry.metrics">up {{ formatUptime(entry.metrics.uptime) }}</span>
-          </div>
-        </button>
+        <h2 class="text-sm font-medium">
+          {{ platform.name }}
+        </h2>
+        <div class="flex-1 h-px bg-border" />
+        <span
+          v-if="!platform.available"
+          class="text-[10px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground"
+        >
+          Coming soon
+        </span>
       </div>
+
+      <!-- Docker: agent cards -->
+      <template v-if="platform.id === 'docker'">
+        <div
+          v-if="store.agents.length === 0"
+          class="rounded-xl border border-dashed border-border p-10 flex flex-col items-center gap-3 text-center"
+        >
+          <Server
+            class="size-7 text-muted-foreground/40"
+            :stroke-width="1.5"
+          />
+          <p class="text-sm text-muted-foreground">
+            No agents connected yet.
+          </p>
+          <p class="text-xs text-muted-foreground/60">
+            Deploy the Perch agent on a host to start seeing data.
+          </p>
+        </div>
+
+        <div
+          v-else
+          class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"
+        >
+          <button
+            v-for="entry in store.agents"
+            :key="entry.agent.id"
+            class="rounded-xl border border-border bg-card p-5 text-left hover:border-primary/40 transition-colors cursor-pointer"
+            :class="entry.agent.status !== 'online' ? 'opacity-60' : ''"
+            @click="router.push(`/agents/${entry.agent.id}`)"
+          >
+            <div class="flex items-start justify-between mb-4">
+              <div>
+                <p class="font-semibold text-sm">
+                  {{ entry.agent.hostname }}
+                </p>
+                <p class="text-xs text-muted-foreground font-mono mt-0.5">
+                  {{ entry.agent.ip }}
+                </p>
+              </div>
+              <span :class="['text-xs px-2 py-0.5 rounded-full font-medium', entry.agent.status === 'online' ? 'bg-green-500/10 text-green-600 dark:text-green-400' : 'bg-amber-500/10 text-amber-600']">
+                {{ entry.agent.status }}
+              </span>
+            </div>
+
+            <div
+              v-if="entry.metrics"
+              class="space-y-3"
+            >
+              <div class="space-y-1">
+                <div class="flex justify-between text-xs text-muted-foreground">
+                  <span class="flex items-center gap-1.5">
+                    <Cpu
+                      class="size-3"
+                      :stroke-width="2"
+                    /> CPU
+                  </span>
+                  <span>{{ formatPercent(entry.metrics.cpu.usage) }}</span>
+                </div>
+                <div class="h-1.5 bg-muted rounded-full overflow-hidden">
+                  <div
+                    class="h-full bg-primary rounded-full transition-all"
+                    :style="{ width: `${Math.min(entry.metrics.cpu.usage, 100)}%` }"
+                  />
+                </div>
+              </div>
+
+              <div class="space-y-1">
+                <div class="flex justify-between text-xs text-muted-foreground">
+                  <span class="flex items-center gap-1.5">
+                    <MemoryStick
+                      class="size-3"
+                      :stroke-width="2"
+                    /> Memory
+                  </span>
+                  <span>{{ formatBytes(entry.metrics.memory.used) }} / {{ formatBytes(entry.metrics.memory.total) }}</span>
+                </div>
+                <div class="h-1.5 bg-muted rounded-full overflow-hidden">
+                  <div
+                    class="h-full bg-primary rounded-full transition-all"
+                    :style="{ width: `${Math.min((entry.metrics.memory.used / entry.metrics.memory.total) * 100, 100)}%` }"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div
+              v-else
+              class="space-y-2"
+            >
+              <div class="h-4 bg-muted rounded animate-pulse" />
+              <div class="h-4 bg-muted rounded animate-pulse w-3/4" />
+            </div>
+
+            <div class="mt-4 pt-4 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
+              <span>{{ entry.containers.filter(c => c.status === 'running').length }} / {{ entry.containers.length }} containers</span>
+              <span v-if="entry.metrics">up {{ formatUptime(entry.metrics.uptime) }}</span>
+            </div>
+          </button>
+        </div>
+      </template>
+
+      <!-- Other platforms: coming soon empty state -->
+      <template v-else>
+        <div class="rounded-xl border border-dashed border-border p-10 flex flex-col items-center gap-3 text-center">
+          <img
+            :src="iconFor(platform)"
+            :alt="platform.name"
+            class="size-8 object-contain opacity-30"
+          >
+          <p class="text-sm text-muted-foreground">
+            {{ platform.name }} monitoring is coming soon.
+          </p>
+          <p class="text-xs text-muted-foreground/60">
+            Support for {{ platform.name }} is in development. Check back in a future release.
+          </p>
+          <button
+            class="mt-1 flex items-center gap-1.5 text-xs text-primary hover:underline"
+            @click="router.push('/admin/instance')"
+          >
+            <PlusCircle
+              class="size-3.5"
+              :stroke-width="2"
+            />
+            Manage monitored platforms
+          </button>
+        </div>
+      </template>
+    </div>
+
+    <!-- No platforms selected -->
+    <div
+      v-if="activePlatforms.length === 0"
+      class="rounded-xl border border-dashed border-border p-12 flex flex-col items-center gap-3 text-center"
+    >
+      <Server
+        class="size-8 text-muted-foreground/40"
+        :stroke-width="1.5"
+      />
+      <p class="text-sm text-muted-foreground">
+        No platforms configured.
+      </p>
+      <button
+        class="text-xs text-primary hover:underline"
+        @click="router.push('/admin/instance')"
+      >
+        Configure monitored platforms →
+      </button>
     </div>
   </div>
 </template>
