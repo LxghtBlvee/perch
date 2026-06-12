@@ -1,5 +1,34 @@
+# Dependencies & build output
 **/node_modules
 **/dist
 **/.git
-**/*.log
+
+# Secrets & local config
 **/.env
+**/.env.*
+!**/.env.example
+
+# Logs & temp
+**/*.log
+**/coverage
+**/.turbo
+
+# Docs & repo metadata
+docs
+*.md
+LICENSE
+.github
+.gitignore
+.gitattributes
+
+# Dev tooling
+eslint.config.*
+**/*.test.ts
+**/*.spec.ts
+
+# Compose files (not needed inside image)
+docker-compose*.yml
+
+# Editor
+.vscode
+.idea
