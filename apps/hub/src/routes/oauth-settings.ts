@@ -1,4 +1,4 @@
-import Elysia, { t } from 'elysia'
+import Elysia, { t, error } from 'elysia'
 import { eq } from 'drizzle-orm'
 import { db } from '../db'
 import { oauthProviders } from '../db/schema'
@@ -37,7 +37,7 @@ export const oauthSettingsRoutes = new Elysia({ prefix: '/api/settings/oauth' })
     })
 
     // Upsert a provider config
-    .put('/:provider', async ({ request, set, params, body, error }) => {
+    .put('/:provider', async ({ request, set, params, body }) => {
         const admin = await requireAdminUser(request, set)
         if (!admin) return { error: set.status === 401 ? 'Unauthorized' : 'Forbidden' }
 

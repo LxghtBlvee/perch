@@ -12,7 +12,7 @@ class AgentRegistry {
     private agents = new Map<string, ConnectedAgent>()
     private pendingLogs = new Map<string, (logs: string) => void>()
 
-    register(agent: Agent, ws: unknown): void {
+    register(agent: Agent, ws: WsSender): void {
         this.agents.set(agent.id, { agent, metrics: null, containers: [], ws });
     }
 

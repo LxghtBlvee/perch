@@ -1,4 +1,4 @@
-import Elysia, { t } from 'elysia'
+import Elysia, { t, error } from 'elysia'
 import { eq } from 'drizzle-orm'
 import { db } from '../db'
 import { users } from '../db/schema'
@@ -21,7 +21,7 @@ export const userRoutes = new Elysia({ prefix: '/api/users' })
     })
 
     // Create user
-    .post('/', async ({ request, set, body, error }) => {
+    .post('/', async ({ request, set, body }) => {
         const admin = await requireAdminUser(request, set)
         if (!admin) return { error: set.status === 401 ? 'Unauthorized' : 'Forbidden' }
 
@@ -45,7 +45,7 @@ export const userRoutes = new Elysia({ prefix: '/api/users' })
     })
 
     // Get user detail + last login
-    .get('/:id', async ({ request, set, params, error }) => {
+    .get('/:id', async ({ request, set, params }) => {
         const admin = await requireAdminUser(request, set)
         if (!admin) return { error: set.status === 401 ? 'Unauthorized' : 'Forbidden' }
 
@@ -66,7 +66,7 @@ export const userRoutes = new Elysia({ prefix: '/api/users' })
     })
 
     // Generate one-time recovery link
-    .post('/:id/recovery-token', async ({ request, set, params, error }) => {
+    .post('/:id/recovery-token', async ({ request, set, params }) => {
         const admin = await requireAdminUser(request, set)
         if (!admin) return { error: set.status === 401 ? 'Unauthorized' : 'Forbidden' }
 
@@ -80,7 +80,7 @@ export const userRoutes = new Elysia({ prefix: '/api/users' })
     })
 
     // Update user role
-    .patch('/:id', async ({ request, set, params, body, error }) => {
+    .patch('/:id', async ({ request, set, params, body }) => {
         const admin = await requireAdminUser(request, set)
         if (!admin) return { error: set.status === 401 ? 'Unauthorized' : 'Forbidden' }
 
@@ -102,7 +102,7 @@ export const userRoutes = new Elysia({ prefix: '/api/users' })
     })
 
     // Delete user
-    .delete('/:id', async ({ request, set, params, error }) => {
+    .delete('/:id', async ({ request, set, params }) => {
         const admin = await requireAdminUser(request, set)
         if (!admin) return { error: set.status === 401 ? 'Unauthorized' : 'Forbidden' }
 

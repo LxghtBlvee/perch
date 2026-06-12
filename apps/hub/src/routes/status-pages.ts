@@ -1,4 +1,4 @@
-import Elysia, { t } from 'elysia'
+import Elysia, { t, error } from 'elysia'
 import { eq, and, ne, desc, inArray, isNull } from 'drizzle-orm'
 import { join } from 'path'
 import { mkdir } from 'fs/promises'
@@ -21,7 +21,7 @@ export const statusPageRoutes = new Elysia()
         }))
     })
 
-    .post('/api/admin/status-pages', async ({ request, set, body, error }) => {
+    .post('/api/admin/status-pages', async ({ request, set, body }) => {
         const admin = await requireAdminUser(request, set)
         if (!admin) return { error: set.status === 401 ? 'Unauthorized' : 'Forbidden' }
 
@@ -43,7 +43,7 @@ export const statusPageRoutes = new Elysia()
         })
     })
 
-    .get('/api/admin/status-pages/:id', async ({ request, set, params, error }) => {
+    .get('/api/admin/status-pages/:id', async ({ request, set, params }) => {
         const admin = await requireAdminUser(request, set)
         if (!admin) return { error: set.status === 401 ? 'Unauthorized' : 'Forbidden' }
 
@@ -69,7 +69,7 @@ export const statusPageRoutes = new Elysia()
         return { ...page, checks }
     }, { params: t.Object({ id: t.String() }) })
 
-    .put('/api/admin/status-pages/:id', async ({ request, set, params, body, error }) => {
+    .put('/api/admin/status-pages/:id', async ({ request, set, params, body }) => {
         const admin = await requireAdminUser(request, set)
         if (!admin) return { error: set.status === 401 ? 'Unauthorized' : 'Forbidden' }
 
@@ -102,7 +102,7 @@ export const statusPageRoutes = new Elysia()
         })
     })
 
-    .post('/api/admin/status-pages/:id/logo', async ({ request, set, params, body, error }) => {
+    .post('/api/admin/status-pages/:id/logo', async ({ request, set, params, body }) => {
         const admin = await requireAdminUser(request, set)
         if (!admin) return { error: set.status === 401 ? 'Unauthorized' : 'Forbidden' }
 
@@ -133,7 +133,7 @@ export const statusPageRoutes = new Elysia()
         body: t.Object({ file: t.File() }),
     })
 
-    .get('/api/admin/status-pages/:id/verify-domain', async ({ request, set, params, query, error }) => {
+    .get('/api/admin/status-pages/:id/verify-domain', async ({ request, set, params, query }) => {
         const admin = await requireAdminUser(request, set)
         if (!admin) return { error: set.status === 401 ? 'Unauthorized' : 'Forbidden' }
 
@@ -156,7 +156,7 @@ export const statusPageRoutes = new Elysia()
         }
     }, { params: t.Object({ id: t.String() }), query: t.Object({ domain: t.Optional(t.String()) }) })
 
-    .delete('/api/admin/status-pages/:id', async ({ request, set, params, error }) => {
+    .delete('/api/admin/status-pages/:id', async ({ request, set, params }) => {
         const admin = await requireAdminUser(request, set)
         if (!admin) return { error: set.status === 401 ? 'Unauthorized' : 'Forbidden' }
 
@@ -165,7 +165,7 @@ export const statusPageRoutes = new Elysia()
         return { ok: true }
     }, { params: t.Object({ id: t.String() }) })
 
-    .put('/api/admin/status-pages/:id/checks', async ({ request, set, params, body, error }) => {
+    .put('/api/admin/status-pages/:id/checks', async ({ request, set, params, body }) => {
         const admin = await requireAdminUser(request, set)
         if (!admin) return { error: set.status === 401 ? 'Unauthorized' : 'Forbidden' }
 
@@ -206,7 +206,7 @@ export const statusPageRoutes = new Elysia()
 
     // --- Incidents ---
 
-    .get('/api/admin/status-pages/:id/incidents', async ({ request, set, params, error }) => {
+    .get('/api/admin/status-pages/:id/incidents', async ({ request, set, params }) => {
         const admin = await requireAdminUser(request, set)
         if (!admin) return { error: set.status === 401 ? 'Unauthorized' : 'Forbidden' }
 
@@ -222,7 +222,7 @@ export const statusPageRoutes = new Elysia()
         return incidents
     }, { params: t.Object({ id: t.String() }) })
 
-    .post('/api/admin/status-pages/:id/incidents', async ({ request, set, params, body, error }) => {
+    .post('/api/admin/status-pages/:id/incidents', async ({ request, set, params, body }) => {
         const admin = await requireAdminUser(request, set)
         if (!admin) return { error: set.status === 401 ? 'Unauthorized' : 'Forbidden' }
 
@@ -256,7 +256,7 @@ export const statusPageRoutes = new Elysia()
         })
     })
 
-    .patch('/api/admin/status-pages/:id/incidents/:incidentId', async ({ request, set, params, body, error }) => {
+    .patch('/api/admin/status-pages/:id/incidents/:incidentId', async ({ request, set, params, body }) => {
         const admin = await requireAdminUser(request, set)
         if (!admin) return { error: set.status === 401 ? 'Unauthorized' : 'Forbidden' }
 
@@ -295,7 +295,7 @@ export const statusPageRoutes = new Elysia()
         })
     })
 
-    .delete('/api/admin/status-pages/:id/incidents/:incidentId', async ({ request, set, params, error }) => {
+    .delete('/api/admin/status-pages/:id/incidents/:incidentId', async ({ request, set, params }) => {
         const admin = await requireAdminUser(request, set)
         if (!admin) return { error: set.status === 401 ? 'Unauthorized' : 'Forbidden' }
 
@@ -313,7 +313,7 @@ export const statusPageRoutes = new Elysia()
 
     // --- Public status page ---
 
-    .get('/api/status/:slug', async ({ request, set, params, error }) => {
+    .get('/api/status/:slug', async ({ request, set, params }) => {
         const [page] = await db.select().from(statusPages).where(eq(statusPages.slug, params.slug)).limit(1)
         if (!page) return error(404, { error: 'Not found' })
 

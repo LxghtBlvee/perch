@@ -1,4 +1,4 @@
-import { Elysia } from 'elysia'
+import { Elysia, error } from 'elysia'
 import { cors } from '@elysiajs/cors'
 import { swagger } from '@elysiajs/swagger'
 import { staticPlugin } from '@elysiajs/static'
@@ -29,7 +29,6 @@ await initLocation()
 await healthChecker.start()
 await seedAdmin()
 
-// ── Cleanup job ──────────────────────────────────────────────────────────────
 async function runCleanup(): Promise<void> {
     try {
         const now = new Date()
@@ -68,7 +67,7 @@ await mkdir(uploadsDir, { recursive: true })
 
 const app = new Elysia()
   .use(cors())
-  .use(swagger({ path: '/docs' }))
+  .use(swagger({ path: '/api/docs' }))
   .use(statusRoutes)
   .use(authRoutes)
   .use(agentRoutes)
@@ -86,7 +85,7 @@ const app = new Elysia()
   // Let Vue handle custom domain detection at the root
   .get('/', () => Bun.file(join(webDist, 'index.html')))
   // Custom domain: Vue calls this on mount to detect if it should show a status page
-  .get('/api/status-by-domain', async ({ request, error }) => {
+  .get('/api/status-by-domain', async ({ request }) => {
     const host = request.headers.get('host')?.split(':')[0] ?? ''
     const [page] = await db.select({ slug: statusPages.slug })
       .from(statusPages)
