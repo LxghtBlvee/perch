@@ -17,19 +17,19 @@
 
 Perch is a lightweight, self-hosted monitoring dashboard that pulls server metrics, container stats, log visibility, and HTTP health checks into one place. If you're tired of running Dozzle, Beszel, and Uptime Kuma side-by-side, Perch is the one tab that covers everything.
 
-A lightweight agent runs on each host and connects out to a central hub, which serves the dashboard and streams live updates to your browser over WebSocket. No inbound firewall rules needed on monitored hosts.
+A lightweight agent runs on each host and connects out to a central hub, which serves the dashboard and streams live updates to your browser over WebSocket for fast connections.
 
 ## Features
 
-- **Server metrics** — CPU, memory, disk, network, load average, and uptime across all your hosts
-- **Docker monitoring** — container stats, status, resource usage, and a live log viewer
-- **Health checks** — HTTP endpoint monitoring with uptime history, latency tracking, and heartbeat visualization
-- **Alerting** — rules for health check transitions and container events, with Discord, Slack, and ntfy support
-- **Status pages** — public-facing status pages with custom domains, theming, and drag-sort check assignment
-- **SSO / OAuth** — GitHub, Google, Microsoft, GitLab, Discord, Okta, and custom OIDC providers
-- **Data sources** — connect Prometheus, Loki, InfluxDB, and Graphite
-- **User management** — admin and member roles, account recovery, and last-login tracking
-- **Live dashboard** — real-time WebSocket updates with no polling
+- **Server metrics:** CPU, memory, disk, network, load average, and uptime across all your hosts
+- **Docker monitoring:** container stats, status, resource usage, and a live log viewer
+- **Health checks:** HTTP endpoint monitoring with uptime history, latency tracking, and heartbeat visualization
+- **Alerting:** rules for health check transitions and container events, with Discord, Slack, and ntfy support
+- **Status pages:** public-facing status pages with custom domains, theming, and drag-sort check assignment
+- **SSO / OAuth:** GitHub, Google, Microsoft, GitLab, Discord, Okta, and custom OIDC providers
+- **Data sources:** connect Prometheus, Loki, InfluxDB, and Graphite
+- **User management:** admin and member roles, account recovery, and last-login tracking
+- **Live dashboard:** real-time WebSocket updates with no polling
 
 ## Stack
 
