@@ -11,6 +11,8 @@ import {
     findOrCreateOAuthUser,
     validateSession,
     useRecoveryToken,
+    generateHandoff,
+    exchangeHandoff,
 } from '../services/auth'
 import { requireAuthUser } from '../middleware/auth'
 
@@ -97,9 +99,20 @@ export const authRoutes = new Elysia({ prefix: '/api/auth' })
         if (!token) { set.status = 400; return { error: 'Missing token' } }
         const sessionToken = await useRecoveryToken(token)
         if (!sessionToken) { set.status = 400; return { error: 'Invalid or expired recovery link' } }
-        return redirect(`/?token=${sessionToken}`)
+        const code = await generateHandoff(sessionToken)
+        return redirect(`/?code=${code}`)
     }, {
         query: t.Object({ token: t.Optional(t.String()) }),
+    })
+
+    // Exchange a short-lived handoff code for a session token.
+    // The frontend calls this after being redirected from OAuth/recovery with ?code=
+    .post('/exchange', async ({ body, set }) => {
+        const token = await exchangeHandoff(body.code)
+        if (!token) { set.status = 400; return { error: 'Invalid or expired code' } }
+        return { token }
+    }, {
+        body: t.Object({ code: t.String() }),
     })
 
     // Email/password login
@@ -353,8 +366,9 @@ export const authRoutes = new Elysia({ prefix: '/api/auth' })
                 return redirect(`${base}/login?error=maintenance`)
             }
 
-            const token = await createSession(oauthUser.id)
-            return redirect(`/?token=${token}`)
+            const sessionToken = await createSession(oauthUser.id)
+            const code = await generateHandoff(sessionToken)
+            return redirect(`/?code=${code}`)
 
         } catch (err) {
             console.error('[oauth callback]', err)

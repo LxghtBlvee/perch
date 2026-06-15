@@ -23,3 +23,12 @@ export const env = {
     // If set, takes priority over x-forwarded-proto/host headers
     baseUrl: Bun.env.PERCH_BASE_URL,
 }
+
+// Warn loudly at startup if PERCH_BASE_URL is missing in production
+if (!Bun.env.PERCH_BASE_URL && Bun.env.NODE_ENV === 'production') {
+    console.warn(
+        '[WARN] PERCH_BASE_URL is not set. OAuth callback URLs will be derived from ' +
+        'x-forwarded-host headers, which can be spoofed if the hub is reachable directly. ' +
+        'Set PERCH_BASE_URL=https://your-domain.com in production.'
+    )
+}
