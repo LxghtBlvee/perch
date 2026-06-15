@@ -1,18 +1,3 @@
-# Security Policy
-
-## Supported Versions
-
-Perch is currently in active pre-1.0 development. Only the latest commit on the
-`live` branch is supported with security fixes. Once tagged releases begin,
-this table will be updated to reflect which versions receive patches.
-
-| Version          | Supported          |
-| ---------------- | ------------------ |
-| `live` (latest)  | :white_check_mark: |
-| older / tagged   | :x:                |
-
-## Reporting a Vulnerability
-
 If you discover a security vulnerability in Perch, please **do not open a
 public issue**. Instead, report it privately using one of the following:
 
