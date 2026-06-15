@@ -367,8 +367,8 @@ export const authRoutes = new Elysia({ prefix: '/api/auth' })
             }
 
             const sessionToken = await createSession(oauthUser.id)
-            const code = await generateHandoff(sessionToken)
-            return redirect(`/?code=${code}`)
+            const handoffCode = await generateHandoff(sessionToken)
+            return redirect(`/?code=${handoffCode}`)
 
         } catch (err) {
             console.error('[oauth callback]', err)
