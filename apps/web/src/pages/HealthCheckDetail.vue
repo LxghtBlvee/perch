@@ -287,358 +287,356 @@ function xLabel(pts: NonNullable<typeof chartData.value>, i: number): string {
 
       <!-- Real content (hidden during initial history load) -->
       <template v-else>
-
-      <!-- Stats -->
-      <div
-        class="grid grid-cols-3 md:grid-cols-6 gap-4"
-      >
-        <div class="rounded-xl border border-border bg-card p-4">
-          <p class="text-xs text-muted-foreground mb-1">
-            Status
-          </p>
-          <p :class="['text-2xl font-bold', check.status === 'up' ? 'text-green-500' : check.status === 'down' ? 'text-red-500' : 'text-muted-foreground']">
-            {{ check.status === 'up' ? 'Up' : check.status === 'down' ? 'Down' : 'Pending' }}
-          </p>
-          <p class="text-xs text-muted-foreground mt-1">
-            {{ relativeTime(check.lastChecked) }}
-          </p>
-        </div>
-        <div class="rounded-xl border border-border bg-card p-4">
-          <p class="text-xs text-muted-foreground mb-1">
-            Uptime (all)
-          </p>
-          <p :class="['text-2xl font-bold', pctColor(uptime)]">
-            {{ uptime !== null ? uptime.toFixed(2) + '%' : '—' }}
-          </p>
-          <p class="text-xs text-muted-foreground mt-1">
-            {{ history.length }} checks
-          </p>
-        </div>
-        <div class="rounded-xl border border-border bg-card p-4">
-          <p class="text-xs text-muted-foreground mb-1">
-            Uptime (24h)
-          </p>
-          <p :class="['text-2xl font-bold', pctColor(uptimeLast24h)]">
-            {{ uptimeLast24h !== null ? uptimeLast24h.toFixed(2) + '%' : '—' }}
-          </p>
-          <p class="text-xs text-muted-foreground mt-1">
-            last 24 hours
-          </p>
-        </div>
-        <div class="rounded-xl border border-border bg-card p-4">
-          <p class="text-xs text-muted-foreground mb-1">
-            Avg response
-          </p>
-          <p class="text-2xl font-bold">
-            {{ avgLatency !== null ? avgLatency + 'ms' : '—' }}
-          </p>
-          <p class="text-xs text-muted-foreground mt-1">
-            now: {{ check.latency !== null ? check.latency + 'ms' : '—' }}
-          </p>
-        </div>
-        <div class="rounded-xl border border-border bg-card p-4">
-          <p class="text-xs text-muted-foreground mb-1">
-            Min / Max
-          </p>
-          <p class="text-2xl font-bold">
-            {{ minLatency !== null ? minLatency + 'ms' : '—' }}
-          </p>
-          <p class="text-xs text-muted-foreground mt-1">
-            max {{ maxLatency !== null ? maxLatency + 'ms' : '—' }}
-          </p>
-        </div>
-        <div class="rounded-xl border border-border bg-card p-4">
-          <p class="text-xs text-muted-foreground mb-1">
-            Interval
-          </p>
-          <p class="text-2xl font-bold">
-            {{ check.interval }}s
-          </p>
-          <p class="text-xs text-muted-foreground mt-1">
-            every {{ check.interval >= 60 ? Math.round(check.interval / 60) + 'm' : check.interval + 's' }}
-          </p>
-        </div>
-      </div>
-
-      <!-- Response time chart -->
-      <div class="rounded-xl border border-border bg-card p-5">
-        <h2 class="text-sm font-medium text-muted-foreground mb-4">
-          Response Times
-        </h2>
+        <!-- Stats -->
         <div
-          v-if="!chartData"
-          class="flex items-center justify-center h-32 text-xs text-muted-foreground"
+          class="grid grid-cols-3 md:grid-cols-6 gap-4"
         >
-          Not enough data yet.
+          <div class="rounded-xl border border-border bg-card p-4">
+            <p class="text-xs text-muted-foreground mb-1">
+              Status
+            </p>
+            <p :class="['text-2xl font-bold', check.status === 'up' ? 'text-green-500' : check.status === 'down' ? 'text-red-500' : 'text-muted-foreground']">
+              {{ check.status === 'up' ? 'Up' : check.status === 'down' ? 'Down' : 'Pending' }}
+            </p>
+            <p class="text-xs text-muted-foreground mt-1">
+              {{ relativeTime(check.lastChecked) }}
+            </p>
+          </div>
+          <div class="rounded-xl border border-border bg-card p-4">
+            <p class="text-xs text-muted-foreground mb-1">
+              Uptime (all)
+            </p>
+            <p :class="['text-2xl font-bold', pctColor(uptime)]">
+              {{ uptime !== null ? uptime.toFixed(2) + '%' : '—' }}
+            </p>
+            <p class="text-xs text-muted-foreground mt-1">
+              {{ history.length }} checks
+            </p>
+          </div>
+          <div class="rounded-xl border border-border bg-card p-4">
+            <p class="text-xs text-muted-foreground mb-1">
+              Uptime (24h)
+            </p>
+            <p :class="['text-2xl font-bold', pctColor(uptimeLast24h)]">
+              {{ uptimeLast24h !== null ? uptimeLast24h.toFixed(2) + '%' : '—' }}
+            </p>
+            <p class="text-xs text-muted-foreground mt-1">
+              last 24 hours
+            </p>
+          </div>
+          <div class="rounded-xl border border-border bg-card p-4">
+            <p class="text-xs text-muted-foreground mb-1">
+              Avg response
+            </p>
+            <p class="text-2xl font-bold">
+              {{ avgLatency !== null ? avgLatency + 'ms' : '—' }}
+            </p>
+            <p class="text-xs text-muted-foreground mt-1">
+              now: {{ check.latency !== null ? check.latency + 'ms' : '—' }}
+            </p>
+          </div>
+          <div class="rounded-xl border border-border bg-card p-4">
+            <p class="text-xs text-muted-foreground mb-1">
+              Min / Max
+            </p>
+            <p class="text-2xl font-bold">
+              {{ minLatency !== null ? minLatency + 'ms' : '—' }}
+            </p>
+            <p class="text-xs text-muted-foreground mt-1">
+              max {{ maxLatency !== null ? maxLatency + 'ms' : '—' }}
+            </p>
+          </div>
+          <div class="rounded-xl border border-border bg-card p-4">
+            <p class="text-xs text-muted-foreground mb-1">
+              Interval
+            </p>
+            <p class="text-2xl font-bold">
+              {{ check.interval }}s
+            </p>
+            <p class="text-xs text-muted-foreground mt-1">
+              every {{ check.interval >= 60 ? Math.round(check.interval / 60) + 'm' : check.interval + 's' }}
+            </p>
+          </div>
         </div>
-        <div
-          v-else
-          class="select-none"
-        >
-          <div class="flex gap-2 items-stretch">
-            <!-- Y-axis labels (HTML, not SVG — avoids distortion with preserveAspectRatio="none") -->
-            <div class="flex flex-col justify-between text-right w-12 shrink-0 text-xs text-muted-foreground font-mono py-0.5">
-              <span
-                v-for="tick in [...yScale.ticks].reverse()"
-                :key="tick"
-              >{{ formatTick(tick) }}</span>
+
+        <!-- Response time chart -->
+        <div class="rounded-xl border border-border bg-card p-5">
+          <h2 class="text-sm font-medium text-muted-foreground mb-4">
+            Response Times
+          </h2>
+          <div
+            v-if="!chartData"
+            class="flex items-center justify-center h-32 text-xs text-muted-foreground"
+          >
+            Not enough data yet.
+          </div>
+          <div
+            v-else
+            class="select-none"
+          >
+            <div class="flex gap-2 items-stretch">
+              <!-- Y-axis labels (HTML, not SVG — avoids distortion with preserveAspectRatio="none") -->
+              <div class="flex flex-col justify-between text-right w-12 shrink-0 text-xs text-muted-foreground font-mono py-0.5">
+                <span
+                  v-for="tick in [...yScale.ticks].reverse()"
+                  :key="tick"
+                >{{ formatTick(tick) }}</span>
+              </div>
+
+              <!-- Chart -->
+              <div class="flex-1 relative min-w-0">
+                <svg
+                  ref="svgRef"
+                  :viewBox="`0 0 ${SVG_W} ${SVG_H}`"
+                  class="w-full h-32 block"
+                  preserveAspectRatio="none"
+                  @mousemove="onChartMove"
+                  @mouseleave="hoverPoint = null"
+                >
+                  <!-- Gridlines -->
+                  <line
+                    v-for="tick in yScale.ticks"
+                    :key="tick"
+                    x1="0"
+                    :y1="toY(tick)"
+                    :x2="SVG_W"
+                    :y2="toY(tick)"
+                    stroke="oklch(0.92 0.004 286 / 0.35)"
+                    stroke-width="0.6"
+                    stroke-dasharray="4 3"
+                  />
+                  <!-- Area -->
+                  <path
+                    :d="areaPath"
+                    fill="oklch(0.70 0.09 186 / 0.12)"
+                  />
+                  <!-- Line -->
+                  <polyline
+                    :points="polyline"
+                    fill="none"
+                    stroke="oklch(0.70 0.09 186)"
+                    stroke-width="2"
+                    stroke-linejoin="round"
+                    stroke-linecap="round"
+                  />
+                  <!-- Hover vertical rule -->
+                  <line
+                    v-if="hoverPoint"
+                    :x1="hoverPoint.x"
+                    y1="0"
+                    :x2="hoverPoint.x"
+                    :y2="SVG_H"
+                    stroke="oklch(0.70 0.09 186)"
+                    stroke-width="1"
+                    stroke-dasharray="3 2"
+                    opacity="0.5"
+                  />
+                  <!-- Hover dot -->
+                  <circle
+                    v-if="hoverPoint"
+                    :cx="hoverPoint.x"
+                    :cy="hoverPoint.y"
+                    r="4"
+                    fill="oklch(0.70 0.09 186)"
+                    stroke="oklch(0.14 0.005 285)"
+                    stroke-width="2"
+                  />
+                  <!-- Mouse capture rect -->
+                  <rect
+                    x="0"
+                    y="0"
+                    :width="SVG_W"
+                    :height="SVG_H"
+                    fill="transparent"
+                  />
+                </svg>
+
+                <!-- Hover tooltip -->
+                <div
+                  v-if="hoverPoint"
+                  class="absolute top-2 pointer-events-none z-10 bg-card border border-border rounded-lg shadow-xl p-3 text-xs"
+                  :style="{
+                    left: (hoverPoint.x / SVG_W) > 0.65
+                      ? `calc(${(hoverPoint.x / SVG_W) * 100}% - 160px)`
+                      : `calc(${(hoverPoint.x / SVG_W) * 100}% + 10px)`,
+                  }"
+                >
+                  <p class="font-bold text-sm">
+                    {{ hoverPoint.latency }}ms
+                  </p>
+                  <p class="text-muted-foreground mt-0.5 whitespace-nowrap">
+                    {{ new Date(hoverPoint.checkedAt).toLocaleString() }}
+                  </p>
+                </div>
+              </div>
             </div>
 
-            <!-- Chart -->
-            <div class="flex-1 relative min-w-0">
-              <svg
-                ref="svgRef"
-                :viewBox="`0 0 ${SVG_W} ${SVG_H}`"
-                class="w-full h-32 block"
-                preserveAspectRatio="none"
-                @mousemove="onChartMove"
-                @mouseleave="hoverPoint = null"
-              >
-                <!-- Gridlines -->
-                <line
-                  v-for="tick in yScale.ticks"
-                  :key="tick"
-                  x1="0"
-                  :y1="toY(tick)"
-                  :x2="SVG_W"
-                  :y2="toY(tick)"
-                  stroke="oklch(0.92 0.004 286 / 0.35)"
-                  stroke-width="0.6"
-                  stroke-dasharray="4 3"
-                />
-                <!-- Area -->
-                <path
-                  :d="areaPath"
-                  fill="oklch(0.70 0.09 186 / 0.12)"
-                />
-                <!-- Line -->
-                <polyline
-                  :points="polyline"
-                  fill="none"
-                  stroke="oklch(0.70 0.09 186)"
-                  stroke-width="2"
-                  stroke-linejoin="round"
-                  stroke-linecap="round"
-                />
-                <!-- Hover vertical rule -->
-                <line
-                  v-if="hoverPoint"
-                  :x1="hoverPoint.x"
-                  y1="0"
-                  :x2="hoverPoint.x"
-                  :y2="SVG_H"
-                  stroke="oklch(0.70 0.09 186)"
-                  stroke-width="1"
-                  stroke-dasharray="3 2"
-                  opacity="0.5"
-                />
-                <!-- Hover dot -->
-                <circle
-                  v-if="hoverPoint"
-                  :cx="hoverPoint.x"
-                  :cy="hoverPoint.y"
-                  r="4"
-                  fill="oklch(0.70 0.09 186)"
-                  stroke="oklch(0.14 0.005 285)"
-                  stroke-width="2"
-                />
-                <!-- Mouse capture rect -->
-                <rect
-                  x="0"
-                  y="0"
-                  :width="SVG_W"
-                  :height="SVG_H"
-                  fill="transparent"
-                />
-              </svg>
+            <!-- X labels -->
+            <div class="flex gap-2 mt-1">
+              <div class="w-12 shrink-0" />
+              <div class="flex-1 flex justify-between text-xs text-muted-foreground">
+                <span>{{ xLabel(chartData, 0) }}</span>
+                <span>{{ xLabel(chartData, Math.floor(chartData.length / 2)) }}</span>
+                <span>{{ xLabel(chartData, chartData.length - 1) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
 
-              <!-- Hover tooltip -->
+        <!-- Heartbeat bars -->
+        <div class="rounded-xl border border-border bg-card p-5">
+          <div class="flex justify-between items-center mb-3">
+            <h2 class="text-sm font-medium text-muted-foreground">
+              History (last 90 checks)
+            </h2>
+            <span :class="['text-xs font-semibold', pctColor(uptime)]">
+              {{ uptime !== null ? uptime.toFixed(2) + '% uptime' : '' }}
+            </span>
+          </div>
+
+          <div class="relative">
+            <div class="flex gap-px items-stretch h-10">
               <div
-                v-if="hoverPoint"
-                class="absolute top-2 pointer-events-none z-10 bg-card border border-border rounded-lg shadow-xl p-3 text-xs"
+                v-for="(slot, i) in heartbeatSlots"
+                :key="i"
+                class="flex-1 rounded-[2px] cursor-default transition-opacity"
+                :class="{
+                  'bg-green-500 hover:bg-green-400': slot?.status === 'up',
+                  'bg-red-500 hover:bg-red-400': slot?.status === 'down',
+                  'bg-muted': slot === null,
+                }"
+                @mouseenter="slot ? (hbHover = { slot, index: i }) : null"
+                @mouseleave="hbHover = null"
+              />
+            </div>
+
+            <!-- Heartbeat tooltip -->
+            <Transition name="fade">
+              <div
+                v-if="hbHover"
+                class="absolute bottom-full mb-2 pointer-events-none z-10 bg-card border border-border rounded-lg shadow-xl p-2.5 text-xs"
                 :style="{
-                  left: (hoverPoint.x / SVG_W) > 0.65
-                    ? `calc(${(hoverPoint.x / SVG_W) * 100}% - 160px)`
-                    : `calc(${(hoverPoint.x / SVG_W) * 100}% + 10px)`,
+                  left: `${(hbHover.index / heartbeatSlots.length) * 100}%`,
+                  transform: (hbHover.index / heartbeatSlots.length) > 0.7
+                    ? 'translateX(-100%)'
+                    : (hbHover.index / heartbeatSlots.length) > 0.3
+                      ? 'translateX(-50%)'
+                      : 'none',
                 }"
               >
-                <p class="font-bold text-sm">
-                  {{ hoverPoint.latency }}ms
-                </p>
-                <p class="text-muted-foreground mt-0.5 whitespace-nowrap">
-                  {{ new Date(hoverPoint.checkedAt).toLocaleString() }}
+                <div class="flex items-center gap-1.5 mb-1">
+                  <span
+                    :class="['size-1.5 rounded-full shrink-0', hbHover.slot.status === 'up' ? 'bg-green-500' : 'bg-red-500']"
+                  />
+                  <span :class="['font-semibold', hbHover.slot.status === 'up' ? 'text-green-500' : 'text-red-500']">
+                    {{ hbHover.slot.status === 'up' ? 'Up' : 'Down' }}
+                  </span>
+                  <span
+                    v-if="hbHover.slot.latency"
+                    class="text-muted-foreground ml-auto pl-4"
+                  >{{ hbHover.slot.latency }}ms</span>
+                </div>
+                <p class="text-muted-foreground whitespace-nowrap">
+                  {{ new Date(hbHover.slot.checkedAt).toLocaleString() }}
                 </p>
               </div>
+            </Transition>
+          </div>
+
+          <div class="flex justify-between text-xs text-muted-foreground mt-2">
+            <span>90 checks ago</span>
+            <span>now</span>
+          </div>
+        </div>
+
+        <!-- Results table -->
+        <div class="rounded-xl border border-border overflow-hidden">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-border bg-muted/40">
+                <th class="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">
+                  Time
+                </th>
+                <th class="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">
+                  Status
+                </th>
+                <th class="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">
+                  Latency
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-if="!history.length">
+                <td
+                  colspan="3"
+                  class="px-4 py-8 text-center text-xs text-muted-foreground"
+                >
+                  No results yet.
+                </td>
+              </tr>
+              <tr
+                v-for="result in pagedHistory"
+                :key="result.checkedAt"
+                class="border-b border-border last:border-0"
+              >
+                <td class="px-4 py-2.5 text-xs text-muted-foreground">
+                  {{ new Date(result.checkedAt).toLocaleString() }}
+                </td>
+                <td class="px-4 py-2.5">
+                  <span :class="['text-xs px-2 py-0.5 rounded-full font-medium', result.status === 'up' ? 'bg-green-500/10 text-green-600 dark:text-green-400' : 'bg-red-500/10 text-red-500']">
+                    {{ result.status }}
+                  </span>
+                </td>
+                <td class="px-4 py-2.5 text-right text-xs font-mono text-muted-foreground">
+                  {{ result.latency !== null ? result.latency + 'ms' : '—' }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- Pagination -->
+          <div
+            v-if="totalPages > 1"
+            class="flex items-center justify-between px-4 py-2.5 border-t border-border bg-muted/20"
+          >
+            <span class="text-xs text-muted-foreground">
+              {{ page * PAGE_SIZE + 1 }}–{{ Math.min((page + 1) * PAGE_SIZE, sortedHistory.length) }} of {{ sortedHistory.length }}
+            </span>
+            <div class="flex items-center gap-1">
+              <Tooltip
+                text="Previous page"
+                side="top"
+              >
+                <button
+                  class="size-7 rounded-md flex items-center justify-center hover:bg-accent transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                  :disabled="page === 0"
+                  @click="prevPage"
+                >
+                  <ChevronLeft
+                    class="size-4 text-muted-foreground"
+                    :stroke-width="1.75"
+                  />
+                </button>
+              </Tooltip>
+              <span class="text-xs text-muted-foreground px-1">{{ page + 1 }} / {{ totalPages }}</span>
+              <Tooltip
+                text="Next page"
+                side="top"
+              >
+                <button
+                  class="size-7 rounded-md flex items-center justify-center hover:bg-accent transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                  :disabled="page === totalPages - 1"
+                  @click="nextPage"
+                >
+                  <ChevronRight
+                    class="size-4 text-muted-foreground"
+                    :stroke-width="1.75"
+                  />
+                </button>
+              </Tooltip>
             </div>
           </div>
-
-          <!-- X labels -->
-          <div class="flex gap-2 mt-1">
-            <div class="w-12 shrink-0" />
-            <div class="flex-1 flex justify-between text-xs text-muted-foreground">
-              <span>{{ xLabel(chartData, 0) }}</span>
-              <span>{{ xLabel(chartData, Math.floor(chartData.length / 2)) }}</span>
-              <span>{{ xLabel(chartData, chartData.length - 1) }}</span>
-            </div>
-          </div>
         </div>
-      </div>
-
-      <!-- Heartbeat bars -->
-      <div class="rounded-xl border border-border bg-card p-5">
-        <div class="flex justify-between items-center mb-3">
-          <h2 class="text-sm font-medium text-muted-foreground">
-            History (last 90 checks)
-          </h2>
-          <span :class="['text-xs font-semibold', pctColor(uptime)]">
-            {{ uptime !== null ? uptime.toFixed(2) + '% uptime' : '' }}
-          </span>
-        </div>
-
-        <div class="relative">
-          <div class="flex gap-px items-stretch h-10">
-            <div
-              v-for="(slot, i) in heartbeatSlots"
-              :key="i"
-              class="flex-1 rounded-[2px] cursor-default transition-opacity"
-              :class="{
-                'bg-green-500 hover:bg-green-400': slot?.status === 'up',
-                'bg-red-500 hover:bg-red-400': slot?.status === 'down',
-                'bg-muted': slot === null,
-              }"
-              @mouseenter="slot ? (hbHover = { slot, index: i }) : null"
-              @mouseleave="hbHover = null"
-            />
-          </div>
-
-          <!-- Heartbeat tooltip -->
-          <Transition name="fade">
-            <div
-              v-if="hbHover"
-              class="absolute bottom-full mb-2 pointer-events-none z-10 bg-card border border-border rounded-lg shadow-xl p-2.5 text-xs"
-              :style="{
-                left: `${(hbHover.index / heartbeatSlots.length) * 100}%`,
-                transform: (hbHover.index / heartbeatSlots.length) > 0.7
-                  ? 'translateX(-100%)'
-                  : (hbHover.index / heartbeatSlots.length) > 0.3
-                    ? 'translateX(-50%)'
-                    : 'none',
-              }"
-            >
-              <div class="flex items-center gap-1.5 mb-1">
-                <span
-                  :class="['size-1.5 rounded-full shrink-0', hbHover.slot.status === 'up' ? 'bg-green-500' : 'bg-red-500']"
-                />
-                <span :class="['font-semibold', hbHover.slot.status === 'up' ? 'text-green-500' : 'text-red-500']">
-                  {{ hbHover.slot.status === 'up' ? 'Up' : 'Down' }}
-                </span>
-                <span
-                  v-if="hbHover.slot.latency"
-                  class="text-muted-foreground ml-auto pl-4"
-                >{{ hbHover.slot.latency }}ms</span>
-              </div>
-              <p class="text-muted-foreground whitespace-nowrap">
-                {{ new Date(hbHover.slot.checkedAt).toLocaleString() }}
-              </p>
-            </div>
-          </Transition>
-        </div>
-
-        <div class="flex justify-between text-xs text-muted-foreground mt-2">
-          <span>90 checks ago</span>
-          <span>now</span>
-        </div>
-      </div>
-
-      <!-- Results table -->
-      <div class="rounded-xl border border-border overflow-hidden">
-        <table class="w-full text-sm">
-          <thead>
-            <tr class="border-b border-border bg-muted/40">
-              <th class="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">
-                Time
-              </th>
-              <th class="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">
-                Status
-              </th>
-              <th class="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">
-                Latency
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-if="!history.length">
-              <td
-                colspan="3"
-                class="px-4 py-8 text-center text-xs text-muted-foreground"
-              >
-                No results yet.
-              </td>
-            </tr>
-            <tr
-              v-for="result in pagedHistory"
-              :key="result.checkedAt"
-              class="border-b border-border last:border-0"
-            >
-              <td class="px-4 py-2.5 text-xs text-muted-foreground">
-                {{ new Date(result.checkedAt).toLocaleString() }}
-              </td>
-              <td class="px-4 py-2.5">
-                <span :class="['text-xs px-2 py-0.5 rounded-full font-medium', result.status === 'up' ? 'bg-green-500/10 text-green-600 dark:text-green-400' : 'bg-red-500/10 text-red-500']">
-                  {{ result.status }}
-                </span>
-              </td>
-              <td class="px-4 py-2.5 text-right text-xs font-mono text-muted-foreground">
-                {{ result.latency !== null ? result.latency + 'ms' : '—' }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-
-        <!-- Pagination -->
-        <div
-          v-if="totalPages > 1"
-          class="flex items-center justify-between px-4 py-2.5 border-t border-border bg-muted/20"
-        >
-          <span class="text-xs text-muted-foreground">
-            {{ page * PAGE_SIZE + 1 }}–{{ Math.min((page + 1) * PAGE_SIZE, sortedHistory.length) }} of {{ sortedHistory.length }}
-          </span>
-          <div class="flex items-center gap-1">
-            <Tooltip
-              text="Previous page"
-              side="top"
-            >
-              <button
-                class="size-7 rounded-md flex items-center justify-center hover:bg-accent transition-colors disabled:opacity-30 disabled:pointer-events-none"
-                :disabled="page === 0"
-                @click="prevPage"
-              >
-                <ChevronLeft
-                  class="size-4 text-muted-foreground"
-                  :stroke-width="1.75"
-                />
-              </button>
-            </Tooltip>
-            <span class="text-xs text-muted-foreground px-1">{{ page + 1 }} / {{ totalPages }}</span>
-            <Tooltip
-              text="Next page"
-              side="top"
-            >
-              <button
-                class="size-7 rounded-md flex items-center justify-center hover:bg-accent transition-colors disabled:opacity-30 disabled:pointer-events-none"
-                :disabled="page === totalPages - 1"
-                @click="nextPage"
-              >
-                <ChevronRight
-                  class="size-4 text-muted-foreground"
-                  :stroke-width="1.75"
-                />
-              </button>
-            </Tooltip>
-          </div>
-        </div>
-      </div>
-
       </template><!-- end v-else (real content) -->
     </template><!-- end v-else (check exists) -->
   </div>
