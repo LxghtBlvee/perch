@@ -9,9 +9,20 @@ import type { AgentMessage } from '@perch/types'
 
 // maps ws.id to agentId
 const connectionMap = new Map<string, string>()
+// auth timeout handles: drop connections that never send an auth message
+const authTimeouts = new Map<string, ReturnType<typeof setTimeout>>()
+const AUTH_TIMEOUT_MS = 5_000
 
 export const agentWs = new Elysia().ws('/ws/agent', {
     open(ws) {
+        const timeout = setTimeout(() => {
+            if (!connectionMap.has(ws.id)) {
+                ws.send(JSON.stringify({ type: 'auth_error', message: 'Authentication timeout' }))
+                ws.close()
+            }
+            authTimeouts.delete(ws.id)
+        }, AUTH_TIMEOUT_MS)
+        authTimeouts.set(ws.id, timeout)
         console.warn(`Agent socket opened: ${ws.id}`)
     },
 
@@ -24,6 +35,9 @@ export const agentWs = new Elysia().ws('/ws/agent', {
                 ws.close()
                 return
             }
+            // Clear the auth timeout — connection is authenticated
+            const t = authTimeouts.get(ws.id)
+            if (t) { clearTimeout(t); authTimeouts.delete(ws.id) }
 
             const [row] = await db.insert(agents).values({ id: msg.agentId, hostname: msg.hostname, ip: msg.ip }).onConflictDoUpdate({
                 target: agents.id,
@@ -97,6 +111,10 @@ export const agentWs = new Elysia().ws('/ws/agent', {
     },
 
     close(ws) {
+        // Clean up any pending auth timeout
+        const t = authTimeouts.get(ws.id)
+        if (t) { clearTimeout(t); authTimeouts.delete(ws.id) }
+
         const agentId = connectionMap.get(ws.id)
         if (agentId) {
             agentRegistry.unregister(agentId)

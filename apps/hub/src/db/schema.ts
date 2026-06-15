@@ -208,3 +208,15 @@ export const oauthAccounts = pgTable('oauth_accounts', {
 }, (t) => [
     unique().on(t.provider, t.providerUserId),
 ]);
+
+// Short-lived single-use codes that exchange for a session token.
+// Used by OAuth callbacks and recovery links so the real session token
+// never appears in a URL (and therefore never lands in server logs,
+// Referer headers, or browser history).
+export const sessionHandoffs = pgTable('session_handoffs', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    codeHash: text('code_hash').notNull().unique(),
+    sessionToken: text('session_token').notNull(),
+    expiresAt: timestamp('expires_at').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+});
