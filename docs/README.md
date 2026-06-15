@@ -5,7 +5,7 @@ These docs cover everything you need to deploy, configure, and use Perch. If you
 ## What's in here
 
 **Getting set up**
-Start with the [overview](./setup/getting-started.md) if you're new, then check the [configuration reference](./setup/configuration.md) for a full list of environment variables.
+Start with the [overview](./setup/getting-started.md) if you're new, then check the [configuration reference](./setup/configuration.md) for a full list of environment variables. The [instance settings](./setup/instance-settings.md) page covers everything you can tune from the admin UI. For a production deployment, read through [security](./setup/security.md) to make sure the key controls are in place.
 
 **Deploying**
 Perch runs on Docker. Pick whichever method fits your setup:
