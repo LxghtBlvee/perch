@@ -10,7 +10,7 @@ import { useCache } from '@/composables/useCache'
 const route = useRoute()
 const router = useRouter()
 const store = usePerchStore()
-const { apiFetch, cachedFetch } = useApi()
+const { cachedFetch } = useApi()
 const { invalidate } = useCache()
 
 const id = route.params.id as string
