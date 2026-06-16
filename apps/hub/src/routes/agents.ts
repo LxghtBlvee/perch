@@ -4,7 +4,7 @@ import { db } from '../db'
 import { agents } from '../db/schema'
 import { agentRegistry } from '../services/agent-registry'
 import { liveRegistry } from '../services/live-registry'
-import { requireAuthUser } from '../middleware/auth'
+import { requireAuthUser, requireAdminUser } from '../middleware/auth'
 
 export const agentRoutes = new Elysia({ prefix: '/api/agents' })
   .get('/', async ({ request, set }) => {
@@ -34,8 +34,8 @@ export const agentRoutes = new Elysia({ prefix: '/api/agents' })
     return entry.containers
   })
   .patch('/:id', async ({ params, body, request, set }) => {
-    const user = await requireAuthUser(request, set)
-    if (!user) return { error: 'Unauthorized' }
+    const user = await requireAdminUser(request, set)
+    if (!user) return { error: set.status === 403 ? 'Forbidden' : 'Unauthorized' }
 
     const [updated] = await db
       .update(agents)
@@ -53,8 +53,8 @@ export const agentRoutes = new Elysia({ prefix: '/api/agents' })
   })
 
   .delete('/:id', async ({ params, request, set }) => {
-    const user = await requireAuthUser(request, set)
-    if (!user) return { error: 'Unauthorized' }
+    const user = await requireAdminUser(request, set)
+    if (!user) return { error: set.status === 403 ? 'Forbidden' : 'Unauthorized' }
 
     const [deleted] = await db.delete(agents).where(eq(agents.id, params.id)).returning()
     agentRegistry.unregister(params.id)
@@ -67,10 +67,17 @@ export const agentRoutes = new Elysia({ prefix: '/api/agents' })
   .get('/:id/containers/:containerId/logs', async ({ params, query, request, set }) => {
     const user = await requireAuthUser(request, set)
     if (!user) return { error: 'Unauthorized' }
+    // Container IDs are Docker hashes (hex). Reject anything else: the agent
+    // interpolates this value into a Docker Engine API path, so characters like
+    // '/', '?' or '..' would allow path-injection into other API endpoints
+    // (e.g. /containers/<id>/json, which leaks env vars/secrets).
+    if (!/^[a-f0-9]{12,64}$/.test(params.containerId)) {
+      set.status = 400; return { error: 'Invalid container ID' }
+    }
     const entry = agentRegistry.get(params.id)
     if (!entry) { set.status = 404; return { message: 'Agent not found' } }
     try {
-      const tail = Number(query.tail ?? 200)
+      const tail = Math.min(Math.max(Math.trunc(Number(query.tail)) || 200, 1), 1000)
       const logs = await agentRegistry.requestLogs(params.id, params.containerId, tail)
       return { logs }
     } catch (e: unknown) {

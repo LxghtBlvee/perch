@@ -1,6 +1,7 @@
 import { and, eq, isNull, or } from 'drizzle-orm'
 import { db } from '../db'
 import { alertRules, alertDestinations, alertHistory } from '../db/schema'
+import { isSafeUrl } from '../lib/safe-url'
 
 interface AlertContext {
     title: string;
@@ -141,6 +142,12 @@ class AlertManager {
   }
 
   private async send(dest: typeof alertDestinations.$inferSelect, ctx: AlertContext): Promise<void> {
+    // SSRF guard: the destination URL is user-supplied. Block private/internal
+    // targets here so it covers both /test and real dispatch, including any rows
+    // that predate validation at the API layer.
+    if (!await isSafeUrl(dest.webhookUrl)) {
+      throw new Error('Destination URL is not allowed (must be a public http/https address)')
+    }
     if (dest.type === 'discord') return this.sendDiscord(dest.webhookUrl, ctx)
     if (dest.type === 'slack') return this.sendSlack(dest.webhookUrl, ctx)
     if (dest.type === 'ntfy')
@@ -167,6 +174,7 @@ class AlertManager {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(10_000),
+      redirect: 'manual',
     })
     if (!res.ok) throw new Error(`Discord returned ${res.status}`)
   }
@@ -197,6 +205,7 @@ class AlertManager {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(10_000),
+      redirect: 'manual',
     })
     if (!res.ok) throw new Error(`Slack returned ${res.status}`)
   }
@@ -224,6 +233,7 @@ class AlertManager {
         priority: priorityMap[priority] ?? 3,
       }),
       signal: AbortSignal.timeout(10_000),
+      redirect: 'manual',
     })
     if (!res.ok) throw new Error(`ntfy returned ${res.status}`)
   }

@@ -13,6 +13,7 @@ import {
     useRecoveryToken,
     generateHandoff,
     exchangeHandoff,
+    OAuthLinkError,
 } from '../services/auth'
 import { requireAuthUser } from '../middleware/auth'
 
@@ -328,8 +329,8 @@ export const authRoutes = new Elysia({ prefix: '/api/auth' })
                 if (!tokenData.access_token) { set.status = 400; return { error: 'Failed to exchange code' } }
 
                 const profile = await fetch('https://discord.com/api/users/@me', { headers: { Authorization: `Bearer ${tokenData.access_token}` } })
-                    .then(r => r.json()) as { id: string; username: string; email?: string; avatar?: string; discriminator?: string }
-                if (!profile.email) { set.status = 400; return { error: 'No email on Discord account. Ensure the account has a verified email.' } }
+                    .then(r => r.json()) as { id: string; username: string; email?: string; verified?: boolean; avatar?: string; discriminator?: string }
+                if (!profile.email || profile.verified === false) { set.status = 400; return { error: 'A verified email is required on the Discord account.' } }
                 if (providerRow.allowedDomain && profile.email.split('@')[1] !== providerRow.allowedDomain) {
                     return redirect(`${base}/login?error=domain_required&domain=${encodeURIComponent(providerRow.allowedDomain)}`)
                 }
@@ -349,7 +350,14 @@ export const authRoutes = new Elysia({ prefix: '/api/auth' })
                 if (!tokenData.access_token) { set.status = 400; return { error: 'Failed to exchange code' } }
 
                 const profile = await fetch(oidcUrls.userinfoUrl, { headers: { Authorization: `Bearer ${tokenData.access_token}` } })
-                    .then(r => r.json()) as { sub?: string; id?: string; email: string; name?: string; picture?: string; avatar_url?: string }
+                    .then(r => r.json()) as { sub?: string; id?: string; email: string; email_verified?: boolean; name?: string; picture?: string; avatar_url?: string }
+
+                // Require the IdP to assert the email is verified — otherwise an attacker
+                // could register an OAuth account with someone else's email and (combined
+                // with email-based linking) take over that account.
+                if (profile.email_verified !== true) {
+                    return redirect(`${base}/login?error=email_unverified`)
+                }
 
                 if (providerRow.allowedDomain && profile.email.split('@')[1] !== providerRow.allowedDomain) {
                     return redirect(`${base}/login?error=domain_required&domain=${encodeURIComponent(providerRow.allowedDomain)}`)
@@ -371,6 +379,9 @@ export const authRoutes = new Elysia({ prefix: '/api/auth' })
             return redirect(`/?code=${handoffCode}`)
 
         } catch (err) {
+            if (err instanceof OAuthLinkError) {
+                return redirect(`${base}/login?error=account_exists`)
+            }
             console.error('[oauth callback]', err)
             set.status = 500; return { error: 'OAuth failed' }
         }

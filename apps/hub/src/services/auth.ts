@@ -3,6 +3,9 @@ import { db } from '../db'
 import { users, sessions, oauthAccounts, instanceSettings, sessionHandoffs } from '../db/schema'
 import { env } from '../config/env.validation'
 
+/** Thrown when an OAuth login would silently link to an existing password account. */
+export class OAuthLinkError extends Error {}
+
 function generateToken(): string {
     const bytes = new Uint8Array(32);
     crypto.getRandomValues(bytes);
@@ -121,9 +124,17 @@ export async function findOrCreateOAuthUser(opts: {
     if (created) {
         userId = created.id
     } else {
-        // Another concurrent request already created this user — fetch them
+        // Insert conflicted on the unique email: either a concurrent OAuth signup
+        // for the same new email, or a pre-existing account with that address.
         const [byEmail] = await db.select().from(users).where(eq(users.email, opts.email)).limit(1)
         if (!byEmail) throw new Error('Unexpected: user not found after insert conflict')
+        // Never silently take over an account that has a password. The email owner
+        // must link this provider from account settings while signed in. (Without
+        // this, an OAuth identity asserting an existing user's email could log in
+        // as that user.)
+        if (byEmail.passwordHash) {
+            throw new OAuthLinkError('An account with this email already exists. Sign in with your password, then link this provider from account settings.')
+        }
         userId = byEmail.id
     }
 

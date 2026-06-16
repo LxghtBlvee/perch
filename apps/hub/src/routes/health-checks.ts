@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm'
 import { db } from '../db'
 import { healthChecks, healthCheckResults } from '../db/schema'
 import { healthChecker } from '../services/health-checker'
-import { requireAuthUser } from '../middleware/auth'
+import { requireAuthUser, requireAdminUser } from '../middleware/auth'
 import { isSafeUrl } from '../lib/safe-url'
 
 export const healthCheckRoutes = new Elysia({ prefix: '/api/health-checks' })
@@ -13,8 +13,8 @@ export const healthCheckRoutes = new Elysia({ prefix: '/api/health-checks' })
     return db.select().from(healthChecks)
   })
   .post('/', async ({ body, request, set }) => {
-    const user = await requireAuthUser(request, set)
-    if (!user) return { error: 'Unauthorized' }
+    const user = await requireAdminUser(request, set)
+    if (!user) return { error: set.status === 403 ? 'Forbidden' : 'Unauthorized' }
     if (!await isSafeUrl(body.url)) { set.status = 400; return { error: 'URL must be a publicly accessible http/https address' } }
     const [check] = await db.insert(healthChecks).values(body).returning()
     healthChecker.schedule(check.id, check.interval)
@@ -35,8 +35,8 @@ export const healthCheckRoutes = new Elysia({ prefix: '/api/health-checks' })
       .orderBy(healthCheckResults.checkedAt)
   })
   .patch('/:id', async ({ params, body, request, set }) => {
-    const user = await requireAuthUser(request, set)
-    if (!user) return { error: 'Unauthorized' }
+    const user = await requireAdminUser(request, set)
+    if (!user) return { error: set.status === 403 ? 'Forbidden' : 'Unauthorized' }
     if (body.url !== undefined && !await isSafeUrl(body.url)) { set.status = 400; return { error: 'URL must be a publicly accessible http/https address' } }
     const [check] = await db
       .update(healthChecks)
@@ -55,8 +55,8 @@ export const healthCheckRoutes = new Elysia({ prefix: '/api/health-checks' })
     ),
   })
   .delete('/:id', async ({ params, request, set }) => {
-    const user = await requireAuthUser(request, set)
-    if (!user) return { error: 'Unauthorized' }
+    const user = await requireAdminUser(request, set)
+    if (!user) return { error: set.status === 403 ? 'Forbidden' : 'Unauthorized' }
     healthChecker.cancel(params.id)
     await db.delete(healthChecks).where(eq(healthChecks.id, params.id))
     return { success: true }

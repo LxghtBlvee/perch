@@ -2,7 +2,7 @@ import Elysia, { t } from 'elysia'
 import { eq } from 'drizzle-orm'
 import { db } from '../db'
 import { dataSources } from '../db/schema'
-import { requireAuthUser } from '../middleware/auth'
+import { requireAuthUser, requireAdminUser } from '../middleware/auth'
 import { isSafeUrl } from '../lib/safe-url'
 
 const dataSourceBody = t.Object({
@@ -25,8 +25,8 @@ export const dataSourceRoutes = new Elysia({ prefix: '/api/data-sources' })
     })
 
     .post('/', async ({ body, request, set }) => {
-        const user = await requireAuthUser(request, set)
-        if (!user) return { error: 'Unauthorized' }
+        const user = await requireAdminUser(request, set)
+        if (!user) return { error: set.status === 403 ? 'Forbidden' : 'Unauthorized' }
         if (!await isSafeUrl(body.url)) { set.status = 400; return { error: 'URL must be a publicly accessible http/https address' } }
         // If marking as default, clear existing default first
         if (body.isDefault) {
@@ -42,8 +42,8 @@ export const dataSourceRoutes = new Elysia({ prefix: '/api/data-sources' })
     }, { body: dataSourceBody })
 
     .patch('/:id', async ({ params, body, request, set }) => {
-        const user = await requireAuthUser(request, set)
-        if (!user) return { error: 'Unauthorized' }
+        const user = await requireAdminUser(request, set)
+        if (!user) return { error: set.status === 403 ? 'Forbidden' : 'Unauthorized' }
         if (body.url !== undefined && !await isSafeUrl(body.url)) { set.status = 400; return { error: 'URL must be a publicly accessible http/https address' } }
         if (body.isDefault) {
             await db.update(dataSources).set({ isDefault: false })
@@ -57,16 +57,16 @@ export const dataSourceRoutes = new Elysia({ prefix: '/api/data-sources' })
     }, { body: t.Partial(dataSourceBody) })
 
     .delete('/:id', async ({ params, request, set }) => {
-        const user = await requireAuthUser(request, set)
-        if (!user) return { error: 'Unauthorized' }
+        const user = await requireAdminUser(request, set)
+        if (!user) return { error: set.status === 403 ? 'Forbidden' : 'Unauthorized' }
         await db.delete(dataSources).where(eq(dataSources.id, params.id))
         return { success: true }
     })
 
     // Proxy: test connectivity to a data source
     .post('/:id/test', async ({ params, request, set }) => {
-        const user = await requireAuthUser(request, set)
-        if (!user) return { error: 'Unauthorized' }
+        const user = await requireAdminUser(request, set)
+        if (!user) return { error: set.status === 403 ? 'Forbidden' : 'Unauthorized' }
         const [ds] = await db.select().from(dataSources).where(eq(dataSources.id, params.id))
         if (!ds) return { ok: false, error: 'Not found' }
         try {

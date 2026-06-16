@@ -1,4 +1,5 @@
 import Elysia from 'elysia'
+import { timingSafeEqual } from 'node:crypto'
 import { env } from '../config/env.validation'
 import { agentRegistry } from '../services/agent-registry'
 import { liveRegistry } from '../services/live-registry'
@@ -12,6 +13,14 @@ const connectionMap = new Map<string, string>()
 // auth timeout handles: drop connections that never send an auth message
 const authTimeouts = new Map<string, ReturnType<typeof setTimeout>>()
 const AUTH_TIMEOUT_MS = 5_000
+
+/** Constant-time token comparison to avoid leaking the hub token via timing. */
+function tokenMatches(provided: unknown, expected: string): boolean {
+    if (typeof provided !== 'string') return false
+    const a = Buffer.from(provided)
+    const b = Buffer.from(expected)
+    return a.length === b.length && timingSafeEqual(a, b)
+}
 
 export const agentWs = new Elysia().ws('/ws/agent', {
     open(ws) {
@@ -30,7 +39,7 @@ export const agentWs = new Elysia().ws('/ws/agent', {
         const msg = (typeof raw === 'string' ? JSON.parse(raw) : raw) as AgentMessage
         
         if (msg.type === 'auth') {
-            if (msg.token !== env.hubToken) {
+            if (!tokenMatches(msg.token, env.hubToken)) {
                 ws.send(JSON.stringify({ type: 'auth_error', message: 'Invalid token' }))
                 ws.close()
                 return

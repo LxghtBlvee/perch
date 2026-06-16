@@ -72,9 +72,15 @@ export class AgentConnection {
     }
 
     private async handleLogsRequest(requestId: string, containerId: string, tail: number): Promise<void> {
+        // Defense in depth: only Docker hex IDs may be interpolated into the API path. Anything else could path-inject into other Docker Engine endpoints.
+        if (!/^[a-f0-9]{12,64}$/.test(containerId)) {
+            this.send({ type: 'logs_response', requestId, logs: 'Error fetching logs: invalid container id' })
+            return
+        }
+        const safeTail = Number.isFinite(tail) ? Math.min(Math.max(Math.trunc(tail), 1), 1000) : 200
         try {
             const res = await fetch(
-                `http://localhost/containers/${containerId}/logs?stdout=1&stderr=1&tail=${tail}&timestamps=false`,
+                `http://localhost/containers/${containerId}/logs?stdout=1&stderr=1&tail=${safeTail}&timestamps=false`,
                 { unix: '/var/run/docker.sock' } as RequestInit,
             )
             const buffer = await res.arrayBuffer()
