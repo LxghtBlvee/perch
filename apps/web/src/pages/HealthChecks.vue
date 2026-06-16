@@ -3,10 +3,12 @@ import { ref, watch } from 'vue'
 import { Plus, Trash2, HeartPulse } from 'lucide-vue-next'
 import Tooltip from '@/components/Tooltip.vue'
 import { usePerchStore } from '@/stores/perch'
+import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
 import { useApi } from '@/composables/useApi'
 
 const store = usePerchStore()
+const auth = useAuthStore()
 const router = useRouter()
 const { apiFetch } = useApi()
 
@@ -248,6 +250,7 @@ async function deleteCheck(id: string) {
         </p>
       </div>
       <button
+        v-if="auth.isAdmin"
         class="flex items-center gap-2 text-sm px-3 py-2 rounded-lg bg-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity"
         @click="showForm = true"
       >
@@ -330,6 +333,7 @@ async function deleteCheck(id: string) {
 
           <Tooltip text="Delete check">
             <button
+              v-if="auth.isAdmin"
               class="size-8 rounded-lg border border-border flex items-center justify-center hover:bg-destructive/10 hover:border-destructive/30 hover:text-destructive transition-colors ml-1"
               @click.stop="deleteCheck(check.id)"
             >

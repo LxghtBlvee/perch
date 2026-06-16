@@ -111,12 +111,14 @@ export const statusPageRoutes = new Elysia()
 
         const file = body.file as File
         if (!file || file.size === 0) { set.status = 400; return { error: 'No file provided' } }
-        if (!file.type.startsWith('image/')) { set.status = 400; return { error: 'File must be an image' } }
+        // SVG is intentionally excluded: it can embed inline <script>, and uploads are
+        // served from this origin, so an SVG logo opened directly = stored XSS.
+        if (!file.type.startsWith('image/') || file.type === 'image/svg+xml') { set.status = 400; return { error: 'File must be a raster image (png, jpg, gif, webp)' } }
         if (file.size > 2 * 1024 * 1024) { set.status = 400; return { error: 'File must be under 2 MB' } }
 
-        const ALLOWED_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg']
+        const ALLOWED_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp']
         const ext = (file.name.split('.').pop() ?? '').toLowerCase()
-        if (!ALLOWED_EXTENSIONS.includes(ext)) { set.status = 400; return { error: 'Invalid file type. Allowed: png, jpg, jpeg, gif, webp, svg' } }
+        if (!ALLOWED_EXTENSIONS.includes(ext)) { set.status = 400; return { error: 'Invalid file type. Allowed: png, jpg, jpeg, gif, webp' } }
 
         const uploadsDir = join(process.cwd(), 'uploads')
         await mkdir(uploadsDir, { recursive: true })

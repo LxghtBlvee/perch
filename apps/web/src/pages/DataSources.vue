@@ -5,8 +5,10 @@ import Tooltip from '@/components/Tooltip.vue'
 import type { DataSource, DataSourceType } from '@perch/types'
 import { useApi } from '@/composables/useApi'
 import { useCache } from '@/composables/useCache'
+import { useAuthStore } from '@/stores/auth'
 import { datasourceIcons } from '@/icons/datasource'
 
+const auth = useAuthStore()
 const { apiFetch, cachedFetch } = useApi()
 const { invalidate } = useCache()
 
@@ -161,7 +163,7 @@ onMounted(fetchSources)
         </p>
       </div>
       <button
-        v-if="!showForm"
+        v-if="!showForm && auth.isAdmin"
         class="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
         @click="showForm = true"
       >
@@ -361,6 +363,7 @@ onMounted(fetchSources)
           </p>
         </div>
         <button
+          v-if="auth.isAdmin"
           class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
           @click="showForm = true"
         >
@@ -458,7 +461,10 @@ onMounted(fetchSources)
         </button>
 
         <!-- Delete -->
-        <Tooltip text="Remove">
+        <Tooltip
+          v-if="auth.isAdmin"
+          text="Remove"
+        >
           <button
             class="size-9 rounded-xl border border-border flex items-center justify-center text-muted-foreground hover:text-red-400 hover:border-red-400/40 hover:bg-red-400/5 transition-all shrink-0 opacity-0 group-hover:opacity-100"
             @click="remove(ds.id)"

@@ -12,9 +12,11 @@ import type {
 import { usePerchStore } from '@/stores/perch'
 import { useApi } from '@/composables/useApi'
 import { useCache } from '@/composables/useCache'
+import { useAuthStore } from '@/stores/auth'
 import Tooltip from '@/components/Tooltip.vue'
 
 const store = usePerchStore()
+const auth = useAuthStore()
 const { apiFetch, cachedFetch } = useApi()
 const { invalidate } = useCache()
 
@@ -382,6 +384,7 @@ function timeAgo(iso: string) {
             Destinations
           </h2>
           <button
+            v-if="auth.isAdmin"
             class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
             @click="openAddDest"
           >
@@ -460,7 +463,10 @@ function timeAgo(iso: string) {
           </button>
 
           <!-- Edit -->
-          <Tooltip text="Edit destination">
+          <Tooltip
+            v-if="auth.isAdmin"
+            text="Edit destination"
+          >
             <button
               class="size-8 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:bg-accent transition-colors shrink-0"
               @click="openEditDest(dest)"
@@ -473,7 +479,10 @@ function timeAgo(iso: string) {
           </Tooltip>
 
           <!-- Delete -->
-          <Tooltip text="Delete destination">
+          <Tooltip
+            v-if="auth.isAdmin"
+            text="Delete destination"
+          >
             <button
               class="size-8 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-red-400 hover:border-red-400/40 transition-colors shrink-0"
               @click="deleteDest(dest.id)"
@@ -494,6 +503,7 @@ function timeAgo(iso: string) {
             Rules
           </h2>
           <button
+            v-if="auth.isAdmin"
             class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
             :disabled="destinations.length === 0"
             :class="{ 'opacity-40 pointer-events-none': destinations.length === 0 }"
@@ -567,7 +577,10 @@ function timeAgo(iso: string) {
           </div>
 
           <!-- Toggle -->
-          <Tooltip :text="rule.enabled ? 'Disable rule' : 'Enable rule'">
+          <Tooltip
+            v-if="auth.isAdmin"
+            :text="rule.enabled ? 'Disable rule' : 'Enable rule'"
+          >
             <button
               class="shrink-0 text-muted-foreground hover:text-primary transition-colors"
               @click="toggleRule(rule.id)"
@@ -586,7 +599,10 @@ function timeAgo(iso: string) {
           </Tooltip>
 
           <!-- Edit -->
-          <Tooltip text="Edit rule">
+          <Tooltip
+            v-if="auth.isAdmin"
+            text="Edit rule"
+          >
             <button
               class="size-8 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:bg-accent transition-colors shrink-0"
               @click="openEditRule(rule)"
@@ -599,7 +615,10 @@ function timeAgo(iso: string) {
           </Tooltip>
 
           <!-- Delete -->
-          <Tooltip text="Delete rule">
+          <Tooltip
+            v-if="auth.isAdmin"
+            text="Delete rule"
+          >
             <button
               class="size-8 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-red-400 hover:border-red-400/40 transition-colors shrink-0"
               @click="deleteRule(rule.id)"

@@ -17,39 +17,92 @@ import {
 } from '../services/auth'
 import { requireAuthUser } from '../middleware/auth'
 
-// In-memory OAuth state store (CSRF protection)
-const oauthStateStore = new Map<string, { provider: string; expiresAt: number }>()
+// In-memory OAuth state store (CSRF protection). Each entry also holds the PKCE
+// code_verifier and a per-flow browser nonce that must come back as a cookie.
+const oauthStateStore = new Map<string, { provider: string; expiresAt: number; codeVerifier: string; browserNonce: string }>()
+const OAUTH_COOKIE = 'perch_oauth'
 
-// In-memory login failure tracker: configurable max failures per email per 15 minutes
-const loginFailures = new Map<string, { count: number; resetAt: number }>()
+// In-memory login failure tracker. The account lock is keyed by (email + client IP)
+// so a remote attacker cannot lock a victim out of their own account by spamming
+// failures from elsewhere (account-lockout DoS); a separate per-IP counter throttles
+// an IP that sprays many accounts.
+const accountFailures = new Map<string, { count: number; resetAt: number }>()
+const ipFailures = new Map<string, { count: number; resetAt: number }>()
 const LOGIN_WINDOW_MS = 15 * 60 * 1000
 const LOGIN_FALLBACK_MAX_ATTEMPTS = 10
+const IP_ATTEMPT_MULTIPLIER = 5 // an IP may fail this many × the per-account limit before being throttled outright
 
-/** Check if an email is currently blocked — does NOT mutate state */
-function isLoginBlocked(email: string, maxAttempts: number): { blocked: boolean; retryAfterMs: number } {
+/** Best-effort client IP from proxy headers (Cloudflare / reverse proxy). */
+function getClientIp(request: Request): string {
+    return request.headers.get('cf-connecting-ip')
+        ?? request.headers.get('x-real-ip')
+        ?? request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+        ?? 'unknown'
+}
+
+function bumpCount(map: Map<string, { count: number; resetAt: number }>, key: string): void {
     const now = Date.now()
-    const entry = loginFailures.get(email.toLowerCase())
-    if (!entry || entry.resetAt < now) return { blocked: false, retryAfterMs: 0 }
-    if (entry.count >= maxAttempts) return { blocked: true, retryAfterMs: entry.resetAt - now }
-    return { blocked: false, retryAfterMs: 0 }
+    const entry = map.get(key)
+    if (!entry || entry.resetAt < now) map.set(key, { count: 1, resetAt: now + LOGIN_WINDOW_MS })
+    else entry.count++
+}
+
+function retryAfterFor(map: Map<string, { count: number; resetAt: number }>, key: string, maxAttempts: number): number {
+    const now = Date.now()
+    const entry = map.get(key)
+    if (!entry || entry.resetAt < now) return 0
+    return entry.count >= maxAttempts ? entry.resetAt - now : 0
+}
+
+/** Check if this email+IP (or the IP overall) is currently blocked — does NOT mutate state */
+function isLoginBlocked(email: string, ip: string, maxAttempts: number): { blocked: boolean; retryAfterMs: number } {
+    const acct = retryAfterFor(accountFailures, `${email.toLowerCase()}|${ip}`, maxAttempts)
+    const perIp = retryAfterFor(ipFailures, ip, maxAttempts * IP_ATTEMPT_MULTIPLIER)
+    const retryAfterMs = Math.max(acct, perIp)
+    return { blocked: retryAfterMs > 0, retryAfterMs }
 }
 
 /** Record a failed login attempt — only called on actual failures */
-function recordLoginFailure(email: string): void {
-    const now = Date.now()
-    const key = email.toLowerCase()
-    const entry = loginFailures.get(key)
-    if (!entry || entry.resetAt < now) {
-        loginFailures.set(key, { count: 1, resetAt: now + LOGIN_WINDOW_MS })
-    } else {
-        entry.count++
-    }
+function recordLoginFailure(email: string, ip: string): void {
+    bumpCount(accountFailures, `${email.toLowerCase()}|${ip}`)
+    bumpCount(ipFailures, ip)
 }
 
 function generateState(): string {
     const bytes = new Uint8Array(16)
     crypto.getRandomValues(bytes)
     return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
+/** PKCE: random high-entropy verifier (RFC 7636). */
+function generateCodeVerifier(): string {
+    const bytes = new Uint8Array(32)
+    crypto.getRandomValues(bytes)
+    return Buffer.from(bytes).toString('base64url')
+}
+
+/** PKCE: S256 challenge derived from the verifier. */
+async function deriveCodeChallenge(verifier: string): Promise<string> {
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))
+    return Buffer.from(new Uint8Array(digest)).toString('base64url')
+}
+
+/** Builds the transient OAuth nonce cookie (HttpOnly, Lax, ~10 min). */
+function buildOauthCookie(value: string, secure: boolean, maxAgeSeconds: number): string {
+    const attrs = ['Path=/', 'HttpOnly', 'SameSite=Lax', `Max-Age=${maxAgeSeconds}`]
+    if (secure) attrs.push('Secure')
+    return `${OAUTH_COOKIE}=${value}; ${attrs.join('; ')}`
+}
+
+function readCookie(request: Request, name: string): string | null {
+    const header = request.headers.get('cookie')
+    if (!header) return null
+    for (const part of header.split(';')) {
+        const eq = part.indexOf('=')
+        if (eq === -1) continue
+        if (part.slice(0, eq).trim() === name) return part.slice(eq + 1).trim()
+    }
+    return null
 }
 
 function getCallbackBase(request: Request): string {
@@ -117,8 +170,9 @@ export const authRoutes = new Elysia({ prefix: '/api/auth' })
     })
 
     // Email/password login
-    .post('/login', async ({ body, set }) => {
+    .post('/login', async ({ body, request, set }) => {
         const { email, password } = body
+        const ip = getClientIp(request)
 
         // Read instance settings once — covers lockout config + maintenance mode
         const [settings] = await db.select({
@@ -133,7 +187,7 @@ export const authRoutes = new Elysia({ prefix: '/api/auth' })
             : Infinity
 
         if (lockoutEnabled) {
-            const rateLimit = isLoginBlocked(email, maxAttempts)
+            const rateLimit = isLoginBlocked(email, ip, maxAttempts)
             if (rateLimit.blocked) {
                 const retryAfterSecs = Math.ceil(rateLimit.retryAfterMs / 1000)
                 { set.status = 429; return { error: `Too many login attempts. Try again in ${retryAfterSecs} seconds.` } }
@@ -142,13 +196,13 @@ export const authRoutes = new Elysia({ prefix: '/api/auth' })
 
         const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1)
         if (!user || !user.passwordHash) {
-            recordLoginFailure(email)
+            recordLoginFailure(email, ip)
             set.status = 401; return { error: 'Invalid credentials' }
         }
 
         const ok = await verifyPassword(password, user.passwordHash)
         if (!ok) {
-            recordLoginFailure(email)
+            recordLoginFailure(email, ip)
             set.status = 401; return { error: 'Invalid credentials' }
         }
 
@@ -250,23 +304,30 @@ export const authRoutes = new Elysia({ prefix: '/api/auth' })
         if (!providerRow?.enabled || !providerRow.clientId) { set.status = 400; return { error: 'Provider not configured' } }
 
         const state = generateState()
-        oauthStateStore.set(state, { provider, expiresAt: Date.now() + 10 * 60 * 1000 })
+        const codeVerifier = generateCodeVerifier()
+        const codeChallenge = await deriveCodeChallenge(codeVerifier)
+        const browserNonce = generateState()
+        oauthStateStore.set(state, { provider, expiresAt: Date.now() + 10 * 60 * 1000, codeVerifier, browserNonce })
         for (const [k, v] of oauthStateStore) { if (v.expiresAt < Date.now()) oauthStateStore.delete(k) }
 
         const callbackUrl = `${getCallbackBase(request)}/api/auth/${provider}/callback`
         const oidcUrls = getOidcUrls(providerRow)
+        // Bind this flow to the browser: the nonce must come back as a cookie on the
+        // callback, so a stolen/forged state from another browser can't complete login.
+        set.headers['set-cookie'] = buildOauthCookie(browserNonce, callbackUrl.startsWith('https'), 600)
+        const pkce = { code_challenge: codeChallenge, code_challenge_method: 'S256' }
 
         if (provider === 'github') {
-            return redirect(`https://github.com/login/oauth/authorize?${new URLSearchParams({ client_id: providerRow.clientId, redirect_uri: callbackUrl, scope: 'user:email', state })}`)
+            return redirect(`https://github.com/login/oauth/authorize?${new URLSearchParams({ client_id: providerRow.clientId, redirect_uri: callbackUrl, scope: 'user:email', state, ...pkce })}`)
         }
 
         if (provider === 'discord') {
-            return redirect(`https://discord.com/api/oauth2/authorize?${new URLSearchParams({ client_id: providerRow.clientId, redirect_uri: callbackUrl, response_type: 'code', scope: 'identify email', state })}`)
+            return redirect(`https://discord.com/api/oauth2/authorize?${new URLSearchParams({ client_id: providerRow.clientId, redirect_uri: callbackUrl, response_type: 'code', scope: 'identify email', state, ...pkce })}`)
         }
 
         // All OIDC providers (google, microsoft, gitlab, okta, custom)
         if (!oidcUrls) { set.status = 400; return { error: 'Provider not fully configured' } }
-        return redirect(`${oidcUrls.authUrl}?${new URLSearchParams({ client_id: providerRow.clientId, redirect_uri: callbackUrl, response_type: 'code', scope: oidcUrls.scope, state })}`)
+        return redirect(`${oidcUrls.authUrl}?${new URLSearchParams({ client_id: providerRow.clientId, redirect_uri: callbackUrl, response_type: 'code', scope: oidcUrls.scope, state, ...pkce })}`)
     }, {
         params: t.Object({ provider: t.String() }),
     })
@@ -295,6 +356,14 @@ export const authRoutes = new Elysia({ prefix: '/api/auth' })
         const callbackUrl = `${getCallbackBase(request)}/api/auth/${provider}/callback`
         const base = getCallbackBase(request)
 
+        // Browser binding (anti login-CSRF): the nonce cookie set when this flow
+        // started must match the one stored with the state. Always clear the cookie.
+        const cookieNonce = readCookie(request, OAUTH_COOKIE)
+        set.headers['set-cookie'] = buildOauthCookie('', base.startsWith('https'), 0)
+        if (!cookieNonce || cookieNonce !== storedState.browserNonce) {
+            return redirect(`${base}/login?error=invalid_state`)
+        }
+
         try {
             let userInfo: { id: string; email: string; name?: string; avatar?: string }
 
@@ -302,7 +371,7 @@ export const authRoutes = new Elysia({ prefix: '/api/auth' })
                 const tokenData = await fetch('https://github.com/login/oauth/access_token', {
                     method: 'POST',
                     headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ client_id: providerRow.clientId, client_secret: providerRow.clientSecret, code, redirect_uri: callbackUrl }),
+                    body: JSON.stringify({ client_id: providerRow.clientId, client_secret: providerRow.clientSecret, code, redirect_uri: callbackUrl, code_verifier: storedState.codeVerifier }),
                 }).then(r => r.json()) as { access_token?: string }
                 if (!tokenData.access_token) { set.status = 400; return { error: 'Failed to exchange code' } }
 
@@ -324,7 +393,7 @@ export const authRoutes = new Elysia({ prefix: '/api/auth' })
                 const tokenData = await fetch('https://discord.com/api/oauth2/token', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: new URLSearchParams({ code, client_id: providerRow.clientId, client_secret: providerRow.clientSecret, redirect_uri: callbackUrl, grant_type: 'authorization_code' }),
+                    body: new URLSearchParams({ code, client_id: providerRow.clientId, client_secret: providerRow.clientSecret, redirect_uri: callbackUrl, grant_type: 'authorization_code', code_verifier: storedState.codeVerifier }),
                 }).then(r => r.json()) as { access_token?: string }
                 if (!tokenData.access_token) { set.status = 400; return { error: 'Failed to exchange code' } }
 
@@ -345,7 +414,7 @@ export const authRoutes = new Elysia({ prefix: '/api/auth' })
                 const tokenData = await fetch(oidcUrls.tokenUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
-                    body: new URLSearchParams({ code, client_id: providerRow.clientId, client_secret: providerRow.clientSecret, redirect_uri: callbackUrl, grant_type: 'authorization_code' }),
+                    body: new URLSearchParams({ code, client_id: providerRow.clientId, client_secret: providerRow.clientSecret, redirect_uri: callbackUrl, grant_type: 'authorization_code', code_verifier: storedState.codeVerifier }),
                 }).then(r => r.json()) as { access_token?: string }
                 if (!tokenData.access_token) { set.status = 400; return { error: 'Failed to exchange code' } }
 
