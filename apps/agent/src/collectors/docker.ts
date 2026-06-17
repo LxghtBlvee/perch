@@ -84,8 +84,10 @@ export class DockerCollector implements ContainerCollector {
 
     async isAvailable(): Promise<boolean> {
         try {
-            await this.fetch('/_ping')
-            return true
+            // /_ping responds with plain-text "OK", not JSON — don't use the
+            // JSON fetch helper here or parsing throws and hides a live socket.
+            const res = await fetch(`http://localhost/_ping`, { unix: this.socket })
+            return res.ok
         } catch {
             return false
         }
