@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm'
 import { db } from '../db'
 import { dataSources } from '../db/schema'
 import { requireAuthUser, requireAdminUser } from '../middleware/auth'
-import { isSafeUrl } from '../lib/safe-url'
+import { isSafeUrl, safeFetch } from '../lib/safe-url'
 
 const dataSourceBody = t.Object({
     name: t.String({ minLength: 1 }),
@@ -75,7 +75,10 @@ export const dataSourceRoutes = new Elysia({ prefix: '/api/data-sources' })
                 : ds.type === 'loki'
                     ? `${ds.url.replace(/\/$/, '')}/ready`
                     : ds.url
-            const res = await fetch(testUrl, { signal: AbortSignal.timeout(5000) })
+            // safeFetch re-validates the stored URL at request time (and on every
+            // redirect hop) — guards against DNS rebinding / redirect-based SSRF
+            // since validation at create time alone doesn't bind the fetch target.
+            const res = await safeFetch(testUrl, { signal: AbortSignal.timeout(5000) })
             return { ok: res.ok, status: res.status }
         } catch (e) {
             return { ok: false, error: String(e) }
