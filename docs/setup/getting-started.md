@@ -18,7 +18,7 @@ You'll land on the Overview page. The agent running alongside the hub will alrea
 - Set up [health checks](../features/health-checks.md) to track your HTTP endpoints
 - Configure [alerts](../features/alerts.md) so you hear about outages
 - Create a [status page](../features/status-pages.md) to share uptime publicly
-- Set up [SSO](../auth/sso.md) so your team can sign in without a separate password
+- Set up [SSO](../auth/sso/README.md) so your team can sign in without a separate password
 
 ## Upgrading
 

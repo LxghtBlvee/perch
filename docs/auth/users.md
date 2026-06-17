@@ -41,10 +41,10 @@ Hover a user row to reveal the delete button. Deleting a user removes their acco
 
 The first admin account (seeded from `PERCH_ADMIN_EMAIL` and `PERCH_ADMIN_PASSWORD`) is the instance admin. It's marked with a **seeded** badge in the user list. The UI won't let you delete it, to prevent you from locking yourself out.
 
-If you need to reset the instance admin's password and can't get in, you can update it directly in the database:
+If you need to reset the instance admin's password and can't get in, update the `password_hash` column directly in the database:
 
 ```bash
-docker compose exec hub bun run --cwd apps/hub src/scripts/reset-admin-password.ts
+docker compose exec db psql -U perch -d perch
 ```
 
-> This script doesn't exist yet but is on the roadmap. For now, use the recovery link flow or update the `password_hash` column directly via `docker compose exec db psql`.
+Then run an `UPDATE users SET password_hash = '...' WHERE email = 'your@email.com'` with a bcrypt hash for your new password. You can generate one with any bcrypt tool at cost 12.

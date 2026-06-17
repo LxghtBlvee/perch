@@ -3,19 +3,29 @@ import { desc, eq } from 'drizzle-orm'
 import { db } from '../db'
 import { alertDestinations, alertRules, alertHistory } from '../db/schema'
 import { alertManager } from '../services/alert-manager'
-import { requireAuthUser } from '../middleware/auth'
+import { requireAuthUser, requireAdminUser } from '../middleware/auth'
+import { isSafeUrl } from '../lib/safe-url'
+
+/** Redacts the secret token in a webhook URL for non-admin viewers. */
+function maskWebhookUrl(url: string): string {
+  try { return `${new URL(url).origin}/•••` } catch { return '•••' }
+}
 
 export const alertRoutes = new Elysia({ prefix: '/api/alerts' })
 
   .get('/destinations', async ({ request, set }) => {
     const user = await requireAuthUser(request, set)
     if (!user) return { error: 'Unauthorized' }
-    return db.select().from(alertDestinations).orderBy(alertDestinations.createdAt)
+    const rows = await db.select().from(alertDestinations).orderBy(alertDestinations.createdAt)
+    // Webhook URLs are credentials — only admins (who can edit) see them in full.
+    if (user.role === 'admin') return rows
+    return rows.map(d => ({ ...d, webhookUrl: maskWebhookUrl(d.webhookUrl) }))
   })
 
   .post('/destinations', async ({ body, request, set }) => {
-    const user = await requireAuthUser(request, set)
-    if (!user) return { error: 'Unauthorized' }
+    const user = await requireAdminUser(request, set)
+    if (!user) return { error: set.status === 403 ? 'Forbidden' : 'Unauthorized' }
+    if (!await isSafeUrl(body.webhookUrl)) { set.status = 400; return { error: 'Webhook URL must be a publicly accessible http/https address' } }
     const [dest] = await db.insert(alertDestinations).values({
       name: body.name,
       type: body.type,
@@ -35,8 +45,9 @@ export const alertRoutes = new Elysia({ prefix: '/api/alerts' })
   })
 
   .put('/destinations/:id', async ({ params, body, request, set }) => {
-    const user = await requireAuthUser(request, set)
-    if (!user) return { error: 'Unauthorized' }
+    const user = await requireAdminUser(request, set)
+    if (!user) return { error: set.status === 403 ? 'Forbidden' : 'Unauthorized' }
+    if (body.webhookUrl !== undefined && !await isSafeUrl(body.webhookUrl)) { set.status = 400; return { error: 'Webhook URL must be a publicly accessible http/https address' } }
     const [dest] = await db
       .update(alertDestinations)
       .set({ ...body, updatedAt: new Date() })
@@ -54,15 +65,15 @@ export const alertRoutes = new Elysia({ prefix: '/api/alerts' })
   })
 
   .delete('/destinations/:id', async ({ params, request, set }) => {
-    const user = await requireAuthUser(request, set)
-    if (!user) return { error: 'Unauthorized' }
+    const user = await requireAdminUser(request, set)
+    if (!user) return { error: set.status === 403 ? 'Forbidden' : 'Unauthorized' }
     await db.delete(alertDestinations).where(eq(alertDestinations.id, params.id))
     return { success: true }
   })
 
   .post('/destinations/:id/test', async ({ params, request, set }) => {
-    const user = await requireAuthUser(request, set)
-    if (!user) return { error: 'Unauthorized' }
+    const user = await requireAdminUser(request, set)
+    if (!user) return { error: set.status === 403 ? 'Forbidden' : 'Unauthorized' }
     try {
       await alertManager.testDestination(params.id)
       return { ok: true }
@@ -88,8 +99,8 @@ export const alertRoutes = new Elysia({ prefix: '/api/alerts' })
   })
 
   .post('/rules', async ({ body, request, set }) => {
-    const user = await requireAuthUser(request, set)
-    if (!user) return { error: 'Unauthorized' }
+    const user = await requireAdminUser(request, set)
+    if (!user) return { error: set.status === 403 ? 'Forbidden' : 'Unauthorized' }
     const [rule] = await db.insert(alertRules).values({
       name: body.name,
       type: body.type,
@@ -115,8 +126,8 @@ export const alertRoutes = new Elysia({ prefix: '/api/alerts' })
   })
 
   .put('/rules/:id', async ({ params, body, request, set }) => {
-    const user = await requireAuthUser(request, set)
-    if (!user) return { error: 'Unauthorized' }
+    const user = await requireAdminUser(request, set)
+    if (!user) return { error: set.status === 403 ? 'Forbidden' : 'Unauthorized' }
     const [rule] = await db
       .update(alertRules)
       .set({
@@ -140,8 +151,8 @@ export const alertRoutes = new Elysia({ prefix: '/api/alerts' })
   })
 
   .patch('/rules/:id/toggle', async ({ params, request, set }) => {
-    const user = await requireAuthUser(request, set)
-    if (!user) return { error: 'Unauthorized' }
+    const user = await requireAdminUser(request, set)
+    if (!user) return { error: set.status === 403 ? 'Forbidden' : 'Unauthorized' }
     const [current] = await db.select().from(alertRules).where(eq(alertRules.id, params.id))
     if (!current) { set.status = 404; return { error: 'Not found' } }
     const [rule] = await db
@@ -153,8 +164,8 @@ export const alertRoutes = new Elysia({ prefix: '/api/alerts' })
   })
 
   .delete('/rules/:id', async ({ params, request, set }) => {
-    const user = await requireAuthUser(request, set)
-    if (!user) return { error: 'Unauthorized' }
+    const user = await requireAdminUser(request, set)
+    if (!user) return { error: set.status === 403 ? 'Forbidden' : 'Unauthorized' }
     await db.delete(alertRules).where(eq(alertRules.id, params.id))
     return { success: true }
   })

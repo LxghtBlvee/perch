@@ -1,7 +1,10 @@
 import { eq, and, gt } from 'drizzle-orm'
 import { db } from '../db'
-import { users, sessions, oauthAccounts, instanceSettings } from '../db/schema'
+import { users, sessions, oauthAccounts, instanceSettings, sessionHandoffs } from '../db/schema'
 import { env } from '../config/env.validation'
+
+/** Thrown when an OAuth login would silently link to an existing password account. */
+export class OAuthLinkError extends Error {}
 
 function generateToken(): string {
     const bytes = new Uint8Array(32);
@@ -121,9 +124,17 @@ export async function findOrCreateOAuthUser(opts: {
     if (created) {
         userId = created.id
     } else {
-        // Another concurrent request already created this user — fetch them
+        // Insert conflicted on the unique email: either a concurrent OAuth signup
+        // for the same new email, or a pre-existing account with that address.
         const [byEmail] = await db.select().from(users).where(eq(users.email, opts.email)).limit(1)
         if (!byEmail) throw new Error('Unexpected: user not found after insert conflict')
+        // Never silently take over an account that has a password. The email owner
+        // must link this provider from account settings while signed in. (Without
+        // this, an OAuth identity asserting an existing user's email could log in
+        // as that user.)
+        if (byEmail.passwordHash) {
+            throw new OAuthLinkError('An account with this email already exists. Sign in with your password, then link this provider from account settings.')
+        }
         userId = byEmail.id
     }
 
@@ -136,6 +147,36 @@ export async function findOrCreateOAuthUser(opts: {
 
     const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
     return user;
+}
+
+/**
+ * Creates a short-lived single-use handoff code that can be exchanged for
+ * the given session token. The code is safe to put in a redirect URL because
+ * it expires in 30 seconds and is deleted on first use — the actual session
+ * token never appears in a URL.
+ */
+export async function generateHandoff(sessionToken: string): Promise<string> {
+    const code = generateToken()
+    const codeHash = hashToken(code)
+    const expiresAt = new Date(Date.now() + 30_000) // 30 seconds
+    await db.insert(sessionHandoffs).values({ codeHash, sessionToken, expiresAt })
+    return code
+}
+
+/**
+ * Exchanges a handoff code for a session token. Single-use: the record is
+ * deleted on success. Returns null if the code is unknown or expired.
+ */
+export async function exchangeHandoff(code: string): Promise<string | null> {
+    const codeHash = hashToken(code)
+    const [row] = await db
+        .delete(sessionHandoffs)
+        .where(and(
+            eq(sessionHandoffs.codeHash, codeHash),
+            gt(sessionHandoffs.expiresAt, new Date()),
+        ))
+        .returning()
+    return row?.sessionToken ?? null
 }
 
 export async function seedAdmin(): Promise<void> {

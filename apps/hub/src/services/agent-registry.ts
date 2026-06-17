@@ -8,9 +8,20 @@ interface ConnectedAgent extends AgentState {
     ws: WsSender
 }
 
+interface LogStreamHandlers {
+    onLine: (line: string) => void
+    onEnd: () => void
+    onError: (message: string) => void
+}
+
+interface LogStream extends LogStreamHandlers {
+    agentId: string
+}
+
 class AgentRegistry {
     private agents = new Map<string, ConnectedAgent>()
-    private pendingLogs = new Map<string, (logs: string) => void>()
+    // Active follow streams, keyed by streamId, fanned out to subscribed clients.
+    private logStreams = new Map<string, LogStream>()
 
     register(agent: Agent, ws: WsSender): void {
         this.agents.set(agent.id, { agent, metrics: null, containers: [], ws });
@@ -18,6 +29,13 @@ class AgentRegistry {
 
     unregister(agentId: string): void {
         this.agents.delete(agentId);
+        // Tear down any follows that were targeting this agent.
+        for (const [streamId, stream] of this.logStreams) {
+            if (stream.agentId === agentId) {
+                this.logStreams.delete(streamId)
+                stream.onError('Agent disconnected')
+            }
+        }
     }
 
     updateDisplayName(agentId: string, displayName: string | null): void {
@@ -54,29 +72,41 @@ class AgentRegistry {
         return { agent: entry.agent, metrics: entry.metrics, containers: entry.containers }
     }
 
-    requestLogs(agentId: string, containerId: string, tail = 200): Promise<string> {
-        return new Promise((resolve, reject) => {
-            const entry = this.agents.get(agentId)
-            if (!entry) return reject(new Error('Agent not connected'))
+    /** Start following a container's logs on an agent. Returns the streamId. */
+    startLogStream(agentId: string, containerId: string, tail: number, handlers: LogStreamHandlers): string {
+        const entry = this.agents.get(agentId)
+        if (!entry) throw new Error('Agent not connected')
 
-            const requestId = crypto.randomUUID()
-            const timeout = setTimeout(() => {
-                this.pendingLogs.delete(requestId)
-                reject(new Error('Log request timed out'))
-            }, 15_000)
-
-            this.pendingLogs.set(requestId, (logs) => {
-                clearTimeout(timeout)
-                this.pendingLogs.delete(requestId)
-                resolve(logs)
-            })
-
-            entry.ws.send(JSON.stringify({ type: 'logs_request', requestId, containerId, tail }))
-        })
+        const streamId = crypto.randomUUID()
+        this.logStreams.set(streamId, { ...handlers, agentId })
+        entry.ws.send(JSON.stringify({ type: 'log_stream_start', streamId, containerId, tail }))
+        return streamId
     }
 
-    resolveLogsResponse(requestId: string, logs: string): void {
-        this.pendingLogs.get(requestId)?.(logs)
+    /** Stop a follow and tell the agent to close its end. */
+    stopLogStream(streamId: string): void {
+        const stream = this.logStreams.get(streamId)
+        if (!stream) return
+        this.logStreams.delete(streamId)
+        this.agents.get(stream.agentId)?.ws.send(JSON.stringify({ type: 'log_stream_stop', streamId }))
+    }
+
+    pushLogStreamData(streamId: string, line: string): void {
+        this.logStreams.get(streamId)?.onLine(line)
+    }
+
+    endLogStream(streamId: string): void {
+        const stream = this.logStreams.get(streamId)
+        if (!stream) return
+        this.logStreams.delete(streamId)
+        stream.onEnd()
+    }
+
+    errorLogStream(streamId: string, message: string): void {
+        const stream = this.logStreams.get(streamId)
+        if (!stream) return
+        this.logStreams.delete(streamId)
+        stream.onError(message)
     }
 }
 

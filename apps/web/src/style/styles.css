@@ -7,6 +7,32 @@
     font-family: 'Poppins', sans-serif;
 }
 
+/* Replace the chunky default OS scrollbars with thin, themed ones so they
+   stop looking out of place on every page. Firefox uses scrollbar-*; Chromium
+   browsers (incl. Brave) use the ::-webkit-scrollbar pseudo-elements. */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+}
+*::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+*::-webkit-scrollbar-track {
+    background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+    background-color: var(--border);
+    border-radius: 9999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+    background-color: var(--muted-foreground);
+}
+/* Don't reserve a gutter / show a scrollbar track when nothing overflows. */
+*::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
 :root {
     --background: oklch(0.99 0 0);
     --foreground: oklch(0.14 0.005 285);

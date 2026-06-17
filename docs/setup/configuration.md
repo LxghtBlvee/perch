@@ -16,7 +16,7 @@ The hub and agent take all their config from environment variables.
 | `PERCH_ADMIN_PASSWORD` | | | Password for the seeded admin account |
 | `PERCH_SESSION_DAYS` | | `30` | How long login sessions last before expiring, in days |
 | `PERCH_PORT` | | `8484` | Port the hub listens on |
-| `PERCH_BASE_URL` | | | Your public URL (e.g. `https://metrics.example.com`). Set this when running behind a reverse proxy so OAuth callback URLs come out right. |
+| `PERCH_BASE_URL` | Yes (production) | | Your public URL (e.g. `https://metrics.example.com`). Controls CORS and OAuth callback URLs. Required when running behind a reverse proxy. |
 | `PERCH_VERSION` | | | Override the version string shown on the Instance page (e.g. `v1.2.0`). If not set, Perch fetches the latest tag from Docker Hub. |
 
 ## Agent
@@ -46,7 +46,7 @@ These seed the first admin account when the database is empty. After that first 
 
 ### PERCH_BASE_URL
 
-Set this when running behind a reverse proxy. Without it, Perch infers the base URL from the incoming request's `Host` header, which can produce wrong OAuth callback URLs when proxied.
+Set this when running in production. Perch uses it to build OAuth callback URLs and lock down CORS to your origin. Without it, CORS falls back to a wildcard, which allows any site to make credentialed requests to your hub.
 
 No trailing slash:
 

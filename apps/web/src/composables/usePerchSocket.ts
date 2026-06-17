@@ -24,7 +24,9 @@ export function usePerchSocket() {
     function connect() {
         if (!auth.token) return
         const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
-        ws = new WebSocket(`${protocol}//${location.host}/ws/live?token=${auth.token}`)
+        // Pass the token via subprotocol instead of the query string so it never
+        // lands in URLs / access logs. (Browsers can't set headers on WebSocket.)
+        ws = new WebSocket(`${protocol}//${location.host}/ws/live`, ['perch.v1', `token.${auth.token}`])
 
         ws.onmessage = (event) => {
             const msg = JSON.parse(event.data as string) as LiveMessage

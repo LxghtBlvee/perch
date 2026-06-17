@@ -1,4 +1,5 @@
 import Elysia from 'elysia'
+import { timingSafeEqual } from 'node:crypto'
 import { env } from '../config/env.validation'
 import { agentRegistry } from '../services/agent-registry'
 import { liveRegistry } from '../services/live-registry'
@@ -9,9 +10,28 @@ import type { AgentMessage } from '@perch/types'
 
 // maps ws.id to agentId
 const connectionMap = new Map<string, string>()
+// auth timeout handles: drop connections that never send an auth message
+const authTimeouts = new Map<string, ReturnType<typeof setTimeout>>()
+const AUTH_TIMEOUT_MS = 5_000
+
+/** Constant-time token comparison to avoid leaking the hub token via timing. */
+function tokenMatches(provided: unknown, expected: string): boolean {
+    if (typeof provided !== 'string') return false
+    const a = Buffer.from(provided)
+    const b = Buffer.from(expected)
+    return a.length === b.length && timingSafeEqual(a, b)
+}
 
 export const agentWs = new Elysia().ws('/ws/agent', {
     open(ws) {
+        const timeout = setTimeout(() => {
+            if (!connectionMap.has(ws.id)) {
+                ws.send(JSON.stringify({ type: 'auth_error', message: 'Authentication timeout' }))
+                ws.close()
+            }
+            authTimeouts.delete(ws.id)
+        }, AUTH_TIMEOUT_MS)
+        authTimeouts.set(ws.id, timeout)
         console.warn(`Agent socket opened: ${ws.id}`)
     },
 
@@ -19,11 +39,14 @@ export const agentWs = new Elysia().ws('/ws/agent', {
         const msg = (typeof raw === 'string' ? JSON.parse(raw) : raw) as AgentMessage
         
         if (msg.type === 'auth') {
-            if (msg.token !== env.hubToken) {
+            if (!tokenMatches(msg.token, env.hubToken)) {
                 ws.send(JSON.stringify({ type: 'auth_error', message: 'Invalid token' }))
                 ws.close()
                 return
             }
+            // Clear the auth timeout — connection is authenticated
+            const t = authTimeouts.get(ws.id)
+            if (t) { clearTimeout(t); authTimeouts.delete(ws.id) }
 
             const [row] = await db.insert(agents).values({ id: msg.agentId, hostname: msg.hostname, ip: msg.ip }).onConflictDoUpdate({
                 target: agents.id,
@@ -91,12 +114,24 @@ export const agentWs = new Elysia().ws('/ws/agent', {
             }
         }
 
-        if (msg.type === 'logs_response') {
-            agentRegistry.resolveLogsResponse(msg.requestId, msg.logs)
+        if (msg.type === 'log_stream_data') {
+            agentRegistry.pushLogStreamData(msg.streamId, msg.line)
+        }
+
+        if (msg.type === 'log_stream_end') {
+            agentRegistry.endLogStream(msg.streamId)
+        }
+
+        if (msg.type === 'log_stream_error') {
+            agentRegistry.errorLogStream(msg.streamId, msg.message)
         }
     },
 
     close(ws) {
+        // Clean up any pending auth timeout
+        const t = authTimeouts.get(ws.id)
+        if (t) { clearTimeout(t); authTimeouts.delete(ws.id) }
+
         const agentId = connectionMap.get(ws.id)
         if (agentId) {
             agentRegistry.unregister(agentId)

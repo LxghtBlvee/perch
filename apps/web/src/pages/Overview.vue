@@ -26,7 +26,7 @@ const PLATFORM_DEFS: PlatformDef[] = [
   { id: 'docker',     name: 'Docker',     lightIcon: '/icons/integrations/docker.svg',        darkIcon: '/icons/integrations/docker.svg',        available: true  },
   { id: 'kubernetes', name: 'Kubernetes', lightIcon: '/icons/integrations/kubernetes.svg',    darkIcon: '/icons/integrations/kubernetes.svg',    available: false },
   { id: 'podman',     name: 'Podman',     lightIcon: '/icons/integrations/podman.svg',        darkIcon: '/icons/integrations/podman.svg',        available: false },
-  { id: 'proxmox',    name: 'Proxmox',    lightIcon: '/icons/integrations/proxmox-light.svg', darkIcon: '/icons/integrations/proxmox-dark.svg',  available: false },
+  { id: 'proxmox',    name: 'Proxmox',    lightIcon: '/icons/integrations/proxmox-dark.svg',  darkIcon: '/icons/integrations/proxmox-light.svg', available: false },
   { id: 'nomad',      name: 'Nomad',      lightIcon: '/icons/integrations/nomad.svg',         darkIcon: '/icons/integrations/nomad.svg',         available: false },
   { id: 'lxc',        name: 'LXC / LXD', lightIcon: '/icons/integrations/lxc.svg',           darkIcon: '/icons/integrations/lxc.svg',           available: false },
 ]
