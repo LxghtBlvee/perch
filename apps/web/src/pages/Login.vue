@@ -50,15 +50,31 @@ function oauthLogin(provider: string) {
   window.location.href = `/api/auth/${provider}`
 }
 
+const PROVIDER_LABELS: Record<string, string> = {
+  github: 'GitHub',
+  google: 'Google',
+  gitlab: 'GitLab',
+  microsoft: 'Microsoft',
+  okta: 'Okta',
+  discord: 'Discord',
+}
+
+const PROVIDER_ICONS: Record<string, string> = {
+  github: '/icons/github.svg',
+  google: '/icons/google.svg',
+  gitlab: '/icons/gitlab.svg',
+  microsoft: '/icons/microsoft.svg',
+  okta: '/icons/okta.svg',
+  discord: '/icons/discord.svg',
+}
+
 function providerLabel(p: EnabledProvider): string {
   if (p.provider === 'custom') return p.customName ?? 'SSO'
-  return p.provider === 'github' ? 'GitHub' : 'Google'
+  return PROVIDER_LABELS[p.provider] ?? p.customName ?? p.provider
 }
 
 function providerIcon(p: EnabledProvider): string {
-  if (p.provider === 'github') return '/icons/github.svg'
-  if (p.provider === 'google') return '/icons/google.svg'
-  return '/icons/sso.svg'
+  return PROVIDER_ICONS[p.provider] ?? '/icons/sso.svg'
 }
 </script>
 
