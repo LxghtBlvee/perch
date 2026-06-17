@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, RefreshCw, Cpu, MemoryStick } from 'lucide-vue-next'
+import { ArrowLeft, Cpu, MemoryStick } from 'lucide-vue-next'
 import Tooltip from '@/components/Tooltip.vue'
+import LogViewer from '@/components/LogViewer.vue'
 import { usePerchStore } from '@/stores/perch'
 import { formatBytes, formatPercent } from '@/lib/utils'
 import { useApi } from '@/composables/useApi'
@@ -174,70 +175,17 @@ onMounted(fetchLogs)
 
       <!-- Logs -->
       <div>
-        <div class="flex items-center justify-between mb-3">
-          <h2 class="text-sm font-medium text-muted-foreground">
-            Logs
-          </h2>
-          <div class="flex items-center gap-2">
-            <select
-              v-model.number="tail"
-              class="text-xs bg-muted border border-border rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-ring"
-              @change="fetchLogs"
-            >
-              <option :value="100">
-                Last 100 lines
-              </option>
-              <option :value="200">
-                Last 200 lines
-              </option>
-              <option :value="500">
-                Last 500 lines
-              </option>
-              <option :value="1000">
-                Last 1000 lines
-              </option>
-            </select>
-            <button
-              class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-border hover:bg-accent transition-colors"
-              :class="{ 'opacity-50 pointer-events-none': logsLoading }"
-              @click="fetchLogs"
-            >
-              <RefreshCw
-                class="size-3"
-                :class="{ 'animate-spin': logsLoading }"
-                :stroke-width="2"
-              />
-              Refresh
-            </button>
-          </div>
-        </div>
-
-        <div
-          v-if="logsError"
-          class="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
-        >
-          {{ logsError }}
-        </div>
-
-        <!-- Log skeleton -->
-        <div
-          v-else-if="logsLoading"
-          class="rounded-xl border border-border bg-black/40 p-4 space-y-2 max-h-[520px] overflow-hidden"
-        >
-          <div
-            v-for="i in 18"
-            :key="i"
-            class="h-3 rounded animate-pulse bg-green-400/10"
-            :style="{ width: `${45 + (i * 37) % 55}%` }"
-          />
-        </div>
-
-        <div
-          v-else
-          class="rounded-xl border border-border bg-black/40 overflow-hidden"
-        >
-          <pre class="p-4 text-xs font-mono text-green-400/90 overflow-auto max-h-[520px] whitespace-pre-wrap break-all leading-relaxed">{{ logs || 'No logs.' }}</pre>
-        </div>
+        <h2 class="text-sm font-medium text-muted-foreground mb-3">
+          Logs
+        </h2>
+        <LogViewer
+          :lines="logs"
+          :loading="logsLoading"
+          :error="logsError"
+          :tail="tail"
+          @refresh="fetchLogs"
+          @update:tail="(t) => { tail = t; fetchLogs() }"
+        />
       </div>
     </template>
   </div>
