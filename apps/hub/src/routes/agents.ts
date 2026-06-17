@@ -4,7 +4,7 @@ import { db } from '../db'
 import { agents } from '../db/schema'
 import { agentRegistry } from '../services/agent-registry'
 import { liveRegistry } from '../services/live-registry'
-import { requireAuthUser } from '../middleware/auth'
+import { requireAuthUser, requireAdminUser } from '../middleware/auth'
 
 export const agentRoutes = new Elysia({ prefix: '/api/agents' })
   .get('/', async ({ request, set }) => {
@@ -34,8 +34,8 @@ export const agentRoutes = new Elysia({ prefix: '/api/agents' })
     return entry.containers
   })
   .patch('/:id', async ({ params, body, request, set }) => {
-    const user = await requireAuthUser(request, set)
-    if (!user) return { error: 'Unauthorized' }
+    const user = await requireAdminUser(request, set)
+    if (!user) return { error: set.status === 403 ? 'Forbidden' : 'Unauthorized' }
 
     const [updated] = await db
       .update(agents)
@@ -53,8 +53,8 @@ export const agentRoutes = new Elysia({ prefix: '/api/agents' })
   })
 
   .delete('/:id', async ({ params, request, set }) => {
-    const user = await requireAuthUser(request, set)
-    if (!user) return { error: 'Unauthorized' }
+    const user = await requireAdminUser(request, set)
+    if (!user) return { error: set.status === 403 ? 'Forbidden' : 'Unauthorized' }
 
     const [deleted] = await db.delete(agents).where(eq(agents.id, params.id)).returning()
     agentRegistry.unregister(params.id)
@@ -62,19 +62,4 @@ export const agentRoutes = new Elysia({ prefix: '/api/agents' })
 
     if (!deleted) { set.status = 404; return { error: 'Agent not found' } }
     return { success: true }
-  })
-
-  .get('/:id/containers/:containerId/logs', async ({ params, query, request, set }) => {
-    const user = await requireAuthUser(request, set)
-    if (!user) return { error: 'Unauthorized' }
-    const entry = agentRegistry.get(params.id)
-    if (!entry) { set.status = 404; return { message: 'Agent not found' } }
-    try {
-      const tail = Number(query.tail ?? 200)
-      const logs = await agentRegistry.requestLogs(params.id, params.containerId, tail)
-      return { logs }
-    } catch (e: unknown) {
-      set.status = 502
-      return { error: e instanceof Error ? e.message : 'Failed to fetch logs' }
-    }
   })

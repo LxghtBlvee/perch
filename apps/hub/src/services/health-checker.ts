@@ -3,6 +3,7 @@ import { db } from '../db'
 import { healthChecks, healthCheckResults } from '../db/schema'
 import { liveRegistry } from './live-registry'
 import { alertManager } from './alert-manager'
+import { safeFetch } from '../lib/safe-url'
 import type { HealthCheck } from '@perch/types'
 
 class HealthChecker {
@@ -46,7 +47,9 @@ class HealthChecker {
         let latency: number | null = null
 
         try {
-            const res = await fetch(check.url, { signal: AbortSignal.timeout(10_000) })
+            // safeFetch re-validates the target (and every redirect hop) so a
+            // monitored URL can't be pointed at an internal/metadata address.
+            const res = await safeFetch(check.url, { signal: AbortSignal.timeout(10_000) })
             if (res.ok) {
                 status = 'up'
                 latency = Date.now() - start

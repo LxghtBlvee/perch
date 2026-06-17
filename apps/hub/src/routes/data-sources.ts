@@ -2,33 +2,8 @@ import Elysia, { t } from 'elysia'
 import { eq } from 'drizzle-orm'
 import { db } from '../db'
 import { dataSources } from '../db/schema'
-import { requireAuthUser } from '../middleware/auth'
-
-const PRIVATE_IP_PATTERNS = [
-    /^127\./,
-    /^10\./,
-    /^172\.(1[6-9]|2\d|3[01])\./,
-    /^192\.168\./,
-    /^169\.254\./,
-    /^0\.0\.0\.0/,
-    /^::1$/,
-    /^\[::1\]$/,
-    /^fc[0-9a-f]{2}:/i,
-    /^fd[0-9a-f]{2}:/i,
-]
-
-function isSafeUrl(rawUrl: string): boolean {
-    try {
-        const u = new URL(rawUrl)
-        if (!['http:', 'https:'].includes(u.protocol)) return false
-        const hostname = u.hostname.toLowerCase()
-        if (hostname === 'localhost' || hostname.endsWith('.localhost')) return false
-        if (PRIVATE_IP_PATTERNS.some(p => p.test(hostname))) return false
-        return true
-    } catch {
-        return false
-    }
-}
+import { requireAuthUser, requireAdminUser } from '../middleware/auth'
+import { isSafeUrl, safeFetch } from '../lib/safe-url'
 
 const dataSourceBody = t.Object({
     name: t.String({ minLength: 1 }),
@@ -50,9 +25,9 @@ export const dataSourceRoutes = new Elysia({ prefix: '/api/data-sources' })
     })
 
     .post('/', async ({ body, request, set }) => {
-        const user = await requireAuthUser(request, set)
-        if (!user) return { error: 'Unauthorized' }
-        if (!isSafeUrl(body.url)) { set.status = 400; return { error: 'URL must be a publicly accessible http/https address' } }
+        const user = await requireAdminUser(request, set)
+        if (!user) return { error: set.status === 403 ? 'Forbidden' : 'Unauthorized' }
+        if (!await isSafeUrl(body.url)) { set.status = 400; return { error: 'URL must be a publicly accessible http/https address' } }
         // If marking as default, clear existing default first
         if (body.isDefault) {
             await db.update(dataSources).set({ isDefault: false })
@@ -67,9 +42,9 @@ export const dataSourceRoutes = new Elysia({ prefix: '/api/data-sources' })
     }, { body: dataSourceBody })
 
     .patch('/:id', async ({ params, body, request, set }) => {
-        const user = await requireAuthUser(request, set)
-        if (!user) return { error: 'Unauthorized' }
-        if (body.url !== undefined && !isSafeUrl(body.url)) { set.status = 400; return { error: 'URL must be a publicly accessible http/https address' } }
+        const user = await requireAdminUser(request, set)
+        if (!user) return { error: set.status === 403 ? 'Forbidden' : 'Unauthorized' }
+        if (body.url !== undefined && !await isSafeUrl(body.url)) { set.status = 400; return { error: 'URL must be a publicly accessible http/https address' } }
         if (body.isDefault) {
             await db.update(dataSources).set({ isDefault: false })
         }
@@ -82,16 +57,16 @@ export const dataSourceRoutes = new Elysia({ prefix: '/api/data-sources' })
     }, { body: t.Partial(dataSourceBody) })
 
     .delete('/:id', async ({ params, request, set }) => {
-        const user = await requireAuthUser(request, set)
-        if (!user) return { error: 'Unauthorized' }
+        const user = await requireAdminUser(request, set)
+        if (!user) return { error: set.status === 403 ? 'Forbidden' : 'Unauthorized' }
         await db.delete(dataSources).where(eq(dataSources.id, params.id))
         return { success: true }
     })
 
     // Proxy: test connectivity to a data source
     .post('/:id/test', async ({ params, request, set }) => {
-        const user = await requireAuthUser(request, set)
-        if (!user) return { error: 'Unauthorized' }
+        const user = await requireAdminUser(request, set)
+        if (!user) return { error: set.status === 403 ? 'Forbidden' : 'Unauthorized' }
         const [ds] = await db.select().from(dataSources).where(eq(dataSources.id, params.id))
         if (!ds) return { ok: false, error: 'Not found' }
         try {
@@ -100,7 +75,10 @@ export const dataSourceRoutes = new Elysia({ prefix: '/api/data-sources' })
                 : ds.type === 'loki'
                     ? `${ds.url.replace(/\/$/, '')}/ready`
                     : ds.url
-            const res = await fetch(testUrl, { signal: AbortSignal.timeout(5000) })
+            // safeFetch re-validates the stored URL at request time (and on every
+            // redirect hop) — guards against DNS rebinding / redirect-based SSRF
+            // since validation at create time alone doesn't bind the fetch target.
+            const res = await safeFetch(testUrl, { signal: AbortSignal.timeout(5000) })
             return { ok: res.ok, status: res.status }
         } catch (e) {
             return { ok: false, error: String(e) }

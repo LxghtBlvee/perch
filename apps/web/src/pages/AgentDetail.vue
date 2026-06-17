@@ -119,7 +119,7 @@ async function deleteAgent() {
             {{ entry?.agent.displayName ?? entry?.agent.hostname ?? 'Agent' }}
           </h1>
           <Tooltip
-            v-if="entry"
+            v-if="entry && auth.isAdmin"
             text="Rename agent"
           >
             <button
@@ -144,7 +144,7 @@ async function deleteAgent() {
         {{ entry.agent.status }}
       </span>
       <Tooltip
-        v-if="entry"
+        v-if="entry && auth.isAdmin"
         text="Remove agent"
       >
         <button

@@ -56,8 +56,14 @@ export interface ContainerPort {
     protocol: string
 }
 
+/**The container runtime a Container was collected from. Lets the UI badge the
+source and lets the agent route log requests back to the owning collector 
+*/
+export type ContainerRuntime = 'docker' | 'podman' | 'lxc' | 'kubernetes'
+
 export interface Container {
     id: string
+    runtime: ContainerRuntime
     name: string
     image: string
     status: 'running' | 'stopped' | 'paused' | 'restarting' | 'dead'
@@ -180,20 +186,36 @@ export interface AlertHistoryEntry {
   error: string | null
 }
 
-// Agent → Hub WebSocket messages
+// Agent to Hub WebSocket messages
 export type AgentMessage =
   | { type: 'auth'; token: string; agentId: string; hostname: string; ip: string }
   | { type: 'metrics'; data: SystemMetrics }
   | { type: 'containers'; data: Container[] }
-  | { type: 'logs_response'; requestId: string; logs: string }
+  // Live log streaming (one streamId per active follow)
+  | { type: 'log_stream_data'; streamId: string; line: string }
+  | { type: 'log_stream_end'; streamId: string }
+  | { type: 'log_stream_error'; streamId: string; message: string }
 
-// Hub → Agent WebSocket messages
+// Hub to Agent WebSocket messages
 export type HubMessage =
   | { type: 'auth_ok'; agentId: string }
   | { type: 'auth_error'; message: string }
-  | { type: 'logs_request'; requestId: string; containerId: string; tail: number }
+  | { type: 'log_stream_start'; streamId: string; containerId: string; tail: number }
+  | { type: 'log_stream_stop'; streamId: string }
 
-// Hub → Frontend WebSocket messages
+// Frontend to Hub messages on the dedicated /ws/logs socket.
+// Each connection follows one container at a time.
+export type LogStreamClientMessage =
+  | { type: 'subscribe'; agentId: string; containerId: string; tail: number }
+  | { type: 'unsubscribe' }
+
+// Hub to Frontend messages on /ws/logs.
+export type LogStreamServerMessage =
+  | { type: 'line'; line: string }
+  | { type: 'error'; message: string }
+  | { type: 'end' }
+
+// Hub to Frontend WebSocket messages
 export type LiveMessage =
   | { type: 'init'; agents: AgentState[]; healthChecks: HealthCheck[] }
   | { type: 'agent_connected'; agent: AgentState }

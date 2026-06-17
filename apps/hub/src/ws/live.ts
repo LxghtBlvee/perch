@@ -8,10 +8,15 @@ import { validateSession } from '../services/auth'
 
 export const liveWs = new Elysia().ws('/ws/live', {
     async open(ws) {
-        // Auth check — parse token from upgrade request URL directly
+        // Auth check — prefer the token from the Sec-WebSocket-Protocol header (keeps
+        // it out of URLs / access logs); fall back to the deprecated ?token= query param.
         try {
-            const rawUrl = ws.data.request.url
-            const token = new URLSearchParams(rawUrl.includes('?') ? rawUrl.split('?')[1] : '').get('token')
+            const req = ws.data.request
+            const offered = (req.headers.get('sec-websocket-protocol') ?? '').split(',').map(s => s.trim())
+            const tokenProto = offered.find(p => p.startsWith('token.'))
+            const token = tokenProto
+                ? tokenProto.slice('token.'.length)
+                : new URLSearchParams(req.url.includes('?') ? req.url.split('?')[1] : '').get('token')
             if (!token) {
                 ws.send(JSON.stringify({ type: 'error', message: 'Unauthorized' }))
                 ws.close()

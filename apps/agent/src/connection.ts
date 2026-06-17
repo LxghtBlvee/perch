@@ -1,37 +1,30 @@
 import type { HubMessage } from '@perch/types';
 import { config } from './config/config.validation';
 
-function parseDockerLogs(buffer: ArrayBuffer): string {
-    const bytes = new Uint8Array(buffer)
-    // Detect Docker multiplexed stream (8-byte header per frame)
-    if (bytes.length >= 8 && bytes[0] <= 2 && bytes[1] === 0 && bytes[2] === 0 && bytes[3] === 0) {
-        const lines: string[] = []
-        let offset = 0
-        const decoder = new TextDecoder()
-        while (offset + 8 <= bytes.length) {
-            const size = ((bytes[offset + 4] << 24) | (bytes[offset + 5] << 16) | (bytes[offset + 6] << 8) | bytes[offset + 7]) >>> 0
-            offset += 8
-            if (size === 0) continue
-            if (offset + size > bytes.length) break
-            lines.push(decoder.decode(bytes.slice(offset, offset + size)))
-            offset += size
-        }
-        return lines.join('')
-    }
-    // Raw stream (TTY mode)
-    return new TextDecoder().decode(bytes)
-}
+/**
+ * Follows a container's logs, calling `onLine` per line until `signal` aborts.
+ * Supplied by the registry so the connection layer stays runtime-agnostic.
+ */
+export type StreamProvider = (
+    containerId: string,
+    tail: number,
+    onLine: (line: string) => void,
+    signal: AbortSignal,
+) => Promise<void>
 
 const RECONNECT_DELAY = 5_000
 
 export class AgentConnection {
     private ws: WebSocket | null = null;
     private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    // Active log follows, keyed by the hub-assigned streamId.
+    private streams = new Map<string, AbortController>();
 
     constructor(
         private agentId: string,
         private hostname: string,
         private ip: string,
+        private streamProvider: StreamProvider,
     ) {}
 
     connect(): void {
@@ -56,13 +49,18 @@ export class AgentConnection {
             } else if (msg.type === 'auth_error') {
                 console.error(`Authentication rejected: ${msg.message}`)
                 this.ws?.close()
-            } else if (msg.type === 'logs_request') {
-                void this.handleLogsRequest(msg.requestId, msg.containerId, msg.tail)
+            } else if (msg.type === 'log_stream_start') {
+                void this.handleStreamStart(msg.streamId, msg.containerId, msg.tail)
+            } else if (msg.type === 'log_stream_stop') {
+                this.handleStreamStop(msg.streamId)
             }
         }
 
         this.ws.onclose = () => {
             console.warn(`Disconnected from hub. Reconnecting in ${RECONNECT_DELAY / 1000}s...`)
+            // Drop any in-flight follows; the hub will re-subscribe after reconnect.
+            for (const controller of this.streams.values()) controller.abort()
+            this.streams.clear()
             this.scheduleReconnect()
         }
 
@@ -71,17 +69,31 @@ export class AgentConnection {
         }
     }
 
-    private async handleLogsRequest(requestId: string, containerId: string, tail: number): Promise<void> {
+    private async handleStreamStart(streamId: string, containerId: string, tail: number): Promise<void> {
+        // Replace any existing stream with the same id (re-subscribe).
+        this.streams.get(streamId)?.abort()
+        const controller = new AbortController()
+        this.streams.set(streamId, controller)
         try {
-            const res = await fetch(
-                `http://localhost/containers/${containerId}/logs?stdout=1&stderr=1&tail=${tail}&timestamps=false`,
-                { unix: '/var/run/docker.sock' } as RequestInit,
+            await this.streamProvider(
+                containerId,
+                tail,
+                (line) => this.send({ type: 'log_stream_data', streamId, line }),
+                controller.signal,
             )
-            const buffer = await res.arrayBuffer()
-            this.send({ type: 'logs_response', requestId, logs: parseDockerLogs(buffer) })
+            if (!controller.signal.aborted) this.send({ type: 'log_stream_end', streamId })
         } catch (e) {
-            this.send({ type: 'logs_response', requestId, logs: `Error fetching logs: ${e}` })
+            if (!controller.signal.aborted) {
+                this.send({ type: 'log_stream_error', streamId, message: e instanceof Error ? e.message : String(e) })
+            }
+        } finally {
+            this.streams.delete(streamId)
         }
+    }
+
+    private handleStreamStop(streamId: string): void {
+        this.streams.get(streamId)?.abort()
+        this.streams.delete(streamId)
     }
 
     send(payload: Record<string, unknown>): void {
