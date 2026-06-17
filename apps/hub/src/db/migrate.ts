@@ -245,6 +245,16 @@ async function migrate() {
     await db.execute(sql`ALTER TABLE instance_settings ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN NOT NULL DEFAULT false`)
     await db.execute(sql`ALTER TABLE instance_settings ADD COLUMN IF NOT EXISTS enabled_platforms TEXT NOT NULL DEFAULT '["docker"]'`)
 
+    await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS session_handoffs (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            code_hash TEXT NOT NULL UNIQUE,
+            session_token TEXT NOT NULL,
+            expires_at TIMESTAMP NOT NULL,
+            created_at TIMESTAMP DEFAULT NOW() NOT NULL
+        )
+    `)
+
     // Performance indexes for cleanup queries and common lookups
     await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at)`)
     await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)`)

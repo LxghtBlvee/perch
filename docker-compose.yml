@@ -16,6 +16,9 @@ services:
       PERCH_ADMIN_EMAIL: ${PERCH_ADMIN_EMAIL:-}
       PERCH_ADMIN_PASSWORD: ${PERCH_ADMIN_PASSWORD:-}
       PERCH_SESSION_DAYS: ${PERCH_SESSION_DAYS:-30}
+      # Required in production — prevents OAuth callbacks from trusting x-forwarded-host
+      PERCH_BASE_URL: ${PERCH_BASE_URL}
+      NODE_ENV: ${NODE_ENV:-production}
     volumes:
       - hub-uploads:/app/apps/hub/uploads
     depends_on:
