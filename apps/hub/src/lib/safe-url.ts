@@ -59,7 +59,7 @@ function isBlockedIpv6(ip: string): boolean {
  * so those can't be used to smuggle an internal IPv4 past the IPv4 checks.
  */
 function isPrivateAddress(address: string): boolean {
-    let addr = address.toLowerCase().trim().replace(/^\[|\]$/g, '').split('%')[0]
+    const addr = address.toLowerCase().trim().replace(/^\[|\]$/g, '').split('%')[0]
 
     // IPv4-mapped IPv6 — treat as the embedded IPv4 (covers ::ffff:127.0.0.1)
     const mapped = addr.match(/^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/)
