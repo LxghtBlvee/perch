@@ -191,13 +191,29 @@ export type AgentMessage =
   | { type: 'auth'; token: string; agentId: string; hostname: string; ip: string }
   | { type: 'metrics'; data: SystemMetrics }
   | { type: 'containers'; data: Container[] }
-  | { type: 'logs_response'; requestId: string; logs: string }
+  // Live log streaming (one streamId per active follow)
+  | { type: 'log_stream_data'; streamId: string; line: string }
+  | { type: 'log_stream_end'; streamId: string }
+  | { type: 'log_stream_error'; streamId: string; message: string }
 
 // Hub to Agent WebSocket messages
 export type HubMessage =
   | { type: 'auth_ok'; agentId: string }
   | { type: 'auth_error'; message: string }
-  | { type: 'logs_request'; requestId: string; containerId: string; tail: number }
+  | { type: 'log_stream_start'; streamId: string; containerId: string; tail: number }
+  | { type: 'log_stream_stop'; streamId: string }
+
+// Frontend to Hub messages on the dedicated /ws/logs socket.
+// Each connection follows one container at a time.
+export type LogStreamClientMessage =
+  | { type: 'subscribe'; agentId: string; containerId: string; tail: number }
+  | { type: 'unsubscribe' }
+
+// Hub to Frontend messages on /ws/logs.
+export type LogStreamServerMessage =
+  | { type: 'line'; line: string }
+  | { type: 'error'; message: string }
+  | { type: 'end' }
 
 // Hub to Frontend WebSocket messages
 export type LiveMessage =

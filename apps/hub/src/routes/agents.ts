@@ -63,25 +63,3 @@ export const agentRoutes = new Elysia({ prefix: '/api/agents' })
     if (!deleted) { set.status = 404; return { error: 'Agent not found' } }
     return { success: true }
   })
-
-  .get('/:id/containers/:containerId/logs', async ({ params, query, request, set }) => {
-    const user = await requireAuthUser(request, set)
-    if (!user) return { error: 'Unauthorized' }
-    // Container IDs are Docker hashes (hex). Reject anything else: the agent
-    // interpolates this value into a Docker Engine API path, so characters like
-    // '/', '?' or '..' would allow path-injection into other API endpoints
-    // (e.g. /containers/<id>/json, which leaks env vars/secrets).
-    if (!/^[a-f0-9]{12,64}$/.test(params.containerId)) {
-      set.status = 400; return { error: 'Invalid container ID' }
-    }
-    const entry = agentRegistry.get(params.id)
-    if (!entry) { set.status = 404; return { message: 'Agent not found' } }
-    try {
-      const tail = Math.min(Math.max(Math.trunc(Number(query.tail)) || 200, 1), 1000)
-      const logs = await agentRegistry.requestLogs(params.id, params.containerId, tail)
-      return { logs }
-    } catch (e: unknown) {
-      set.status = 502
-      return { error: e instanceof Error ? e.message : 'Failed to fetch logs' }
-    }
-  })

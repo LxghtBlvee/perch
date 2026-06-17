@@ -157,8 +157,16 @@ function stringifyValue(v: unknown): string {
 // Public API
 // ---------------------------------------------------------------------------
 
+// Docker prepends an RFC3339Nano timestamp + space to every line when
+// timestamps=true. Pull it off before structure detection so a JSON/logfmt
+// payload still parses, and surface it as the line timestamp.
+const dockerTimestampRe = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)\s+([\s\S]*)$/
+
 function parseLine(raw: string, id: number): ParsedLogLine {
-    const clean = stripAnsi(raw)
+    const cleaned = stripAnsi(raw)
+    const tsMatch = cleaned.match(dockerTimestampRe)
+    const leadingTs = tsMatch ? tsMatch[1] : null
+    const clean = tsMatch ? tsMatch[2] : cleaned
 
     // JSON structured log
     const json = tryJson(clean)
@@ -182,7 +190,7 @@ function parseLine(raw: string, id: number): ParsedLogLine {
             }
             fields.push({ key, value: stringifyValue(value), type: valueType(value) })
         }
-        return { id, level, timestamp, message, fields, kind: 'json', raw }
+        return { id, level, timestamp: timestamp ?? leadingTs, message, fields, kind: 'json', raw }
     }
 
     // logfmt structured log
@@ -199,18 +207,11 @@ function parseLine(raw: string, id: number): ParsedLogLine {
             fields.push({ key, value, type: 'string' })
         }
         if (level === 'unknown') level = guessFromString(clean)
-        return { id, level, timestamp, message, fields, kind: 'logfmt', raw }
+        return { id, level, timestamp: timestamp ?? leadingTs, message, fields, kind: 'logfmt', raw }
     }
 
-    // Plain text — split off a leading timestamp for its own column if present.
-    let timestamp: string | null = null
-    let message = clean
-    const tsMatch = clean.match(/^(\d{4}[-/]\d{2}[-/]\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)\s+([\s\S]*)$/)
-    if (tsMatch) {
-        timestamp = tsMatch[1]
-        message = tsMatch[2]
-    }
-    return { id, level: guessFromString(clean), timestamp, message, fields: [], kind: 'text', raw }
+    // Plain text — the Docker timestamp (if any) was already split off above.
+    return { id, level: guessFromString(clean), timestamp: leadingTs, message: clean, fields: [], kind: 'text', raw }
 }
 
 /** Parse a raw multi-line log blob into structured lines. */

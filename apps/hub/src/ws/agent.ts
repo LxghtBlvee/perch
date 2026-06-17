@@ -114,8 +114,16 @@ export const agentWs = new Elysia().ws('/ws/agent', {
             }
         }
 
-        if (msg.type === 'logs_response') {
-            agentRegistry.resolveLogsResponse(msg.requestId, msg.logs)
+        if (msg.type === 'log_stream_data') {
+            agentRegistry.pushLogStreamData(msg.streamId, msg.line)
+        }
+
+        if (msg.type === 'log_stream_end') {
+            agentRegistry.endLogStream(msg.streamId)
+        }
+
+        if (msg.type === 'log_stream_error') {
+            agentRegistry.errorLogStream(msg.streamId, msg.message)
         }
     },
 

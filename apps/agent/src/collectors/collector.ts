@@ -25,10 +25,16 @@ export interface ContainerCollector {
     collect(): Promise<Container[]>
 
     /**
-     * Fetch recent logs for one container owned by this collector. The
-     * collector is responsible for validating that `containerId` is well-formed
-     * for its own runtime before interpolating it into any request (defense in
-     * depth against path/command injection).
+     * Follow a container's logs, invoking `onLine` for each line (including the
+     * last `tail` historical lines first). Resolves when the stream ends; the
+     * caller aborts it via `signal`. The collector must validate that
+     * `containerId` is well-formed for its runtime before interpolating it into
+     * any request (defense in depth against path/command injection).
      */
-    getLogs(containerId: string, tail: number): Promise<string>
+    streamLogs(
+        containerId: string,
+        tail: number,
+        onLine: (line: string) => void,
+        signal: AbortSignal,
+    ): Promise<void>
 }

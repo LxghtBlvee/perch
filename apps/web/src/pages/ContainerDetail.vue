@@ -1,17 +1,16 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, Cpu, MemoryStick } from 'lucide-vue-next'
 import Tooltip from '@/components/Tooltip.vue'
 import LogViewer from '@/components/LogViewer.vue'
 import { usePerchStore } from '@/stores/perch'
 import { formatBytes, formatPercent } from '@/lib/utils'
-import { useApi } from '@/composables/useApi'
+import { useContainerLogs } from '@/composables/useContainerLogs'
 
 const route = useRoute()
 const router = useRouter()
 const store = usePerchStore()
-const { apiFetch } = useApi()
 
 const agentId = route.params.agentId as string
 const containerId = route.params.containerId as string
@@ -19,27 +18,8 @@ const containerId = route.params.containerId as string
 const entry = computed(() => store.agents.find(a => a.agent.id === agentId))
 const container = computed(() => entry.value?.containers.find(c => c.id === containerId))
 
-const logs = ref('')
-const logsLoading = ref(false)
-const logsError = ref<string | null>(null)
-const tail = ref(200)
-
-async function fetchLogs() {
-  logsLoading.value = true
-  logsError.value = null
-  try {
-    const res = await apiFetch(`/api/agents/${agentId}/containers/${containerId}/logs?tail=${tail.value}`)
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.error ?? 'Failed to fetch logs')
-    logs.value = data.logs
-  } catch (e: unknown) {
-    logsError.value = e instanceof Error ? e.message : 'Unknown error'
-  } finally {
-    logsLoading.value = false
-  }
-}
-
-onMounted(fetchLogs)
+const { logs, connected, error: logsError, paused, tail, setTail, togglePause, reconnect } =
+  useContainerLogs(agentId, containerId)
 </script>
 
 <template>
@@ -180,11 +160,14 @@ onMounted(fetchLogs)
         </h2>
         <LogViewer
           :lines="logs"
-          :loading="logsLoading"
+          :loading="!connected && !logs"
           :error="logsError"
           :tail="tail"
-          @refresh="fetchLogs"
-          @update:tail="(t) => { tail = t; fetchLogs() }"
+          :live="connected"
+          :paused="paused"
+          @refresh="reconnect"
+          @update:tail="setTail"
+          @toggle-pause="togglePause"
         />
       </div>
     </template>

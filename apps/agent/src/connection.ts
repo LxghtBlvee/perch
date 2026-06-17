@@ -2,23 +2,29 @@ import type { HubMessage } from '@perch/types';
 import { config } from './config/config.validation';
 
 /**
- * Fetches recent logs for a container, regardless of which runtime owns it.
- * Supplied by the caller (the collector registry) so the connection layer
- * stays runtime-agnostic.
+ * Follows a container's logs, calling `onLine` per line until `signal` aborts.
+ * Supplied by the registry so the connection layer stays runtime-agnostic.
  */
-export type LogsProvider = (containerId: string, tail: number) => Promise<string>
+export type StreamProvider = (
+    containerId: string,
+    tail: number,
+    onLine: (line: string) => void,
+    signal: AbortSignal,
+) => Promise<void>
 
 const RECONNECT_DELAY = 5_000
 
 export class AgentConnection {
     private ws: WebSocket | null = null;
     private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    // Active log follows, keyed by the hub-assigned streamId.
+    private streams = new Map<string, AbortController>();
 
     constructor(
         private agentId: string,
         private hostname: string,
         private ip: string,
-        private logsProvider: LogsProvider,
+        private streamProvider: StreamProvider,
     ) {}
 
     connect(): void {
@@ -43,13 +49,18 @@ export class AgentConnection {
             } else if (msg.type === 'auth_error') {
                 console.error(`Authentication rejected: ${msg.message}`)
                 this.ws?.close()
-            } else if (msg.type === 'logs_request') {
-                void this.handleLogsRequest(msg.requestId, msg.containerId, msg.tail)
+            } else if (msg.type === 'log_stream_start') {
+                void this.handleStreamStart(msg.streamId, msg.containerId, msg.tail)
+            } else if (msg.type === 'log_stream_stop') {
+                this.handleStreamStop(msg.streamId)
             }
         }
 
         this.ws.onclose = () => {
             console.warn(`Disconnected from hub. Reconnecting in ${RECONNECT_DELAY / 1000}s...`)
+            // Drop any in-flight follows; the hub will re-subscribe after reconnect.
+            for (const controller of this.streams.values()) controller.abort()
+            this.streams.clear()
             this.scheduleReconnect()
         }
 
@@ -58,15 +69,31 @@ export class AgentConnection {
         }
     }
 
-    private async handleLogsRequest(requestId: string, containerId: string, tail: number): Promise<void> {
-        // The owning collector validates the id for its runtime and fetches the
-        // logs; ID-format / path-injection defense lives there, per runtime.
+    private async handleStreamStart(streamId: string, containerId: string, tail: number): Promise<void> {
+        // Replace any existing stream with the same id (re-subscribe).
+        this.streams.get(streamId)?.abort()
+        const controller = new AbortController()
+        this.streams.set(streamId, controller)
         try {
-            const logs = await this.logsProvider(containerId, tail)
-            this.send({ type: 'logs_response', requestId, logs })
+            await this.streamProvider(
+                containerId,
+                tail,
+                (line) => this.send({ type: 'log_stream_data', streamId, line }),
+                controller.signal,
+            )
+            if (!controller.signal.aborted) this.send({ type: 'log_stream_end', streamId })
         } catch (e) {
-            this.send({ type: 'logs_response', requestId, logs: `Error fetching logs: ${e}` })
+            if (!controller.signal.aborted) {
+                this.send({ type: 'log_stream_error', streamId, message: e instanceof Error ? e.message : String(e) })
+            }
+        } finally {
+            this.streams.delete(streamId)
         }
+    }
+
+    private handleStreamStop(streamId: string): void {
+        this.streams.get(streamId)?.abort()
+        this.streams.delete(streamId)
     }
 
     send(payload: Record<string, unknown>): void {

@@ -55,10 +55,19 @@ export class CollectorRegistry {
         return lists.flat()
     }
 
-    /** Route a log request to the collector that owns the container. */
-    async getLogs(containerId: string, tail: number): Promise<string> {
+    /** Route a follow/stream request to the collector that owns the container. */
+    async streamLogs(
+        containerId: string,
+        tail: number,
+        onLine: (line: string) => void,
+        signal: AbortSignal,
+    ): Promise<void> {
+        return this.ownerOf(containerId).streamLogs(containerId, tail, onLine, signal)
+    }
+
+    private ownerOf(containerId: string): ContainerCollector {
         const owner = this.ownership.get(containerId)
         if (!owner) throw new Error(`no runtime owns container ${containerId}`)
-        return owner.getLogs(containerId, tail)
+        return owner
     }
 }

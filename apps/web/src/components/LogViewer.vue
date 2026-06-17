@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
-import { Search, RefreshCw, WrapText, Clock } from 'lucide-vue-next'
+import { ref, reactive, computed, watch, nextTick } from 'vue'
+import { Search, RefreshCw, WrapText, Clock, Pause, Play, ArrowDownToLine } from 'lucide-vue-next'
 import { parseLogs, type LogLevel, type ParsedLogLine } from '@/lib/logs'
 
 const props = defineProps<{
@@ -8,11 +8,16 @@ const props = defineProps<{
   loading: boolean
   error: string | null
   tail: number
+  /** Whether a live follow is currently connected. */
+  live?: boolean
+  /** Whether the live follow is paused (rendering frozen). */
+  paused?: boolean
 }>()
 
 const emit = defineEmits<{
   refresh: []
   'update:tail': [number]
+  'toggle-pause': []
 }>()
 
 // Per-level presentation. Static class strings so Tailwind keeps them.
@@ -65,6 +70,26 @@ function toggleLevel(level: LogLevel) {
   else hidden.add(level)
 }
 
+// --- Auto-scroll: stay pinned to the bottom unless the user scrolls up ---
+const scroller = ref<HTMLElement | null>(null)
+const pinned = ref(true)
+
+function onScroll() {
+  const el = scroller.value
+  if (!el) return
+  pinned.value = el.scrollHeight - el.scrollTop - el.clientHeight < 40
+}
+
+function scrollToBottom() {
+  const el = scroller.value
+  if (el) el.scrollTop = el.scrollHeight
+  pinned.value = true
+}
+
+watch(() => visible.value.length, () => {
+  if (pinned.value) nextTick(scrollToBottom)
+})
+
 const TAIL_OPTIONS = [100, 200, 500, 1000]
 </script>
 
@@ -81,6 +106,20 @@ const TAIL_OPTIONS = [100, 200, 500, 1000]
           class="w-full text-xs bg-muted/50 border border-border rounded-lg pl-8 pr-2 py-1.5 outline-none focus:ring-2 focus:ring-ring"
         >
       </div>
+
+      <!-- Live indicator -->
+      <span
+        v-if="live !== undefined"
+        :class="['flex items-center gap-1.5 text-[11px] font-medium px-2 py-1 rounded-md',
+                 paused ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                 : live ? 'bg-green-500/15 text-green-600 dark:text-green-400'
+                   : 'bg-muted text-muted-foreground']"
+      >
+        <span
+          :class="['size-1.5 rounded-full', paused ? 'bg-amber-500' : live ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground']"
+        />
+        {{ paused ? 'PAUSED' : live ? 'LIVE' : 'OFFLINE' }}
+      </span>
 
       <!-- Level filter chips -->
       <div class="flex items-center gap-1">
@@ -118,6 +157,23 @@ const TAIL_OPTIONS = [100, 200, 500, 1000]
         <Clock class="size-3.5" />
       </button>
 
+      <!-- Pause / resume the live follow -->
+      <button
+        v-if="live !== undefined"
+        class="size-7 flex items-center justify-center rounded-lg border border-border hover:bg-accent text-muted-foreground transition-colors"
+        :title="paused ? 'Resume' : 'Pause'"
+        @click="emit('toggle-pause')"
+      >
+        <Play
+          v-if="paused"
+          class="size-3.5"
+        />
+        <Pause
+          v-else
+          class="size-3.5"
+        />
+      </button>
+
       <select
         :value="tail"
         class="text-xs bg-muted/50 border border-border rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-ring"
@@ -134,13 +190,14 @@ const TAIL_OPTIONS = [100, 200, 500, 1000]
       <button
         class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-border hover:bg-accent transition-colors"
         :class="{ 'opacity-50 pointer-events-none': loading }"
+        :title="live !== undefined ? 'Reconnect' : 'Refresh'"
         @click="emit('refresh')"
       >
         <RefreshCw
           class="size-3"
           :class="{ 'animate-spin': loading }"
         />
-        Refresh
+        {{ live !== undefined ? 'Reconnect' : 'Refresh' }}
       </button>
     </div>
 
@@ -173,42 +230,58 @@ const TAIL_OPTIONS = [100, 200, 500, 1000]
 
     <div
       v-else
-      class="overflow-auto max-h-[520px] font-mono text-xs leading-relaxed"
+      class="relative"
     >
       <div
-        v-for="line in visible"
-        :key="line.id"
-        :class="['group flex gap-2 px-3 py-0.5 border-l-2 hover:bg-muted/40', LEVEL_META[line.level].border]"
+        ref="scroller"
+        class="overflow-auto max-h-[520px] font-mono text-xs leading-relaxed"
+        @scroll="onScroll"
       >
-        <span
-          v-if="showTimestamps && anyTimestamp"
-          class="shrink-0 text-muted-foreground/60 select-none w-44 truncate"
-        >{{ line.timestamp ?? '' }}</span>
-
-        <span
-          :class="['shrink-0 inline-block w-12 text-center rounded text-[10px] font-semibold leading-5 select-none', LEVEL_META[line.level].badge]"
-        >{{ LEVEL_META[line.level].label }}</span>
-
-        <span
-          :class="['flex-1 min-w-0', wrap ? 'whitespace-pre-wrap break-all' : 'whitespace-pre overflow-x-auto']"
+        <div
+          v-for="line in visible"
+          :key="line.id"
+          :class="['group flex gap-2 px-3 py-0.5 border-l-2 hover:bg-muted/40', LEVEL_META[line.level].border]"
         >
           <span
-            v-if="line.message"
-            class="text-foreground/90"
-          >{{ line.message }}</span>
-          <template v-if="line.fields.length">
-            <span
-              v-for="(f, i) in line.fields"
-              :key="i"
-              class="ml-2"
-            ><span class="text-sky-700 dark:text-sky-300/80">{{ f.key }}</span><span class="text-muted-foreground">=</span><span :class="VALUE_CLASS[f.type]">{{ f.value }}</span></span>
-          </template>
+            v-if="showTimestamps && anyTimestamp"
+            class="shrink-0 text-muted-foreground/60 select-none w-44 truncate"
+          >{{ line.timestamp ?? '' }}</span>
+
           <span
-            v-if="!line.message && !line.fields.length"
-            class="text-foreground/40"
-          >&nbsp;</span>
-        </span>
+            :class="['shrink-0 inline-block w-12 text-center rounded text-[10px] font-semibold leading-5 select-none', LEVEL_META[line.level].badge]"
+          >{{ LEVEL_META[line.level].label }}</span>
+
+          <span
+            :class="['flex-1 min-w-0', wrap ? 'whitespace-pre-wrap break-all' : 'whitespace-pre overflow-x-auto']"
+          >
+            <span
+              v-if="line.message"
+              class="text-foreground/90"
+            >{{ line.message }}</span>
+            <template v-if="line.fields.length">
+              <span
+                v-for="(f, i) in line.fields"
+                :key="i"
+                class="ml-2"
+              ><span class="text-sky-700 dark:text-sky-300/80">{{ f.key }}</span><span class="text-muted-foreground">=</span><span :class="VALUE_CLASS[f.type]">{{ f.value }}</span></span>
+            </template>
+            <span
+              v-if="!line.message && !line.fields.length"
+              class="text-foreground/40"
+            >&nbsp;</span>
+          </span>
+        </div>
       </div>
+
+      <!-- Jump to bottom when the user has scrolled up -->
+      <button
+        v-if="!pinned"
+        class="absolute bottom-3 right-3 flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border bg-card shadow-md hover:bg-accent transition-colors"
+        @click="scrollToBottom"
+      >
+        <ArrowDownToLine class="size-3.5" />
+        Jump to latest
+      </button>
     </div>
   </div>
 </template>

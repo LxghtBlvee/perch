@@ -21,6 +21,7 @@ import { instanceSettingsRoutes } from './routes/instance-settings'
 import { statusPageRoutes } from './routes/status-pages'
 import { agentWs } from './ws/agent'
 import { liveWs } from './ws/live'
+import { logsWs } from './ws/logs'
 import { healthChecker } from './services/health-checker'
 import { initLocation } from './services/hub-location'
 import { seedAdmin } from './services/auth'
@@ -113,6 +114,7 @@ const app = new Elysia()
     .use(statusPageRoutes)
     .use(agentWs)
     .use(liveWs)
+    .use(logsWs)
     .use(staticPlugin({ assets: uploadsDir, prefix: '/uploads' }))
     // Let Vue handle custom domain detection at the root
     .get('/', () => Bun.file(join(webDist, 'index.html')))

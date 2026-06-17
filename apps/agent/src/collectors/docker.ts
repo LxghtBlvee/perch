@@ -39,28 +39,6 @@ function mapState(state: string): Container['status'] {
     };
 };
 
-/** Parse Docker's multiplexed log stream (8-byte header per frame) or raw TTY stream. */
-function parseDockerLogs(buffer: ArrayBuffer): string {
-    const bytes = new Uint8Array(buffer)
-    // Detect Docker multiplexed stream (8-byte header per frame)
-    if (bytes.length >= 8 && bytes[0] <= 2 && bytes[1] === 0 && bytes[2] === 0 && bytes[3] === 0) {
-        const lines: string[] = []
-        let offset = 0
-        const decoder = new TextDecoder()
-        while (offset + 8 <= bytes.length) {
-            const size = ((bytes[offset + 4] << 24) | (bytes[offset + 5] << 16) | (bytes[offset + 6] << 8) | bytes[offset + 7]) >>> 0
-            offset += 8
-            if (size === 0) continue
-            if (offset + size > bytes.length) break
-            lines.push(decoder.decode(bytes.slice(offset, offset + size)))
-            offset += size
-        }
-        return lines.join('')
-    }
-    // Raw stream (TTY mode)
-    return new TextDecoder().decode(bytes)
-}
-
 /**
  * Collector for the Docker Engine API over a unix socket.
  *
@@ -139,18 +117,84 @@ export class DockerCollector implements ContainerCollector {
         }
     }
 
-    async getLogs(containerId: string, tail: number): Promise<string> {
-        // Defense in depth: only hex IDs may be interpolated into the API path.
-        // Anything else could path-inject into other Engine endpoints.
-        if (!/^[a-f0-9]{12,64}$/.test(containerId)) {
-            throw new Error('invalid container id')
-        }
-        const safeTail = Number.isFinite(tail) ? Math.min(Math.max(Math.trunc(tail), 1), 1000) : 200
+    // Defense in depth: only hex IDs may be interpolated into the API path.
+    // Anything else could path-inject into other Engine endpoints.
+    private safeId(containerId: string): string {
+        if (!/^[a-f0-9]{12,64}$/.test(containerId)) throw new Error('invalid container id')
+        return containerId
+    }
+
+    private clampTail(tail: number): number {
+        return Number.isFinite(tail) ? Math.min(Math.max(Math.trunc(tail), 1), 1000) : 200
+    }
+
+    async streamLogs(
+        containerId: string,
+        tail: number,
+        onLine: (line: string) => void,
+        signal: AbortSignal,
+    ): Promise<void> {
+        const id = this.safeId(containerId)
         const res = await fetch(
-            `http://localhost/containers/${containerId}/logs?stdout=1&stderr=1&tail=${safeTail}&timestamps=false`,
-            { unix: this.socket } as RequestInit,
+            `http://localhost/containers/${id}/logs?stdout=1&stderr=1&follow=1&tail=${this.clampTail(tail)}&timestamps=true`,
+            { unix: this.socket, signal } as RequestInit,
         )
-        const buffer = await res.arrayBuffer()
-        return parseDockerLogs(buffer)
+        if (!res.ok || !res.body) throw new Error(`${this.runtime} log stream returned ${res.status}`)
+
+        const reader = res.body.getReader()
+        const decoder = new TextDecoder()
+        let buf = new Uint8Array(0)
+        let lineBuf = ''
+        let mode: 'unknown' | 'multiplexed' | 'raw' = 'unknown'
+
+        const emit = (text: string) => {
+            lineBuf += text
+            let nl: number
+            while ((nl = lineBuf.indexOf('\n')) >= 0) {
+                onLine(lineBuf.slice(0, nl).replace(/\r$/, ''))
+                lineBuf = lineBuf.slice(nl + 1)
+            }
+        }
+
+        try {
+            for (;;) {
+                const { done, value } = await reader.read()
+                if (done) break
+                if (value) {
+                    const next = new Uint8Array(buf.length + value.length)
+                    next.set(buf); next.set(value, buf.length)
+                    buf = next
+                }
+
+                if (mode === 'unknown') {
+                    if (buf.length < 8) continue
+                    // Multiplexed frames start with a stream-type byte (0/1/2) and 3 zero bytes.
+                    mode = buf[0] <= 2 && buf[1] === 0 && buf[2] === 0 && buf[3] === 0 ? 'multiplexed' : 'raw'
+                }
+
+                if (mode === 'raw') {
+                    emit(decoder.decode(buf, { stream: true }))
+                    buf = new Uint8Array(0)
+                    continue
+                }
+
+                // Multiplexed: consume every complete 8-byte-header frame we have.
+                let offset = 0
+                while (buf.length - offset >= 8) {
+                    const size = ((buf[offset + 4] << 24) | (buf[offset + 5] << 16) | (buf[offset + 6] << 8) | buf[offset + 7]) >>> 0
+                    if (buf.length - offset - 8 < size) break // frame split across reads — wait
+                    emit(decoder.decode(buf.subarray(offset + 8, offset + 8 + size), { stream: true }))
+                    offset += 8 + size
+                }
+                buf = buf.subarray(offset)
+            }
+            if (lineBuf.length) onLine(lineBuf.replace(/\r$/, ''))
+        } catch (e) {
+            // Aborting the stream (caller stopped following) is expected, not an error.
+            if (signal.aborted || (e instanceof Error && e.name === 'AbortError')) return
+            throw e
+        } finally {
+            try { await reader.cancel() } catch { /* already closed */ }
+        }
     }
 }

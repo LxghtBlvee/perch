@@ -33,8 +33,11 @@ console.warn(`Perch agent starting — id: ${agentId}, host: ${hostname}, ip: ${
 const registry = new CollectorRegistry()
 await registry.detect()
 
-const connection = new AgentConnection(agentId, hostname, ip, (id, tail) =>
-  registry.getLogs(id, tail),
+const connection = new AgentConnection(
+  agentId,
+  hostname,
+  ip,
+  (id, tail, onLine, signal) => registry.streamLogs(id, tail, onLine, signal),
 )
 connection.connect()
 
