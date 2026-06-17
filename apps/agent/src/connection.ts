@@ -1,26 +1,12 @@
 import type { HubMessage } from '@perch/types';
 import { config } from './config/config.validation';
 
-function parseDockerLogs(buffer: ArrayBuffer): string {
-    const bytes = new Uint8Array(buffer)
-    // Detect Docker multiplexed stream (8-byte header per frame)
-    if (bytes.length >= 8 && bytes[0] <= 2 && bytes[1] === 0 && bytes[2] === 0 && bytes[3] === 0) {
-        const lines: string[] = []
-        let offset = 0
-        const decoder = new TextDecoder()
-        while (offset + 8 <= bytes.length) {
-            const size = ((bytes[offset + 4] << 24) | (bytes[offset + 5] << 16) | (bytes[offset + 6] << 8) | bytes[offset + 7]) >>> 0
-            offset += 8
-            if (size === 0) continue
-            if (offset + size > bytes.length) break
-            lines.push(decoder.decode(bytes.slice(offset, offset + size)))
-            offset += size
-        }
-        return lines.join('')
-    }
-    // Raw stream (TTY mode)
-    return new TextDecoder().decode(bytes)
-}
+/**
+ * Fetches recent logs for a container, regardless of which runtime owns it.
+ * Supplied by the caller (the collector registry) so the connection layer
+ * stays runtime-agnostic.
+ */
+export type LogsProvider = (containerId: string, tail: number) => Promise<string>
 
 const RECONNECT_DELAY = 5_000
 
@@ -32,6 +18,7 @@ export class AgentConnection {
         private agentId: string,
         private hostname: string,
         private ip: string,
+        private logsProvider: LogsProvider,
     ) {}
 
     connect(): void {
@@ -72,19 +59,11 @@ export class AgentConnection {
     }
 
     private async handleLogsRequest(requestId: string, containerId: string, tail: number): Promise<void> {
-        // Defense in depth: only Docker hex IDs may be interpolated into the API path. Anything else could path-inject into other Docker Engine endpoints.
-        if (!/^[a-f0-9]{12,64}$/.test(containerId)) {
-            this.send({ type: 'logs_response', requestId, logs: 'Error fetching logs: invalid container id' })
-            return
-        }
-        const safeTail = Number.isFinite(tail) ? Math.min(Math.max(Math.trunc(tail), 1), 1000) : 200
+        // The owning collector validates the id for its runtime and fetches the
+        // logs; ID-format / path-injection defense lives there, per runtime.
         try {
-            const res = await fetch(
-                `http://localhost/containers/${containerId}/logs?stdout=1&stderr=1&tail=${safeTail}&timestamps=false`,
-                { unix: '/var/run/docker.sock' } as RequestInit,
-            )
-            const buffer = await res.arrayBuffer()
-            this.send({ type: 'logs_response', requestId, logs: parseDockerLogs(buffer) })
+            const logs = await this.logsProvider(containerId, tail)
+            this.send({ type: 'logs_response', requestId, logs })
         } catch (e) {
             this.send({ type: 'logs_response', requestId, logs: `Error fetching logs: ${e}` })
         }

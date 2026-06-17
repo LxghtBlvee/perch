@@ -56,8 +56,14 @@ export interface ContainerPort {
     protocol: string
 }
 
+/**The container runtime a Container was collected from. Lets the UI badge the
+source and lets the agent route log requests back to the owning collector 
+*/
+export type ContainerRuntime = 'docker' | 'podman' | 'lxc' | 'kubernetes'
+
 export interface Container {
     id: string
+    runtime: ContainerRuntime
     name: string
     image: string
     status: 'running' | 'stopped' | 'paused' | 'restarting' | 'dead'
@@ -180,20 +186,20 @@ export interface AlertHistoryEntry {
   error: string | null
 }
 
-// Agent → Hub WebSocket messages
+// Agent to Hub WebSocket messages
 export type AgentMessage =
   | { type: 'auth'; token: string; agentId: string; hostname: string; ip: string }
   | { type: 'metrics'; data: SystemMetrics }
   | { type: 'containers'; data: Container[] }
   | { type: 'logs_response'; requestId: string; logs: string }
 
-// Hub → Agent WebSocket messages
+// Hub to Agent WebSocket messages
 export type HubMessage =
   | { type: 'auth_ok'; agentId: string }
   | { type: 'auth_error'; message: string }
   | { type: 'logs_request'; requestId: string; containerId: string; tail: number }
 
-// Hub → Frontend WebSocket messages
+// Hub to Frontend WebSocket messages
 export type LiveMessage =
   | { type: 'init'; agents: AgentState[]; healthChecks: HealthCheck[] }
   | { type: 'agent_connected'; agent: AgentState }

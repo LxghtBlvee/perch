@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto'
 import { config } from './config/config.validation'
 import { AgentConnection } from './connection'
 import { collectSystemMetrics } from './collectors/system'
-import { collectContainers } from './collectors/docker'
+import { CollectorRegistry } from './collectors/registry'
 
 async function getAgentId(): Promise<string> {
   try {
@@ -30,7 +30,12 @@ const ip = getLocalIp()
 
 console.warn(`Perch agent starting — id: ${agentId}, host: ${hostname}, ip: ${ip}`)
 
-const connection = new AgentConnection(agentId, hostname, ip)
+const registry = new CollectorRegistry()
+await registry.detect()
+
+const connection = new AgentConnection(agentId, hostname, ip, (id, tail) =>
+  registry.getLogs(id, tail),
+)
 connection.connect()
 
 setInterval(async () => {
@@ -38,7 +43,7 @@ setInterval(async () => {
 
   const [metrics, containers] = await Promise.all([
     collectSystemMetrics(agentId),
-    collectContainers(),
+    registry.collect(),
   ])
 
   connection.send({ type: 'metrics', data: metrics })
