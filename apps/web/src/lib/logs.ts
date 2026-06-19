@@ -26,9 +26,7 @@ export interface ParsedLogLine {
     raw: string
 }
 
-// ---------------------------------------------------------------------------
 // Level guessing (ported from internal/container/level_guesser.go)
-// ---------------------------------------------------------------------------
 
 const LEVEL_GROUPS: string[][] = [
     ['error', 'err'],
@@ -106,9 +104,7 @@ function normalizeLevel(level: string): LogLevel {
     return aliasToCanonical[l] ?? (['error', 'warn', 'info', 'debug', 'trace', 'fatal'].includes(l) ? l as LogLevel : 'unknown')
 }
 
-// ---------------------------------------------------------------------------
 // Structure detection
-// ---------------------------------------------------------------------------
 
 function tryJson(s: string): Record<string, unknown> | null {
     const t = s.trim()
@@ -153,9 +149,7 @@ function stringifyValue(v: unknown): string {
     return JSON.stringify(v)
 }
 
-// ---------------------------------------------------------------------------
 // Public API
-// ---------------------------------------------------------------------------
 
 // Docker prepends an RFC3339Nano timestamp + space to every line when
 // timestamps=true. Pull it off before structure detection so a JSON/logfmt
