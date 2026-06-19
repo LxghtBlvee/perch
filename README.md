@@ -43,7 +43,7 @@ A lightweight agent runs on each host and connects out to a central hub, which s
 
 ## Docs
 
-Deployment, configuration, reverse proxy setup, SSO, and everything else lives in the [docs](./docs/README.md).
+Full documentation — deployment, configuration, reverse proxy setup, SSO, and everything else — lives at **[perch.lxghtblvee.dev/docs](https://perch.lxghtblvee.dev/docs)**.
 
 ## Development
 
@@ -61,6 +61,10 @@ docker compose up -d
 bun dev:hub
 bun dev:web
 ```
+
+## Contributing
+
+Contributions are welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md) for the dev setup, project layout, and PR workflow. Found a security issue? Please follow the [security policy](./SECURITY.md) rather than opening a public issue.
 
 ## License
 
