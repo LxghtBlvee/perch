@@ -43,7 +43,7 @@ A lightweight agent runs on each host and connects out to a central hub, which s
 
 ## Docs
 
-Full documentation — deployment, configuration, reverse proxy setup, SSO, and everything else — lives at **[perch.lxghtblvee.dev/docs](https://perch.lxghtblvee.dev/docs)**.
+Full documentation for deployment, configuration, reverse proxy setup, SSO, and everything else lives at **[perch.lxghtblvee.dev/docs](https://perch.lxghtblvee.dev/docs)**.
 
 ## Development
 
