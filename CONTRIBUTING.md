@@ -13,7 +13,7 @@ request.
 - **Send a [pull request](https://github.com/LxghtBlvee/perch/pulls?q=sort%3Aupdated-desc+is%3Apr+state%3Aopen+):** Minor fixes, and small contributions are welcome. For
   anything large, open an [issue](https://github.com/LxghtBlvee/perch/issues?q=sort%3Aupdated-desc+is%3Aissue+state%3Aopen+) first so we can agree on the approach before you
   write code.
-- **Improve the docs** — the user-facing docs are published at
+- **Improve the docs:** the user-facing docs are published at
   [perch.lxghtblvee.dev/docs](https://perch.lxghtblvee.dev/docs). To suggest a
   change, open an issue describing what's wrong or missing.
 
