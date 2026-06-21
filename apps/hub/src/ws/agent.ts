@@ -4,8 +4,9 @@ import { env } from '../config/env.validation'
 import { agentRegistry } from '../services/agent-registry'
 import { liveRegistry } from '../services/live-registry'
 import { alertManager } from '../services/alert-manager'
+import { eq } from 'drizzle-orm'
 import { db } from '../db'
-import { agents } from '../db/schema'
+import { agents, instanceSettings } from '../db/schema'
 import type { AgentMessage } from '@perch/types'
 
 // maps ws.id to agentId
@@ -65,7 +66,23 @@ export const agentWs = new Elysia().ws('/ws/agent', {
 
             agentRegistry.register(agent, ws);
             connectionMap.set(ws.id, msg.agentId);
-            ws.send(JSON.stringify({ type: 'auth_ok', agentId: msg.agentId }));
+
+            // Hand the agent its current report cadence / reconnect backoff so the
+            // matching instance settings actually take effect.
+            const [settings] = await db
+                .select({
+                    reportInterval: instanceSettings.agentReportInterval,
+                    reconnectDelay: instanceSettings.agentReconnectDelay,
+                })
+                .from(instanceSettings)
+                .where(eq(instanceSettings.id, 1))
+                .limit(1)
+            ws.send(JSON.stringify({
+                type: 'auth_ok',
+                agentId: msg.agentId,
+                reportInterval: settings?.reportInterval,
+                reconnectDelay: settings?.reconnectDelay,
+            }));
             liveRegistry.broadcast({ type: 'agent_connected', agent: { agent, metrics: null, containers: [] } });
             return
         }
