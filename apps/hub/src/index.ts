@@ -116,7 +116,17 @@ const app = new Elysia()
     .use(agentWs)
     .use(liveWs)
     .use(logsWs)
-    .use(staticPlugin({ assets: uploadsDir, prefix: '/uploads' }))
+    // Serve uploaded files dynamically. The static plugin snapshots the directory
+    // at startup, so files uploaded later (avatars, status-page logos) would 404 and
+    // fall through to the SPA fallback — i.e. render as a broken image.
+    .get('/uploads/:file', async ({ params, set }) => {
+        const name = params.file
+        // Single path segment only — reject traversal and anything but safe chars.
+        if (name.includes('..') || !/^[A-Za-z0-9._-]+$/.test(name)) { set.status = 400; return 'Bad request' }
+        const file = Bun.file(join(uploadsDir, name))
+        if (!(await file.exists())) { set.status = 404; return 'Not found' }
+        return file
+    })
     // Let Vue handle custom domain detection at the root
     .get('/', () => Bun.file(join(webDist, 'index.html')))
     // Custom domain: Vue calls this on mount to detect if it should show a status page
