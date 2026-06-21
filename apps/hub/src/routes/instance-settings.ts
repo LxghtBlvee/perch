@@ -2,38 +2,12 @@ import Elysia, { t } from 'elysia'
 import { eq } from 'drizzle-orm'
 import { db } from '../db'
 import { instanceSettings } from '../db/schema'
-import { requireAdminUser } from '../middleware/auth'
+import { requireAdminUser, requireAuthUser } from '../middleware/auth'
 import { agentRegistry } from '../services/agent-registry'
+import { healthChecker } from '../services/health-checker'
+import { resolveVersion } from '../lib/version'
 
 const SETTINGS_ID = 1
-
-// ── Version cache ────────────────────────────────────────────────────────────
-let versionCache: { tag: string; fetchedAt: number } | null = null
-const VERSION_CACHE_TTL = 60 * 60 * 1000 // 1 hour
-
-async function resolveVersion(): Promise<string> {
-    // Explicit env var wins (e.g. set in docker-compose as PERCH_VERSION)
-    if (process.env.PERCH_VERSION) return process.env.PERCH_VERSION
-
-    // Return cached value if still fresh
-    if (versionCache && Date.now() - versionCache.fetchedAt < VERSION_CACHE_TTL) {
-        return versionCache.tag
-    }
-
-    try {
-        const res = await fetch(
-            'https://hub.docker.com/v2/repositories/lxghtblvee/perch-hub/tags?page_size=20&ordering=last_updated',
-        )
-        if (!res.ok) throw new Error('Docker Hub error')
-        const data = await res.json() as { results: Array<{ name: string }> }
-        // First non-"latest" tag is the most recently pushed version tag
-        const tag = data.results.find(t => t.name !== 'latest')?.name ?? 'unknown'
-        versionCache = { tag, fetchedAt: Date.now() }
-        return tag
-    } catch {
-        return 'unknown'
-    }
-}
 
 async function getOrCreateSettings() {
     const [row] = await db.select().from(instanceSettings).where(eq(instanceSettings.id, SETTINGS_ID)).limit(1)
@@ -108,6 +82,14 @@ export const instanceSettingsRoutes = new Elysia({ prefix: '/api/admin/instance-
             })
             .returning()
 
+        // Apply changes that other subsystems cache or run on their own loop.
+        healthChecker.invalidateTimeoutCache()
+        agentRegistry.broadcast({
+            type: 'config_update',
+            reportInterval: updated.agentReportInterval,
+            reconnectDelay: updated.agentReconnectDelay,
+        })
+
         return updated
     }, {
         body: t.Object({
@@ -128,7 +110,26 @@ export const instanceSettingsRoutes = new Elysia({ prefix: '/api/admin/instance-
             healthCheckResultsRetentionDays: t.Optional(t.Number()),
             maintenanceModeEnabled: t.Optional(t.Boolean()),
             statusPageEnabled: t.Optional(t.Boolean()),
+            logDefaultTail: t.Optional(t.Number()),
+            logDefaultWrap: t.Optional(t.Boolean()),
+            logShowTimestamps: t.Optional(t.Boolean()),
+            logTagUntagged: t.Optional(t.Boolean()),
             enabledPlatforms: t.Optional(t.String()),
             onboardingCompleted: t.Optional(t.Boolean()),
         })
+    })
+
+// Log display defaults readable by any authenticated user (the LogViewer is used
+// by members, who can't reach the admin-only settings endpoint above).
+export const clientSettingsRoutes = new Elysia({ prefix: '/api/instance-settings' })
+    .get('/client', async ({ request, set }) => {
+        const user = await requireAuthUser(request, set)
+        if (!user) return { error: 'Unauthorized' }
+        const settings = await getOrCreateSettings()
+        return {
+            logDefaultTail: settings.logDefaultTail,
+            logDefaultWrap: settings.logDefaultWrap,
+            logShowTimestamps: settings.logShowTimestamps,
+            logTagUntagged: settings.logTagUntagged,
+        }
     })

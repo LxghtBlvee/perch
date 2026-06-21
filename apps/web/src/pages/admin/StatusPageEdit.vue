@@ -16,7 +16,6 @@ const toast = useToast()
 const hostname = window.location.hostname
 const pageId = route.params.id as string
 
-// ── Types ──────────────────────────────────────────────────────────────────
 interface HealthCheck { id: string; name: string; url: string }
 type DisplayMode = 'full_history' | 'response_time' | 'current_status'
 
@@ -72,7 +71,6 @@ const FONT_OPTIONS = [
   { value: 'mono',     label: 'JetBrains Mono' },
 ]
 
-// ── State ──────────────────────────────────────────────────────────────────
 const page = ref<PageData | null>(null)
 const checks = ref<PageCheck[]>([])
 const incidents = ref<Incident[]>([])
@@ -101,14 +99,12 @@ const editingIncident = ref<Incident | null>(null)
 const incidentForm = ref({ type: 'incident' as IncidentType, title: '', body: '', status: 'investigating' as IncidentStatus, scheduledAt: '' })
 const savingIncident = ref(false)
 
-// ── Computed ───────────────────────────────────────────────────────────────
 const availableChecks = computed(() =>
   allHealthChecks.value.filter(hc => !checks.value.some(c => c.healthCheckId === hc.id))
 )
 const activeIncidents = computed(() => incidents.value.filter(i => i.status !== 'resolved' && i.status !== 'completed'))
 const resolvedIncidents = computed(() => incidents.value.filter(i => i.status === 'resolved' || i.status === 'completed'))
 
-// ── Lifecycle ──────────────────────────────────────────────────────────────
 onMounted(async () => {
   const [pageRes, allChecksRes, incidentsRes] = await Promise.all([
     fetch(`/api/admin/status-pages/${pageId}`, { headers: { Authorization: `Bearer ${auth.token}` } }),
@@ -138,7 +134,6 @@ onMounted(async () => {
   loading.value = false
 })
 
-// ── Meta save ─────────────────────────────────────────────────────────────
 async function saveMeta() {
   if (!page.value) return
   savingMeta.value = true
@@ -161,7 +156,6 @@ async function saveMeta() {
   }
 }
 
-// ── Logo upload ────────────────────────────────────────────────────────────
 async function onLogoSelected(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0]
   if (!file || !page.value) return
@@ -185,7 +179,6 @@ async function onLogoSelected(e: Event) {
   if (logoFileInput.value) logoFileInput.value.value = ''
 }
 
-// ── Domain verify ──────────────────────────────────────────────────────────
 async function verifyDomain() {
   if (!page.value?.customDomain) return
   verifying.value = true
@@ -206,7 +199,6 @@ async function verifyDomain() {
   }
 }
 
-// ── Theme save ─────────────────────────────────────────────────────────────
 async function saveTheme() {
   if (!page.value) return
   savingTheme.value = true
@@ -221,7 +213,6 @@ async function saveTheme() {
   else toast.error('Failed to save theme')
 }
 
-// ── Checks ─────────────────────────────────────────────────────────────────
 async function saveChecks() {
   saving.value = true
   saveError.value = ''
@@ -252,7 +243,6 @@ function removeCheck(i: number) { checks.value.splice(i, 1); saveChecks() }
 function moveUp(i: number) { if (i === 0) return; [checks.value[i - 1], checks.value[i]] = [checks.value[i], checks.value[i - 1]]; saveChecks() }
 function moveDown(i: number) { if (i === checks.value.length - 1) return; [checks.value[i], checks.value[i + 1]] = [checks.value[i + 1], checks.value[i]]; saveChecks() }
 
-// ── Incidents ──────────────────────────────────────────────────────────────
 function openNewIncident() {
   editingIncident.value = null
   incidentForm.value = { type: 'incident', title: '', body: '', status: 'investigating', scheduledAt: '' }
@@ -309,7 +299,6 @@ async function deleteIncident(incident: Incident) {
   else toast.error('Failed to delete incident')
 }
 
-// ── Lookups ────────────────────────────────────────────────────────────────
 const INCIDENT_STATUSES: { value: IncidentStatus; label: string }[] = [
   { value: 'investigating', label: 'Investigating' }, { value: 'identified', label: 'Identified' },
   { value: 'monitoring', label: 'Monitoring' }, { value: 'resolved', label: 'Resolved' },
@@ -376,7 +365,6 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
     </div>
 
     <template v-else-if="page">
-      <!-- ── Page settings ── -->
       <div class="rounded-xl border border-border bg-card p-5 space-y-4">
         <h2 class="text-sm font-medium">
           Page settings
@@ -589,7 +577,6 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
         </div>
       </div>
 
-      <!-- ── Inline preview ── -->
       <div
         v-if="showPreview"
         class="rounded-xl border border-border overflow-hidden"
@@ -609,7 +596,6 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
         />
       </div>
 
-      <!-- ── Design ── -->
       <div class="rounded-xl border border-border bg-card p-5 space-y-5">
         <div class="flex items-center gap-2">
           <Palette
@@ -706,7 +692,6 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
         </button>
       </div>
 
-      <!-- ── Incidents & Maintenance ── -->
       <div class="space-y-3">
         <div class="flex items-center justify-between">
           <h2 class="text-sm font-medium">
@@ -837,7 +822,6 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
         </details>
       </div>
 
-      <!-- ── Checks ── -->
       <div class="space-y-3">
         <div class="flex items-center justify-between">
           <h2 class="text-sm font-medium">
@@ -983,7 +967,6 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
     </template>
   </div>
 
-  <!-- ── Incident modal ── -->
   <Teleport to="body">
     <div
       v-if="showIncidentModal"

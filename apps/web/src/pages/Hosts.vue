@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { Cpu, MemoryStick, HardDrive, Network, Activity, Clock, Server } from 'lucide-vue-next'
+import MetricSparkline from '@/components/MetricSparkline.vue'
 import { usePerchStore } from '@/stores/perch'
 import { formatBytes, formatPercent, formatUptime, formatSpeed } from '@/lib/utils'
 import type { SystemMetrics } from '@perch/types'
@@ -9,71 +10,31 @@ import type { SystemMetrics } from '@perch/types'
 const store = usePerchStore()
 const router = useRouter()
 
-function cpuColor(pct: number) {
-  if (pct >= 90) return 'text-red-400'
-  if (pct >= 70) return 'text-amber-400'
-  return 'text-green-400'
+function hist(agentId: string): SystemMetrics[] {
+  return store.metricsHistory[agentId] ?? []
 }
 
-function memColor(pct: number) {
-  if (pct >= 90) return 'text-red-400'
-  if (pct >= 75) return 'text-amber-400'
-  return 'text-green-400'
-}
+const charts = computed(() => {
+  const out: Record<string, {
+    ts: string[]; cpu: number[]; mem: number[]; rx: number[]; tx: number[]; maxSpd: number
+  }> = {}
+  for (const entry of store.agents) {
+    const h = hist(entry.agent.id)
+    if (h.length < 2) continue
+    const rx = h.map(m => m.network.filter(n => n.interface !== 'lo').reduce((s, n) => s + n.rxSpeed, 0))
+    const tx = h.map(m => m.network.filter(n => n.interface !== 'lo').reduce((s, n) => s + n.txSpeed, 0))
+    out[entry.agent.id] = {
+      ts: h.map(m => m.timestamp),
+      cpu: h.map(m => m.cpu.usage),
+      mem: h.map(m => (m.memory.used / m.memory.total) * 100),
+      rx,
+      tx,
+      maxSpd: Math.max(1, ...rx, ...tx),
+    }
+  }
+  return out
+})
 
-function diskColor(pct: number) {
-  if (pct >= 90) return 'text-red-400'
-  if (pct >= 80) return 'text-amber-400'
-  return 'text-emerald-400'
-}
-
-function barColor(pct: number) {
-  if (pct >= 90) return 'bg-red-500'
-  if (pct >= 70) return 'bg-amber-500'
-  return 'bg-emerald-500'
-}
-
-// ── Chart helpers ────────────────────────────────────────────────────
-const SW = 400, SH = 64
-
-function pts2line(pts: {x: number, y: number}[]) {
-  return pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
-}
-function pts2area(pts: {x: number, y: number}[]) {
-  if (!pts.length) return ''
-  return `M${pts[0].x},${SH} ${pts.map(p => `L${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')} L${pts.at(-1)!.x},${SH} Z`
-}
-function mkPts(hist: SystemMetrics[], fn: (m: SystemMetrics) => number, maxVal: number) {
-  return hist.map((m, i) => ({
-    x: (i / Math.max(hist.length - 1, 1)) * SW,
-    y: SH - (Math.min(fn(m), maxVal) / maxVal) * SH,
-  }))
-}
-
-function cpuChart(agentId: string) {
-  const h = store.metricsHistory[agentId] ?? []
-  if (h.length < 2) return null
-  const p = mkPts(h, m => m.cpu.usage, 100)
-  return { line: pts2line(p), area: pts2area(p) }
-}
-function memChart(agentId: string) {
-  const h = store.metricsHistory[agentId] ?? []
-  if (h.length < 2) return null
-  const p = mkPts(h, m => (m.memory.used / m.memory.total) * 100, 100)
-  return { line: pts2line(p), area: pts2area(p) }
-}
-function netChart(agentId: string) {
-  const h = store.metricsHistory[agentId] ?? []
-  if (h.length < 2) return null
-  const rx = (m: SystemMetrics) => m.network.filter(n => n.interface !== 'lo').reduce((s, n) => s + n.rxSpeed, 0)
-  const tx = (m: SystemMetrics) => m.network.filter(n => n.interface !== 'lo').reduce((s, n) => s + n.txSpeed, 0)
-  const maxSpd = Math.max(1, ...h.map(m => Math.max(rx(m), tx(m))))
-  const rp = mkPts(h, rx, maxSpd)
-  const tp = mkPts(h, tx, maxSpd)
-  return { rx: pts2line(rp), rxArea: pts2area(rp), tx: pts2line(tp), maxSpd }
-}
-
-// ─────────────────────────────────────────────────────────────────────
 const hosts = computed(() =>
   store.agents.map(entry => {
     const m = entry.metrics
@@ -185,13 +146,13 @@ const hosts = computed(() =>
             </span>
             <span>{{ m.cpu.cores }}c</span>
           </div>
-          <p :class="['text-3xl font-bold tabular-nums', cpuColor(cpuPct)]">
+          <p class="text-3xl font-bold tabular-nums">
             {{ formatPercent(cpuPct) }}
           </p>
           <div class="space-y-1.5">
             <div class="h-1 bg-muted rounded-full overflow-hidden">
               <div
-                :class="['h-full rounded-full transition-all duration-700', barColor(cpuPct)]"
+                class="h-full rounded-full bg-primary transition-all duration-700"
                 :style="{ width: `${Math.min(cpuPct, 100)}%` }"
               />
             </div>
@@ -209,13 +170,13 @@ const hosts = computed(() =>
               :stroke-width="2"
             /> Memory
           </div>
-          <p :class="['text-3xl font-bold tabular-nums', memColor(memPct)]">
+          <p class="text-3xl font-bold tabular-nums">
             {{ formatPercent(memPct) }}
           </p>
           <div class="space-y-1.5">
             <div class="h-1 bg-muted rounded-full overflow-hidden">
               <div
-                :class="['h-full rounded-full transition-all duration-700', barColor(memPct)]"
+                class="h-full rounded-full bg-primary transition-all duration-700"
                 :style="{ width: `${Math.min(memPct, 100)}%` }"
               />
             </div>
@@ -234,13 +195,13 @@ const hosts = computed(() =>
             /> Disk
           </div>
           <template v-if="primaryDisk">
-            <p :class="['text-3xl font-bold tabular-nums', diskColor(diskPct)]">
+            <p class="text-3xl font-bold tabular-nums">
               {{ formatPercent(diskPct) }}
             </p>
             <div class="space-y-1.5">
               <div class="h-1 bg-muted rounded-full overflow-hidden">
                 <div
-                  :class="['h-full rounded-full transition-all duration-700', barColor(diskPct)]"
+                  class="h-full rounded-full bg-primary transition-all duration-700"
                   :style="{ width: `${Math.min(diskPct, 100)}%` }"
                 />
               </div>
@@ -265,7 +226,7 @@ const hosts = computed(() =>
               :stroke-width="2"
             /> Net In
           </div>
-          <p class="text-3xl font-bold tabular-nums text-sky-400">
+          <p class="text-3xl font-bold tabular-nums">
             {{ formatSpeed(totalRxSpeed) }}
           </p>
           <p class="text-[10px] text-muted-foreground">
@@ -281,7 +242,7 @@ const hosts = computed(() =>
               :stroke-width="2"
             /> Load
           </div>
-          <p class="text-3xl font-bold tabular-nums text-violet-400">
+          <p class="text-3xl font-bold tabular-nums">
             {{ m.loadAverage[0].toFixed(2) }}
           </p>
           <p class="text-[10px] text-muted-foreground">
@@ -297,7 +258,7 @@ const hosts = computed(() =>
               :stroke-width="2"
             /> Uptime
           </div>
-          <p class="text-3xl font-bold tabular-nums text-foreground">
+          <p class="text-3xl font-bold tabular-nums">
             {{ formatUptime(m.uptime) }}
           </p>
           <p class="text-[10px] text-muted-foreground">
@@ -306,8 +267,7 @@ const hosts = computed(() =>
         </div>
       </div>
 
-      <!-- ── Charts ──────────────────────────────────────────────── -->
-      <template v-if="cpuChart(entry.agent.id)">
+      <template v-if="charts[entry.agent.id]">
         <div class="border-t border-border px-5 pt-4 pb-5 space-y-3">
           <p class="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">
             Metrics History
@@ -315,130 +275,52 @@ const hosts = computed(() =>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             <!-- CPU -->
             <div class="rounded-lg bg-muted/20 border border-border/50 overflow-hidden">
-              <p class="px-3 pt-2 pb-0.5 text-[10px] text-muted-foreground font-medium">
+              <p class="px-3 pt-2 pb-1 text-[10px] text-muted-foreground font-medium">
                 CPU %
               </p>
-              <svg
-                :viewBox="`0 0 ${SW} ${SH}`"
-                class="w-full block"
-                style="height:64px"
-                preserveAspectRatio="none"
-              >
-                <line
-                  v-for="y in [SH*0.25, SH*0.5, SH*0.75]"
-                  :key="y"
-                  x1="0"
-                  :y1="y"
-                  :x2="SW"
-                  :y2="y"
-                  stroke="oklch(0.92 0.004 286 / 0.12)"
-                  stroke-width="0.5"
-                />
-                <path
-                  :d="cpuChart(entry.agent.id)!.area"
-                  fill="oklch(0.72 0.18 145 / 0.18)"
-                />
-                <polyline
-                  :points="cpuChart(entry.agent.id)!.line"
-                  fill="none"
-                  stroke="oklch(0.72 0.18 145)"
-                  stroke-width="1.5"
-                  stroke-linejoin="round"
-                  stroke-linecap="round"
-                />
-              </svg>
+              <MetricSparkline
+                :series="[{ label: 'CPU', colorClass: 'text-primary', values: charts[entry.agent.id].cpu }]"
+                :timestamps="charts[entry.agent.id].ts"
+                :max="100"
+                :format="formatPercent"
+              />
             </div>
 
             <!-- Memory -->
             <div class="rounded-lg bg-muted/20 border border-border/50 overflow-hidden">
-              <p class="px-3 pt-2 pb-0.5 text-[10px] text-muted-foreground font-medium">
+              <p class="px-3 pt-2 pb-1 text-[10px] text-muted-foreground font-medium">
                 Memory %
               </p>
-              <svg
-                :viewBox="`0 0 ${SW} ${SH}`"
-                class="w-full block"
-                style="height:64px"
-                preserveAspectRatio="none"
-              >
-                <line
-                  v-for="y in [SH*0.25, SH*0.5, SH*0.75]"
-                  :key="y"
-                  x1="0"
-                  :y1="y"
-                  :x2="SW"
-                  :y2="y"
-                  stroke="oklch(0.92 0.004 286 / 0.12)"
-                  stroke-width="0.5"
-                />
-                <path
-                  :d="memChart(entry.agent.id)!.area"
-                  fill="oklch(0.70 0.09 186 / 0.18)"
-                />
-                <polyline
-                  :points="memChart(entry.agent.id)!.line"
-                  fill="none"
-                  stroke="oklch(0.70 0.09 186)"
-                  stroke-width="1.5"
-                  stroke-linejoin="round"
-                  stroke-linecap="round"
-                />
-              </svg>
+              <MetricSparkline
+                :series="[{ label: 'Memory', colorClass: 'text-primary', values: charts[entry.agent.id].mem }]"
+                :timestamps="charts[entry.agent.id].ts"
+                :max="100"
+                :format="formatPercent"
+              />
             </div>
 
             <!-- Network (full width) -->
-            <div
-              v-if="netChart(entry.agent.id)"
-              class="md:col-span-2 rounded-lg bg-muted/20 border border-border/50 overflow-hidden"
-            >
-              <div class="px-3 pt-2 pb-0.5 flex items-center gap-4 text-[10px] text-muted-foreground font-medium">
+            <div class="md:col-span-2 rounded-lg bg-muted/20 border border-border/50 overflow-hidden">
+              <div class="px-3 pt-2 pb-1 flex items-center gap-4 text-[10px] text-muted-foreground font-medium">
                 <span>Network</span>
-                <span class="flex items-center gap-1.5"><span class="size-1.5 rounded-full bg-sky-400 inline-block" /> RX</span>
-                <span class="flex items-center gap-1.5"><span class="size-1.5 rounded-full bg-orange-400 inline-block" /> TX</span>
-                <span class="ml-auto">max {{ formatSpeed(netChart(entry.agent.id)!.maxSpd) }}</span>
+                <span class="flex items-center gap-1.5"><span class="size-1.5 rounded-full bg-primary inline-block" /> RX</span>
+                <span class="flex items-center gap-1.5"><span class="size-1.5 rounded-full bg-muted-foreground inline-block" /> TX</span>
+                <span class="ml-auto">max {{ formatSpeed(charts[entry.agent.id].maxSpd) }}</span>
               </div>
-              <svg
-                :viewBox="`0 0 ${SW} ${SH}`"
-                class="w-full block"
-                style="height:64px"
-                preserveAspectRatio="none"
-              >
-                <line
-                  v-for="y in [SH*0.25, SH*0.5, SH*0.75]"
-                  :key="y"
-                  x1="0"
-                  :y1="y"
-                  :x2="SW"
-                  :y2="y"
-                  stroke="oklch(0.92 0.004 286 / 0.12)"
-                  stroke-width="0.5"
-                />
-                <path
-                  :d="netChart(entry.agent.id)!.rxArea"
-                  fill="oklch(0.70 0.09 210 / 0.15)"
-                />
-                <polyline
-                  :points="netChart(entry.agent.id)!.rx"
-                  fill="none"
-                  stroke="oklch(0.70 0.09 210)"
-                  stroke-width="1.5"
-                  stroke-linejoin="round"
-                  stroke-linecap="round"
-                />
-                <polyline
-                  :points="netChart(entry.agent.id)!.tx"
-                  fill="none"
-                  stroke="oklch(0.65 0.18 50)"
-                  stroke-width="1.5"
-                  stroke-linejoin="round"
-                  stroke-linecap="round"
-                />
-              </svg>
+              <MetricSparkline
+                :series="[
+                  { label: 'RX', colorClass: 'text-primary', values: charts[entry.agent.id].rx },
+                  { label: 'TX', colorClass: 'text-muted-foreground', values: charts[entry.agent.id].tx },
+                ]"
+                :timestamps="charts[entry.agent.id].ts"
+                :max="charts[entry.agent.id].maxSpd"
+                :format="formatSpeed"
+              />
             </div>
           </div>
         </div>
       </template>
 
-      <!-- ── Containers (Beszel-style) ───────────────────────────── -->
       <div
         v-if="entry.containers.length > 0"
         class="border-t border-border"
@@ -478,7 +360,7 @@ const hosts = computed(() =>
             <div class="flex items-center gap-2 w-24 shrink-0">
               <div class="flex-1 h-0.5 bg-muted rounded-full overflow-hidden">
                 <div
-                  class="h-full bg-sky-500/70 rounded-full"
+                  class="h-full bg-primary/70 rounded-full"
                   :style="{ width: `${Math.min(c.cpu, 100)}%` }"
                 />
               </div>
@@ -489,7 +371,7 @@ const hosts = computed(() =>
             <div class="flex items-center gap-2 w-32 shrink-0">
               <div class="flex-1 h-0.5 bg-muted rounded-full overflow-hidden">
                 <div
-                  class="h-full bg-violet-500/70 rounded-full"
+                  class="h-full bg-primary/70 rounded-full"
                   :style="{ width: `${Math.min((c.memory.used / c.memory.limit) * 100, 100)}%` }"
                 />
               </div>

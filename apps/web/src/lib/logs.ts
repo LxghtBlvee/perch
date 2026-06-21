@@ -31,10 +31,10 @@ export interface ParsedLogLine {
 const LEVEL_GROUPS: string[][] = [
     ['error', 'err'],
     ['warn', 'warning', 'wrn'],
-    ['info', 'inf'],
+    ['info', 'inf', 'notice'],
     ['debug', 'dbg'],
     ['trace', 'verbose', 'ver', 'vbs'],
-    ['fatal', 'sev', 'severe', 'crit', 'critical'],
+    ['fatal', 'sev', 'severe', 'crit', 'critical', 'emerg', 'emergency', 'panic', 'alert'],
 ]
 
 const aliasToCanonical: Record<string, LogLevel> = {}
@@ -76,6 +76,21 @@ export function stripAnsi(str: string): string {
 
 const leadingTimestampStripRe = /^(?:\d{4}[-/]\d{2}[-/]\d{2}(?:[T ](?:\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?|\d{2}:\d{2}(?:AM|PM)))?\s+)/
 
+// HTTP access logs (nginx/Apache common+combined, Caddy, Traefik) rarely carry a
+// level keyword — the severity lives in the status code. Match the
+// `"METHOD path HTTP/x.y" <status>` shape and grade by status class.
+const httpAccessRe = /"(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|TRACE|CONNECT)\s[^"]*\sHTTP\/[\d.]+"\s(\d{3})\b/
+
+function guessFromHttpAccess(value: string): LogLevel {
+    const m = value.match(httpAccessRe)
+    if (!m) return 'unknown'
+    const status = Number(m[1])
+    if (status >= 500) return 'error'
+    if (status >= 400) return 'warn'
+    if (status >= 200) return 'info'
+    return 'unknown'
+}
+
 function guessFromString(value: string): LogLevel {
     value = stripAnsi(value).replace(leadingTimestampStripRe, '')
     for (const tier of tiers) {
@@ -92,7 +107,8 @@ function guessFromString(value: string): LogLevel {
         }
         if (level) return level
     }
-    return 'unknown'
+    // No level keyword — fall back to HTTP status grading for access logs.
+    return guessFromHttpAccess(value)
 }
 
 const LEVEL_KEYS = ['@l', 'level', 'lvl', 'log.level', 'severity']

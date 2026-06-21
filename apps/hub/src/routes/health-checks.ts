@@ -1,7 +1,7 @@
 import Elysia, { t } from 'elysia'
 import { eq } from 'drizzle-orm'
 import { db } from '../db'
-import { healthChecks, healthCheckResults } from '../db/schema'
+import { healthChecks, healthCheckResults, instanceSettings } from '../db/schema'
 import { healthChecker } from '../services/health-checker'
 import { requireAuthUser, requireAdminUser } from '../middleware/auth'
 import { isSafeUrl } from '../lib/safe-url'
@@ -16,14 +16,24 @@ export const healthCheckRoutes = new Elysia({ prefix: '/api/health-checks' })
     const user = await requireAdminUser(request, set)
     if (!user) return { error: set.status === 403 ? 'Forbidden' : 'Unauthorized' }
     if (!await isSafeUrl(body.url)) { set.status = 400; return { error: 'URL must be a publicly accessible http/https address' } }
-    const [check] = await db.insert(healthChecks).values(body).returning()
+    // Fall back to the instance-wide default cadence when none was supplied.
+    let interval = body.interval
+    if (interval === undefined) {
+      const [settings] = await db
+        .select({ interval: instanceSettings.defaultHealthCheckInterval })
+        .from(instanceSettings)
+        .where(eq(instanceSettings.id, 1))
+        .limit(1)
+      interval = settings?.interval ?? 60
+    }
+    const [check] = await db.insert(healthChecks).values({ ...body, interval }).returning()
     healthChecker.schedule(check.id, check.interval)
     return check
   }, {
     body: t.Object({
       name: t.String(),
       url: t.String(),
-      interval: t.Number({ default: 60 }),
+      interval: t.Optional(t.Number()),
     }),
   })
   .get('/:id/history', async ({ params, request, set }) => {

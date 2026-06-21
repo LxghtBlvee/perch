@@ -1,16 +1,18 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, reactive, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, Cpu, MemoryStick } from 'lucide-vue-next'
 import Tooltip from '@/components/Tooltip.vue'
 import LogViewer from '@/components/LogViewer.vue'
 import { usePerchStore } from '@/stores/perch'
+import { useAuthStore } from '@/stores/auth'
 import { formatBytes, formatPercent } from '@/lib/utils'
 import { useContainerLogs } from '@/composables/useContainerLogs'
 
 const route = useRoute()
 const router = useRouter()
 const store = usePerchStore()
+const auth = useAuthStore()
 
 const agentId = route.params.agentId as string
 const containerId = route.params.containerId as string
@@ -20,6 +22,26 @@ const container = computed(() => entry.value?.containers.find(c => c.id === cont
 
 const { logs, connected, error: logsError, paused, tail, setTail, togglePause, reconnect } =
   useContainerLogs(agentId, containerId)
+
+// Instance-wide log display defaults, applied once fetched.
+const logDefaults = reactive({ wrap: true, timestamps: true, tagUntagged: true })
+
+onMounted(async () => {
+  const res = await fetch('/api/instance-settings/client', {
+    headers: { Authorization: `Bearer ${auth.token}` },
+  }).catch(() => null)
+  if (!res?.ok) return
+  const data = await res.json() as {
+    logDefaultTail: number
+    logDefaultWrap: boolean
+    logShowTimestamps: boolean
+    logTagUntagged: boolean
+  }
+  logDefaults.wrap = data.logDefaultWrap
+  logDefaults.timestamps = data.logShowTimestamps
+  logDefaults.tagUntagged = data.logTagUntagged
+  if (data.logDefaultTail && data.logDefaultTail !== tail.value) setTail(data.logDefaultTail)
+})
 </script>
 
 <template>
@@ -165,6 +187,9 @@ const { logs, connected, error: logsError, paused, tail, setTail, togglePause, r
           :tail="tail"
           :live="connected"
           :paused="paused"
+          :default-wrap="logDefaults.wrap"
+          :default-timestamps="logDefaults.timestamps"
+          :tag-untagged="logDefaults.tagUntagged"
           @refresh="reconnect"
           @update:tail="setTail"
           @toggle-pause="togglePause"

@@ -1,4 +1,4 @@
-import type { Agent, SystemMetrics, Container, AgentState } from '@perch/types'
+import type { Agent, SystemMetrics, Container, AgentState, HubMessage } from '@perch/types'
 
 interface WsSender {
     send(data: string): void
@@ -70,6 +70,12 @@ class AgentRegistry {
         const entry = this.agents.get(id)
         if (!entry) return undefined
         return { agent: entry.agent, metrics: entry.metrics, containers: entry.containers }
+    }
+
+    /** Send a message to every connected agent. */
+    broadcast(message: HubMessage): void {
+        const data = JSON.stringify(message)
+        for (const { ws } of this.agents.values()) ws.send(data)
     }
 
     /** Start following a container's logs on an agent. Returns the streamId. */

@@ -47,7 +47,6 @@ onMounted(async () => {
   }
 })
 
-// ─── Stats ───────────────────────────────────────────────────────────
 const uptime = computed(() => {
   if (!history.value.length) return null
   return (history.value.filter(r => r.status === 'up').length / history.value.length) * 100
@@ -76,7 +75,6 @@ const maxLatency = computed(() => {
   return vals.length ? Math.max(...vals) : null
 })
 
-// ─── Chart ───────────────────────────────────────────────────────────
 const SVG_W = 744, SVG_H = 128
 const CL = 0, CT = 4, CB = 4
 const IW = SVG_W
@@ -129,7 +127,6 @@ function formatTick(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`
 }
 
-// ─── Chart hover ─────────────────────────────────────────────────────
 const svgRef = ref<SVGSVGElement | null>(null)
 const hoverPoint = ref<{ x: number; y: number; latency: number; checkedAt: string } | null>(null)
 
@@ -143,7 +140,6 @@ function onChartMove(e: MouseEvent) {
   hoverPoint.value = nearest
 }
 
-// ─── Heartbeat ───────────────────────────────────────────────────────
 type HBHover = { slot: HistoryEntry; index: number } | null
 const hbHover = ref<HBHover>(null)
 
@@ -153,7 +149,6 @@ const heartbeatSlots = computed(() => {
   return [...Array(Math.max(0, count - recent.length)).fill(null), ...recent]
 })
 
-// ─── Results table pagination ─────────────────────────────────────────
 const PAGE_SIZE = 10
 const page = ref(0)
 const sortedHistory = computed(() => [...history.value].reverse())
@@ -164,7 +159,6 @@ const pagedHistory = computed(() =>
 function prevPage() { if (page.value > 0) page.value-- }
 function nextPage() { if (page.value < totalPages.value - 1) page.value++ }
 
-// ─── Helpers ─────────────────────────────────────────────────────────
 function relativeTime(iso: string | null): string {
   if (!iso) return 'never'
   const diff = Date.now() - new Date(iso).getTime()

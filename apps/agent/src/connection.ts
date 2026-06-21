@@ -12,11 +12,19 @@ export type StreamProvider = (
     signal: AbortSignal,
 ) => Promise<void>
 
-const RECONNECT_DELAY = 5_000
+const DEFAULT_RECONNECT_DELAY = 5_000
+
+/** Config the hub can push to tune the agent at runtime. */
+export interface AgentRuntimeConfig {
+    reportInterval?: number
+    reconnectDelay?: number
+}
 
 export class AgentConnection {
     private ws: WebSocket | null = null;
     private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    // Reconnect backoff, overridable by the hub via auth_ok / config_update.
+    private reconnectDelay = DEFAULT_RECONNECT_DELAY;
     // Active log follows, keyed by the hub-assigned streamId.
     private streams = new Map<string, AbortController>();
 
@@ -25,7 +33,16 @@ export class AgentConnection {
         private hostname: string,
         private ip: string,
         private streamProvider: StreamProvider,
+        // Invoked when the hub pushes new config (e.g. a changed report interval).
+        private onConfig?: (config: AgentRuntimeConfig) => void,
     ) {}
+
+    private applyConfig(config: AgentRuntimeConfig): void {
+        if (typeof config.reconnectDelay === 'number' && config.reconnectDelay > 0) {
+            this.reconnectDelay = config.reconnectDelay
+        }
+        this.onConfig?.(config)
+    }
 
     connect(): void {
         const url = config.hubUrl.replace(/^http/, 'ws').replace(/\/$/, '') + '/ws/agent'
@@ -46,6 +63,9 @@ export class AgentConnection {
             const msg = JSON.parse(event.data as string) as HubMessage
             if (msg.type === 'auth_ok') {
                 console.warn(`Authenticated with hub as ${msg.agentId}`);
+                this.applyConfig({ reportInterval: msg.reportInterval, reconnectDelay: msg.reconnectDelay })
+            } else if (msg.type === 'config_update') {
+                this.applyConfig({ reportInterval: msg.reportInterval, reconnectDelay: msg.reconnectDelay })
             } else if (msg.type === 'auth_error') {
                 console.error(`Authentication rejected: ${msg.message}`)
                 this.ws?.close()
@@ -57,7 +77,7 @@ export class AgentConnection {
         }
 
         this.ws.onclose = () => {
-            console.warn(`Disconnected from hub. Reconnecting in ${RECONNECT_DELAY / 1000}s...`)
+            console.warn(`Disconnected from hub. Reconnecting in ${this.reconnectDelay / 1000}s...`)
             // Drop any in-flight follows; the hub will re-subscribe after reconnect.
             for (const controller of this.streams.values()) controller.abort()
             this.streams.clear()
@@ -111,6 +131,6 @@ export class AgentConnection {
         this.reconnectTimer = setTimeout(() => {
             this.reconnectTimer = null
             this.connect()
-        }, RECONNECT_DELAY)
+        }, this.reconnectDelay)
     }
 }

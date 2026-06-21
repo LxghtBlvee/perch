@@ -1,4 +1,4 @@
-import { eq, and, gt } from 'drizzle-orm'
+import { eq, and, gt, ne, desc } from 'drizzle-orm'
 import { db } from '../db'
 import { users, sessions, oauthAccounts, instanceSettings, sessionHandoffs } from '../db/schema'
 import { env } from '../config/env.validation'
@@ -75,6 +75,31 @@ export async function validateSession(token: string) {
 export async function deleteSession(token: string): Promise<void> {
     const tokenHash = hashToken(token);
     await db.delete(sessions).where(eq(sessions.tokenHash, tokenHash));
+}
+
+/** List a user's active sessions, flagging which one is the caller's current one. */
+export async function listSessions(userId: string, currentToken: string) {
+    const currentHash = hashToken(currentToken)
+    const rows = await db
+        .select({ id: sessions.id, tokenHash: sessions.tokenHash, createdAt: sessions.createdAt, expiresAt: sessions.expiresAt })
+        .from(sessions)
+        .where(eq(sessions.userId, userId))
+        .orderBy(desc(sessions.createdAt))
+    return rows.map(r => ({
+        id: r.id,
+        createdAt: r.createdAt.toISOString(),
+        expiresAt: r.expiresAt.toISOString(),
+        current: r.tokenHash === currentHash,
+    }))
+}
+
+/** Revoke every session for a user except the caller's current one. */
+export async function deleteOtherSessions(userId: string, currentToken: string): Promise<number> {
+    const currentHash = hashToken(currentToken)
+    const deleted = await db.delete(sessions)
+        .where(and(eq(sessions.userId, userId), ne(sessions.tokenHash, currentHash)))
+        .returning({ id: sessions.id })
+    return deleted.length
 }
 
 export async function hashPassword(password: string): Promise<string> {

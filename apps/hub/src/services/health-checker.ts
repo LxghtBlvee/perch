@@ -1,19 +1,45 @@
 import { desc, eq } from 'drizzle-orm'
 import { db } from '../db'
-import { healthChecks, healthCheckResults } from '../db/schema'
+import { healthChecks, healthCheckResults, instanceSettings } from '../db/schema'
 import { liveRegistry } from './live-registry'
 import { alertManager } from './alert-manager'
 import { safeFetch } from '../lib/safe-url'
+import { getUserAgent } from '../lib/version'
 import type { HealthCheck } from '@perch/types'
+
+const DEFAULT_TIMEOUT_MS = 10_000
+const TIMEOUT_CACHE_TTL = 30_000
 
 class HealthChecker {
     private intervals = new Map<string, ReturnType<typeof setInterval>>()
+    // Cache the configured per-request timeout so we don't hit the DB on every run.
+    private timeoutCache: { ms: number; fetchedAt: number } | null = null
+
+    /** Configured per-request HTTP timeout (instance setting), cached briefly. */
+    private async getTimeoutMs(): Promise<number> {
+        if (this.timeoutCache && Date.now() - this.timeoutCache.fetchedAt < TIMEOUT_CACHE_TTL) {
+            return this.timeoutCache.ms
+        }
+        const [settings] = await db
+            .select({ timeout: instanceSettings.defaultHealthCheckTimeout })
+            .from(instanceSettings)
+            .where(eq(instanceSettings.id, 1))
+            .limit(1)
+        const ms = settings?.timeout ?? DEFAULT_TIMEOUT_MS
+        this.timeoutCache = { ms, fetchedAt: Date.now() }
+        return ms
+    }
 
     async start(): Promise<void> {
         const checks = await db.select().from(healthChecks)
         for (const check of checks) {
             this.schedule(check.id, check.interval)
         }
+    }
+
+    /** Drop the cached timeout so the next run picks up a changed instance setting. */
+    invalidateTimeoutCache(): void {
+        this.timeoutCache = null
     }
 
     schedule(id: string, intervalSeconds: number): void {
@@ -49,7 +75,12 @@ class HealthChecker {
         try {
             // safeFetch re-validates the target (and every redirect hop) so a
             // monitored URL can't be pointed at an internal/metadata address.
-            const res = await safeFetch(check.url, { signal: AbortSignal.timeout(10_000) })
+            // Identify ourselves so monitored services log "Perch Health Check"
+            // rather than Bun's default User-Agent.
+            const res = await safeFetch(check.url, {
+                signal: AbortSignal.timeout(await this.getTimeoutMs()),
+                headers: { 'User-Agent': await getUserAgent() },
+            })
             if (res.ok) {
                 status = 'up'
                 latency = Date.now() - start

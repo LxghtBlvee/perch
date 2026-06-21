@@ -1,7 +1,9 @@
 import Elysia, { t } from 'elysia'
-import { eq } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
+import { mkdir } from 'node:fs/promises'
+import { join } from 'node:path'
 import { db } from '../db'
-import { users, oauthProviders, instanceSettings } from '../db/schema'
+import { users, oauthProviders, oauthAccounts, instanceSettings } from '../db/schema'
 import { env } from '../config/env.validation'
 import {
     createSession,
@@ -13,14 +15,21 @@ import {
     useRecoveryToken,
     generateHandoff,
     exchangeHandoff,
+    listSessions,
+    deleteOtherSessions,
     OAuthLinkError,
 } from '../services/auth'
 import { requireAuthUser } from '../middleware/auth'
 
 // In-memory OAuth state store (CSRF protection). Each entry also holds the PKCE
 // code_verifier and a per-flow browser nonce that must come back as a cookie.
-const oauthStateStore = new Map<string, { provider: string; expiresAt: number; codeVerifier: string; browserNonce: string }>()
+// `linkUserId` marks a "link to existing account" flow (vs a fresh login).
+const oauthStateStore = new Map<string, { provider: string; expiresAt: number; codeVerifier: string; browserNonce: string; linkUserId?: string }>()
 const OAUTH_COOKIE = 'perch_oauth'
+
+// Short-lived single-use tokens that carry a logged-in user's identity into an
+// OAuth "connect account" redirect (the redirect can't carry the bearer token).
+const linkTokenStore = new Map<string, { userId: string; expiresAt: number }>()
 
 // In-memory login failure tracker. The account lock is keyed by (email + client IP)
 // so a remote attacker cannot lock a victim out of their own account by spamming
@@ -291,11 +300,126 @@ export const authRoutes = new Elysia({ prefix: '/api/auth' })
         })),
     })
 
+    // Upload / replace the current user's avatar
+    .post('/me/avatar', async ({ request, set, body }) => {
+        const user = await requireAuthUser(request, set)
+        if (!user) return { error: 'Unauthorized' }
+
+        const file = body.file as File
+        if (!file || file.size === 0) { set.status = 400; return { error: 'No file provided' } }
+        // SVG excluded: it can embed inline <script> and is served from this origin
+        // (stored XSS). Only raster images allowed.
+        if (!file.type.startsWith('image/') || file.type === 'image/svg+xml') { set.status = 400; return { error: 'File must be a raster image (png, jpg, gif, webp)' } }
+        if (file.size > 2 * 1024 * 1024) { set.status = 400; return { error: 'File must be under 2 MB' } }
+
+        const ALLOWED_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp']
+        const ext = (file.name.split('.').pop() ?? '').toLowerCase()
+        if (!ALLOWED_EXTENSIONS.includes(ext)) { set.status = 400; return { error: 'Invalid file type. Allowed: png, jpg, jpeg, gif, webp' } }
+
+        const uploadsDir = join(process.cwd(), 'uploads')
+        await mkdir(uploadsDir, { recursive: true })
+        const filename = `avatar-${user.id}-${Date.now()}.${ext}`
+        await Bun.write(join(uploadsDir, filename), await file.arrayBuffer())
+
+        const avatarUrl = `/uploads/${filename}`
+        const [updated] = await db.update(users).set({ avatarUrl, updatedAt: new Date() }).where(eq(users.id, user.id)).returning()
+        return { id: updated.id, email: updated.email, name: updated.name, avatarUrl: updated.avatarUrl, role: updated.role, hasPassword: !!updated.passwordHash, seeded: updated.seeded }
+    }, {
+        body: t.Object({ file: t.File() }),
+    })
+
+    // List the current user's connected OAuth accounts
+    .get('/me/connections', async ({ request, set }) => {
+        const user = await requireAuthUser(request, set)
+        if (!user) return { error: 'Unauthorized' }
+        const rows = await db.select({ provider: oauthAccounts.provider, connectedAt: oauthAccounts.createdAt })
+            .from(oauthAccounts)
+            .where(eq(oauthAccounts.userId, user.id))
+        return rows.map(r => ({ provider: r.provider, connectedAt: r.connectedAt.toISOString() }))
+    })
+
+    // Disconnect an OAuth account, guarding against removing the only sign-in method
+    .delete('/me/connections/:provider', async ({ request, set, params }) => {
+        const user = await requireAuthUser(request, set)
+        if (!user) return { error: 'Unauthorized' }
+
+        const connections = await db.select({ provider: oauthAccounts.provider })
+            .from(oauthAccounts)
+            .where(eq(oauthAccounts.userId, user.id))
+        const has = connections.some(c => c.provider === params.provider)
+        if (!has) { set.status = 404; return { error: 'Not connected' } }
+
+        // Don't let a user strand themselves: must keep a password or another login.
+        if (!user.passwordHash && connections.length <= 1) {
+            set.status = 400
+            return { error: 'Cannot remove your only sign-in method. Set a password first.' }
+        }
+
+        await db.delete(oauthAccounts)
+            .where(and(eq(oauthAccounts.userId, user.id), eq(oauthAccounts.provider, params.provider)))
+        return { success: true }
+    }, {
+        params: t.Object({ provider: t.String() }),
+    })
+
+    // List the current user's active sessions
+    .get('/me/sessions', async ({ request, set }) => {
+        const user = await requireAuthUser(request, set)
+        if (!user) return { error: 'Unauthorized' }
+        const token = request.headers.get('authorization')?.slice(7) ?? ''
+        return listSessions(user.id, token)
+    })
+
+    // Revoke all other sessions (keep the caller's current one)
+    .delete('/me/sessions/others', async ({ request, set }) => {
+        const user = await requireAuthUser(request, set)
+        if (!user) return { error: 'Unauthorized' }
+        const token = request.headers.get('authorization')?.slice(7) ?? ''
+        const count = await deleteOtherSessions(user.id, token)
+        return { count }
+    })
+
+    // Delete the current user's own account
+    .delete('/me', async ({ request, set }) => {
+        const user = await requireAuthUser(request, set)
+        if (!user) return { error: 'Unauthorized' }
+        // The env-seeded admin is managed via environment, not deletable here.
+        if (user.seeded) { set.status = 400; return { error: 'The seeded admin account cannot be deleted.' } }
+        // Don't let the last admin delete themselves and lock everyone out.
+        if (user.role === 'admin') {
+            const admins = await db.select({ id: users.id }).from(users).where(eq(users.role, 'admin'))
+            if (admins.length <= 1) { set.status = 400; return { error: 'You are the only admin. Promote another admin before deleting your account.' } }
+        }
+        // Sessions and OAuth accounts cascade via FK on delete.
+        await db.delete(users).where(eq(users.id, user.id))
+        return { success: true }
+    })
+
+    // Start a "connect account" flow: hand back a short-lived token the browser
+    // passes to the OAuth init redirect so the callback knows which user to link.
+    .post('/link/start', async ({ request, set }) => {
+        const user = await requireAuthUser(request, set)
+        if (!user) return { error: 'Unauthorized' }
+        const token = crypto.randomUUID()
+        linkTokenStore.set(token, { userId: user.id, expiresAt: Date.now() + 5 * 60 * 1000 })
+        for (const [k, v] of linkTokenStore) { if (v.expiresAt < Date.now()) linkTokenStore.delete(k) }
+        return { token }
+    })
+
     // Initiate OAuth flow
-    .get('/:provider', async ({ params, request, set, redirect }) => {
+    .get('/:provider', async ({ params, query, request, set, redirect }) => {
         const { provider } = params
         const KNOWN = ['github', 'google', 'custom', 'microsoft', 'gitlab', 'discord', 'okta']
         if (!KNOWN.includes(provider)) { set.status = 400; return { error: 'Unknown provider' } }
+
+        // "Connect account" mode: resolve the single-use link token to a user id.
+        let linkUserId: string | undefined
+        if (query.link) {
+            const entry = linkTokenStore.get(query.link)
+            linkTokenStore.delete(query.link)
+            if (!entry || entry.expiresAt < Date.now()) { set.status = 400; return { error: 'Invalid or expired link token' } }
+            linkUserId = entry.userId
+        }
 
         const [providerRow] = await db.select().from(oauthProviders)
             .where(eq(oauthProviders.provider, provider as typeof oauthProviders.$inferSelect['provider']))
@@ -307,7 +431,7 @@ export const authRoutes = new Elysia({ prefix: '/api/auth' })
         const codeVerifier = generateCodeVerifier()
         const codeChallenge = await deriveCodeChallenge(codeVerifier)
         const browserNonce = generateState()
-        oauthStateStore.set(state, { provider, expiresAt: Date.now() + 10 * 60 * 1000, codeVerifier, browserNonce })
+        oauthStateStore.set(state, { provider, expiresAt: Date.now() + 10 * 60 * 1000, codeVerifier, browserNonce, linkUserId })
         for (const [k, v] of oauthStateStore) { if (v.expiresAt < Date.now()) oauthStateStore.delete(k) }
 
         const callbackUrl = `${getCallbackBase(request)}/api/auth/${provider}/callback`
@@ -330,6 +454,7 @@ export const authRoutes = new Elysia({ prefix: '/api/auth' })
         return redirect(`${oidcUrls.authUrl}?${new URLSearchParams({ client_id: providerRow.clientId, redirect_uri: callbackUrl, response_type: 'code', scope: oidcUrls.scope, state, ...pkce })}`)
     }, {
         params: t.Object({ provider: t.String() }),
+        query: t.Object({ link: t.Optional(t.String()) }),
     })
 
     // OAuth callback
@@ -432,6 +557,24 @@ export const authRoutes = new Elysia({ prefix: '/api/auth' })
                     return redirect(`${base}/login?error=domain_required&domain=${encodeURIComponent(providerRow.allowedDomain)}`)
                 }
                 userInfo = { id: profile.sub ?? profile.id ?? profile.email, email: profile.email, name: profile.name, avatar: profile.picture ?? profile.avatar_url }
+            }
+
+            // "Connect account" flow: attach this provider identity to the already
+            // signed-in user rather than logging in / creating an account.
+            if (storedState.linkUserId) {
+                const [owner] = await db.select({ userId: oauthAccounts.userId })
+                    .from(oauthAccounts)
+                    .where(and(eq(oauthAccounts.provider, provider), eq(oauthAccounts.providerUserId, userInfo.id)))
+                    .limit(1)
+                if (owner && owner.userId !== storedState.linkUserId) {
+                    return redirect(`${base}/settings?link_error=in_use`)
+                }
+                if (!owner) {
+                    await db.insert(oauthAccounts)
+                        .values({ userId: storedState.linkUserId, provider, providerUserId: userInfo.id })
+                        .onConflictDoNothing()
+                }
+                return redirect(`${base}/settings?linked=${provider}`)
             }
 
             const oauthUser = await findOrCreateOAuthUser({ provider, providerUserId: userInfo.id, email: userInfo.email, name: userInfo.name, avatarUrl: userInfo.avatar })

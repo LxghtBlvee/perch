@@ -244,6 +244,10 @@ async function migrate() {
 
     await db.execute(sql`ALTER TABLE instance_settings ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN NOT NULL DEFAULT false`)
     await db.execute(sql`ALTER TABLE instance_settings ADD COLUMN IF NOT EXISTS enabled_platforms TEXT NOT NULL DEFAULT '["docker"]'`)
+    await db.execute(sql`ALTER TABLE instance_settings ADD COLUMN IF NOT EXISTS log_default_tail INTEGER NOT NULL DEFAULT 200`)
+    await db.execute(sql`ALTER TABLE instance_settings ADD COLUMN IF NOT EXISTS log_default_wrap BOOLEAN NOT NULL DEFAULT true`)
+    await db.execute(sql`ALTER TABLE instance_settings ADD COLUMN IF NOT EXISTS log_show_timestamps BOOLEAN NOT NULL DEFAULT true`)
+    await db.execute(sql`ALTER TABLE instance_settings ADD COLUMN IF NOT EXISTS log_tag_untagged BOOLEAN NOT NULL DEFAULT true`)
 
     await db.execute(sql`
         CREATE TABLE IF NOT EXISTS session_handoffs (

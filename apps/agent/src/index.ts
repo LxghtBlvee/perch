@@ -33,15 +33,12 @@ console.warn(`Perch agent starting — id: ${agentId}, host: ${hostname}, ip: ${
 const registry = new CollectorRegistry()
 await registry.detect()
 
-const connection = new AgentConnection(
-  agentId,
-  hostname,
-  ip,
-  (id, tail, onLine, signal) => registry.streamLogs(id, tail, onLine, signal),
-)
-connection.connect()
+// Report cadence: starts from PERCH_INTERVAL, re-tuned when the hub pushes a
+// changed agentReportInterval via auth_ok / config_update.
+let reportInterval = config.interval
+let reportTimer: ReturnType<typeof setInterval> | null = null
 
-setInterval(async () => {
+async function report(): Promise<void> {
   if (!connection.isConnected()) return
 
   const [metrics, containers] = await Promise.all([
@@ -51,4 +48,25 @@ setInterval(async () => {
 
   connection.send({ type: 'metrics', data: metrics })
   connection.send({ type: 'containers', data: containers })
-}, config.interval)
+}
+
+function startReporting(): void {
+  if (reportTimer) clearInterval(reportTimer)
+  reportTimer = setInterval(() => void report(), reportInterval)
+}
+
+const connection = new AgentConnection(
+  agentId,
+  hostname,
+  ip,
+  (id, tail, onLine, signal) => registry.streamLogs(id, tail, onLine, signal),
+  ({ reportInterval: next }) => {
+    if (typeof next === 'number' && next > 0 && next !== reportInterval) {
+      reportInterval = next
+      console.warn(`Report interval updated to ${reportInterval}ms`)
+      startReporting()
+    }
+  },
+)
+connection.connect()
+startReporting()

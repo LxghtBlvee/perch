@@ -11,14 +11,14 @@ const FLUSH_INTERVAL = 100
  * incoming lines (capped to MAX_LINES), batches DOM updates, and supports
  * pause/resume and changing the tail size (which re-subscribes).
  */
-export function useContainerLogs(agentId: string, containerId: string) {
+export function useContainerLogs(agentId: string, containerId: string, initialTail = 200) {
     const auth = useAuthStore()
 
     const logs = ref('')
     const connected = ref(false)
     const error = ref<string | null>(null)
     const paused = ref(false)
-    const tail = ref(200)
+    const tail = ref(initialTail)
 
     let ws: WebSocket | null = null
     let buffer: string[] = []

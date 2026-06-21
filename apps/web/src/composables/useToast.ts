@@ -13,6 +13,8 @@ const toasts = ref<Toast[]>([])
 let counter = 0
 
 function add(level: ToastLevel, message: string, duration: number): string {
+    // Respect the user's notifications preference, but never swallow errors.
+    if (level !== 'error' && localStorage.getItem('perch_pref_toasts') === '0') return ''
     const id = `t${++counter}`
     toasts.value.push({ id, level, message, duration })
     if (duration > 0) {
