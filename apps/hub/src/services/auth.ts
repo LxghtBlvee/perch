@@ -6,6 +6,9 @@ import { env } from '../config/env.validation'
 /** Thrown when an OAuth login would silently link to an existing password account. */
 export class OAuthLinkError extends Error {}
 
+/** Thrown when a new OAuth account would be created but self-registration is off. */
+export class RegistrationDisabledError extends Error {}
+
 function generateToken(): string {
     const bytes = new Uint8Array(32);
     crypto.getRandomValues(bytes);
@@ -132,27 +135,19 @@ export async function findOrCreateOAuthUser(opts: {
 
     if (existing) return existing.user
 
-    // Atomic upsert — ON CONFLICT DO NOTHING prevents duplicate users if two OAuth
-    // logins race with the same new email address
-    const [created] = await db
-        .insert(users)
-        .values({
-            email: opts.email,
-            name: opts.name ?? null,
-            avatarUrl: opts.avatarUrl ?? null,
-            role: 'member',
-        })
-        .onConflictDoNothing()
-        .returning()
+    // No linked identity yet. Either this links to an account that already exists
+    // for the email, or it's a brand-new signup gated by the self-registration setting.
+    const [settings] = await db
+        .select({ selfRegistrationEnabled: instanceSettings.selfRegistrationEnabled, defaultUserRole: instanceSettings.defaultUserRole })
+        .from(instanceSettings)
+        .where(eq(instanceSettings.id, 1))
+        .limit(1)
+    const selfRegistrationOpen = settings?.selfRegistrationEnabled ?? false
+    const newUserRole = settings?.defaultUserRole ?? 'member'
 
     let userId: string
-    if (created) {
-        userId = created.id
-    } else {
-        // Insert conflicted on the unique email: either a concurrent OAuth signup
-        // for the same new email, or a pre-existing account with that address.
-        const [byEmail] = await db.select().from(users).where(eq(users.email, opts.email)).limit(1)
-        if (!byEmail) throw new Error('Unexpected: user not found after insert conflict')
+    const [byEmail] = await db.select().from(users).where(eq(users.email, opts.email)).limit(1)
+    if (byEmail) {
         // Never silently take over an account that has a password. The email owner
         // must link this provider from account settings while signed in. (Without
         // this, an OAuth identity asserting an existing user's email could log in
@@ -160,7 +155,37 @@ export async function findOrCreateOAuthUser(opts: {
         if (byEmail.passwordHash) {
             throw new OAuthLinkError('An account with this email already exists. Sign in with your password, then link this provider from account settings.')
         }
+        // Passwordless account from a prior OAuth signup — linking a new provider
+        // to it is a login, not a registration, so it isn't gated.
         userId = byEmail.id
+    } else {
+        // Brand-new account. Only create it if self-registration is enabled.
+        if (!selfRegistrationOpen) {
+            throw new RegistrationDisabledError('Self-registration is disabled. Ask an admin to create your account first.')
+        }
+        // Atomic upsert — ON CONFLICT DO NOTHING prevents duplicate users if two OAuth
+        // logins race with the same new email address.
+        const [created] = await db
+            .insert(users)
+            .values({
+                email: opts.email,
+                name: opts.name ?? null,
+                avatarUrl: opts.avatarUrl ?? null,
+                role: newUserRole,
+            })
+            .onConflictDoNothing()
+            .returning()
+        if (created) {
+            userId = created.id
+        } else {
+            // Lost the insert race: another signup created the row first.
+            const [raced] = await db.select().from(users).where(eq(users.email, opts.email)).limit(1)
+            if (!raced) throw new Error('Unexpected: user not found after insert conflict')
+            if (raced.passwordHash) {
+                throw new OAuthLinkError('An account with this email already exists. Sign in with your password, then link this provider from account settings.')
+            }
+            userId = raced.id
+        }
     }
 
     // Link OAuth account — ON CONFLICT DO NOTHING handles a concurrent insert race

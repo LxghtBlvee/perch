@@ -18,6 +18,7 @@ import {
     listSessions,
     deleteOtherSessions,
     OAuthLinkError,
+    RegistrationDisabledError,
 } from '../services/auth'
 import { requireAuthUser } from '../middleware/auth'
 
@@ -593,6 +594,9 @@ export const authRoutes = new Elysia({ prefix: '/api/auth' })
         } catch (err) {
             if (err instanceof OAuthLinkError) {
                 return redirect(`${base}/login?error=account_exists`)
+            }
+            if (err instanceof RegistrationDisabledError) {
+                return redirect(`${base}/login?error=registration_disabled`)
             }
             console.error('[oauth callback]', err)
             set.status = 500; return { error: 'OAuth failed' }

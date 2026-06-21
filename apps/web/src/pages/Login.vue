@@ -19,6 +19,9 @@ const urlDomain = new URLSearchParams(location.search).get('domain')
 const oauthError = ref(
   urlError === 'org_required' ? `Access restricted to members of the "${urlOrg}" GitHub org.`
   : urlError === 'domain_required' ? `Access restricted to @${urlDomain} email addresses.`
+  : urlError === 'registration_disabled' ? 'Self-registration is disabled. Ask an admin to create your account first.'
+  : urlError === 'account_exists' ? 'An account with this email already exists. Sign in with your password, then link this provider from account settings.'
+  : urlError === 'maintenance' ? 'Perch is in maintenance mode. Only admins can sign in right now.'
   : ''
 )
 if (urlError) history.replaceState({}, '', '/login')
