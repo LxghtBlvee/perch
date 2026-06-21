@@ -24,6 +24,9 @@ const SH = 64
 
 const wrap = ref<HTMLElement | null>(null)
 const hover = ref<number | null>(null)
+// Cursor position in viewport coords, for the teleported (un-clipped) tooltip.
+const mouseX = ref(0)
+const mouseY = ref(0)
 
 const n = computed(() => props.timestamps.length)
 
@@ -56,17 +59,17 @@ function onMove(e: MouseEvent) {
   const rect = el.getBoundingClientRect()
   const ratio = Math.min(Math.max((e.clientX - rect.left) / rect.width, 0), 1)
   hover.value = Math.round(ratio * (n.value - 1))
+  mouseX.value = e.clientX
+  mouseY.value = e.clientY
 }
 function onLeave() {
   hover.value = null
 }
 
-// Keep the tooltip from overflowing the card edges.
+// Keep the tooltip from running off the left/right of the viewport.
 const tooltipAlign = computed(() => {
-  if (hover.value === null) return 'center'
-  const r = hover.value / Math.max(n.value - 1, 1)
-  if (r < 0.15) return 'left'
-  if (r > 0.85) return 'right'
+  if (mouseX.value < 100) return 'left'
+  if (mouseX.value > window.innerWidth - 100) return 'right'
   return 'center'
 })
 </script>
@@ -128,26 +131,30 @@ const tooltipAlign = computed(() => {
         :class="['absolute size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-current ring-2 ring-card pointer-events-none', s.colorClass]"
         :style="{ left: leftPct(hover), top: topPct(s.values[hover] ?? 0) }"
       />
-      <div
-        class="absolute -top-1 -translate-y-full z-10 pointer-events-none rounded-lg border border-border bg-popover px-2.5 py-1.5 shadow-lg whitespace-nowrap"
-        :style="{
-          left: leftPct(hover),
-          transform: tooltipAlign === 'center' ? 'translateX(-50%)' : tooltipAlign === 'right' ? 'translateX(-100%)' : 'translateX(0)',
-        }"
-      >
-        <p class="text-[10px] text-muted-foreground mb-0.5">
-          {{ formatDateTime(timestamps[hover]) }}
-        </p>
+      <!-- Teleported to body + fixed so the parent card's overflow-hidden can't clip it. -->
+      <Teleport to="body">
         <div
-          v-for="s in series"
-          :key="s.label"
-          class="flex items-center gap-1.5 text-[11px]"
+          class="fixed z-50 pointer-events-none rounded-lg border border-border bg-popover px-2.5 py-1.5 shadow-lg whitespace-nowrap"
+          :style="{
+            left: `${mouseX}px`,
+            top: `${mouseY - 12}px`,
+            transform: `translateY(-100%) ${tooltipAlign === 'center' ? 'translateX(-50%)' : tooltipAlign === 'right' ? 'translateX(-100%)' : 'translateX(0)'}`,
+          }"
         >
-          <span :class="['size-1.5 rounded-full bg-current', s.colorClass]" />
-          <span class="text-muted-foreground">{{ s.label }}</span>
-          <span class="font-medium tabular-nums ml-auto">{{ format(s.values[hover] ?? 0) }}</span>
+          <p class="text-[10px] text-muted-foreground mb-0.5">
+            {{ formatDateTime(timestamps[hover]) }}
+          </p>
+          <div
+            v-for="s in series"
+            :key="s.label"
+            class="flex items-center gap-1.5 text-[11px]"
+          >
+            <span :class="['size-1.5 rounded-full bg-current', s.colorClass]" />
+            <span class="text-muted-foreground">{{ s.label }}</span>
+            <span class="font-medium tabular-nums ml-auto">{{ format(s.values[hover] ?? 0) }}</span>
+          </div>
         </div>
-      </div>
+      </Teleport>
     </template>
   </div>
 </template>
