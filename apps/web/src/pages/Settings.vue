@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute, useRouter, RouterLink } from 'vue-router'
 import {
   Eye, EyeOff, Check, Palette, User, ShieldCheck, Link2, Upload, Trash2,
-  SlidersHorizontal, TriangleAlert, Monitor, LogOut, Plus,
+  SlidersHorizontal, TriangleAlert, Monitor, LogOut,
 } from 'lucide-vue-next'
 import type { AuthUser } from '@perch/types'
 import { useAuthStore } from '@/stores/auth'
@@ -808,45 +808,58 @@ const KNOB = 'absolute top-0.5 size-4 rounded-full bg-white shadow transition-tr
                 </div>
               </div>
 
-              <!-- Available providers to connect -->
-              <div
-                v-if="availableToConnect.length"
-                class="pt-2 border-t border-border space-y-2"
-              >
+              <!-- Connect a new account -->
+              <div class="pt-3 border-t border-border space-y-2">
                 <p class="text-xs text-muted-foreground">
-                  Connect another account
+                  Connect an account
                 </p>
                 <div
-                  v-for="p in availableToConnect"
-                  :key="p.provider"
-                  class="flex items-center gap-3 rounded-lg border border-border p-3"
+                  v-if="availableToConnect.length"
+                  class="grid grid-cols-2 sm:grid-cols-3 gap-2"
                 >
-                  <div
-                    class="size-9 rounded-lg flex items-center justify-center overflow-hidden shrink-0"
-                    :class="provMeta(p.provider).bg"
-                  >
-                    <img
-                      v-if="provMeta(p.provider).icon"
-                      :src="provMeta(p.provider).icon"
-                      :alt="provMeta(p.provider).label"
-                      class="size-5 object-contain"
-                    >
-                  </div>
-                  <span class="flex-1 min-w-0 text-sm font-medium">
-                    {{ p.provider === 'custom' && p.customName ? p.customName : provMeta(p.provider).label }}
-                  </span>
                   <button
+                    v-for="p in availableToConnect"
+                    :key="p.provider"
                     :disabled="connecting === p.provider"
-                    class="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border hover:bg-accent transition-colors disabled:opacity-50"
+                    class="flex flex-col items-center gap-2 rounded-lg border border-border p-3 hover:bg-accent transition-colors disabled:opacity-50"
                     @click="connect(p.provider)"
                   >
-                    <Plus
-                      class="size-3.5"
-                      :stroke-width="1.75"
-                    />
-                    {{ connecting === p.provider ? 'Connecting…' : 'Connect' }}
+                    <div
+                      class="size-9 rounded-lg flex items-center justify-center overflow-hidden"
+                      :class="provMeta(p.provider).bg"
+                    >
+                      <img
+                        v-if="provMeta(p.provider).icon"
+                        :src="provMeta(p.provider).icon"
+                        :alt="provMeta(p.provider).label"
+                        class="size-5 object-contain"
+                      >
+                    </div>
+                    <span class="text-xs font-medium text-center truncate w-full">
+                      {{ p.provider === 'custom' && p.customName ? p.customName : provMeta(p.provider).label }}
+                    </span>
+                    <span class="text-[10px] text-muted-foreground">
+                      {{ connecting === p.provider ? 'Connecting…' : 'Connect' }}
+                    </span>
                   </button>
                 </div>
+                <p
+                  v-else
+                  class="text-xs text-muted-foreground/70"
+                >
+                  <template v-if="auth.isAdmin">
+                    No sign-in providers are enabled.
+                    <RouterLink
+                      to="/admin/auth"
+                      class="text-primary hover:underline"
+                    >
+                      Enable them in Auth settings →
+                    </RouterLink>
+                  </template>
+                  <template v-else>
+                    No additional sign-in providers are available.
+                  </template>
+                </p>
               </div>
             </template>
           </div>

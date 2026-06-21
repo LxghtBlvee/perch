@@ -24,7 +24,6 @@ const DEST_CACHE_KEY = '/api/alerts/destinations'
 const RULES_CACHE_KEY = '/api/alerts/rules'
 const HC_CACHE_KEY = '/api/health-checks'
 
-// ── Data ──────────────────────────────────────────────────
 const destinations = ref<AlertDestination[]>([])
 const rules = ref<AlertRule[]>([])
 const history = ref<{ id: string; ruleId: string; triggeredAt: string; detail: string; status: 'sent' | 'failed'; error: string | null }[]>([])
@@ -32,7 +31,6 @@ const healthChecks = ref<HealthCheck[]>([])
 const loading = ref(true)
 const showHistory = ref(false)
 
-// ── Destination modal ─────────────────────────────────────
 const showDestModal = ref(false)
 const editingDest = ref<AlertDestination | null>(null)
 const destSaving = ref(false)
@@ -139,7 +137,6 @@ async function testDest(id: string) {
   setTimeout(() => { testState.value[id] = 'idle' }, 5000)
 }
 
-// ── Rule modal ────────────────────────────────────────────
 const showRuleModal = ref(false)
 const editingRule = ref<AlertRule | null>(null)
 const ruleSaving = ref(false)
@@ -266,7 +263,6 @@ async function deleteRule(id: string) {
   }
 }
 
-// ── Data fetching ─────────────────────────────────────────
 async function fetchRules() {
   rules.value = await cachedFetch<AlertRule[]>(RULES_CACHE_KEY, 30_000)
 }
@@ -291,7 +287,6 @@ onMounted(async () => {
   }
 })
 
-// ── Helpers ───────────────────────────────────────────────
 const DEST_META: Record<AlertDestinationType, { label: string; color: string; bg: string }> = {
   discord: { label: 'Discord', color: 'text-indigo-400', bg: 'bg-indigo-400/10' },
   slack:   { label: 'Slack',   color: 'text-yellow-400', bg: 'bg-yellow-400/10' },
@@ -377,7 +372,6 @@ function timeAgo(iso: string) {
     </div>
 
     <template v-else>
-      <!-- ── Destinations ──────────────────────────────── -->
       <section class="space-y-3">
         <div class="flex items-center justify-between">
           <h2 class="text-sm font-semibold text-muted-foreground uppercase tracking-widest">
@@ -496,7 +490,6 @@ function timeAgo(iso: string) {
         </div>
       </section>
 
-      <!-- ── Rules ────────────────────────────────────── -->
       <section class="space-y-3">
         <div class="flex items-center justify-between">
           <h2 class="text-sm font-semibold text-muted-foreground uppercase tracking-widest">
@@ -632,7 +625,6 @@ function timeAgo(iso: string) {
         </div>
       </section>
 
-      <!-- ── History ───────────────────────────────────── -->
       <section class="space-y-3">
         <button
           class="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-widest hover:text-foreground transition-colors"
@@ -720,7 +712,6 @@ function timeAgo(iso: string) {
       </section>
     </template>
 
-    <!-- ── Destination Modal ─────────────────────────────── -->
     <Teleport to="body">
       <div
         v-if="showDestModal"
@@ -835,7 +826,6 @@ function timeAgo(iso: string) {
       </div>
     </Teleport>
 
-    <!-- ── Rule Modal ────────────────────────────────────── -->
     <Teleport to="body">
       <div
         v-if="showRuleModal"

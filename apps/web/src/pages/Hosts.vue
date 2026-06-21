@@ -10,7 +10,6 @@ import type { SystemMetrics } from '@perch/types'
 const store = usePerchStore()
 const router = useRouter()
 
-// ── Chart data (raw value series + timestamps for the interactive sparkline) ──
 function hist(agentId: string): SystemMetrics[] {
   return store.metricsHistory[agentId] ?? []
 }
@@ -36,7 +35,6 @@ const charts = computed(() => {
   return out
 })
 
-// ─────────────────────────────────────────────────────────────────────
 const hosts = computed(() =>
   store.agents.map(entry => {
     const m = entry.metrics
@@ -269,7 +267,6 @@ const hosts = computed(() =>
         </div>
       </div>
 
-      <!-- ── Charts ──────────────────────────────────────────────── -->
       <template v-if="charts[entry.agent.id]">
         <div class="border-t border-border px-5 pt-4 pb-5 space-y-3">
           <p class="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">
@@ -324,7 +321,6 @@ const hosts = computed(() =>
         </div>
       </template>
 
-      <!-- ── Containers ──────────────────────────────────────────── -->
       <div
         v-if="entry.containers.length > 0"
         class="border-t border-border"
