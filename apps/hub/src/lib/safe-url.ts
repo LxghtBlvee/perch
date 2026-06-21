@@ -4,20 +4,20 @@ import { lookup } from 'node:dns/promises'
 // private space, link-local (incl. cloud metadata 169.254.169.254), CGNAT, and the
 // various reserved/special-use ranges that can front internal services.
 const BLOCKED_V4_CIDRS: ReadonlyArray<readonly [string, number]> = [
-    ['0.0.0.0', 8],          // "this" network / unspecified
-    ['10.0.0.0', 8],         // RFC 1918
-    ['100.64.0.0', 10],      // RFC 6598 CGNAT
-    ['127.0.0.0', 8],        // loopback
-    ['169.254.0.0', 16],     // link-local (cloud metadata lives here)
-    ['172.16.0.0', 12],      // RFC 1918
-    ['192.0.0.0', 24],       // IETF protocol assignments
-    ['192.0.2.0', 24],       // TEST-NET-1
-    ['192.168.0.0', 16],     // RFC 1918
-    ['198.18.0.0', 15],      // benchmarking
-    ['198.51.100.0', 24],    // TEST-NET-2
-    ['203.0.113.0', 24],     // TEST-NET-3
-    ['224.0.0.0', 4],        // multicast
-    ['240.0.0.0', 4],        // reserved (incl. 255.255.255.255)
+    ['0.0.0.0', 8], // "this" network / unspecified
+    ['10.0.0.0', 8], // RFC 1918
+    ['100.64.0.0', 10], // RFC 6598 CGNAT
+    ['127.0.0.0', 8], // loopback
+    ['169.254.0.0', 16], // link-local (cloud metadata lives here)
+    ['172.16.0.0', 12], // RFC 1918
+    ['192.0.0.0', 24], // IETF protocol assignments
+    ['192.0.2.0', 24], // TEST-NET-1
+    ['192.168.0.0', 16], // RFC 1918
+    ['198.18.0.0', 15], // benchmarking
+    ['198.51.100.0', 24], // TEST-NET-2
+    ['203.0.113.0', 24], // TEST-NET-3
+    ['224.0.0.0', 4], // multicast
+    ['240.0.0.0', 4], // reserved (incl. 255.255.255.255)
 ]
 
 function ipv4ToInt(ip: string): number | null {
@@ -45,11 +45,11 @@ function isBlockedIpv4(ip: string): boolean {
 
 function isBlockedIpv6(ip: string): boolean {
     const v = ip
-    if (v === '::1' || v === '::') return true       // loopback / unspecified
-    if (/^f[cd][0-9a-f]{2}:/.test(v)) return true    // fc00::/7 unique-local
-    if (/^fe[89ab][0-9a-f]:/.test(v)) return true    // fe80::/10 link-local
-    if (/^fec[0-9a-f]:/.test(v)) return true         // fec0::/10 deprecated site-local
-    if (/^ff[0-9a-f]{2}:/.test(v)) return true       // ff00::/8 multicast
+    if (v === '::1' || v === '::') return true // loopback / unspecified
+    if (/^f[cd][0-9a-f]{2}:/.test(v)) return true // fc00::/7 unique-local
+    if (/^fe[89ab][0-9a-f]:/.test(v)) return true // fe80::/10 link-local
+    if (/^fec[0-9a-f]:/.test(v)) return true // fec0::/10 deprecated site-local
+    if (/^ff[0-9a-f]{2}:/.test(v)) return true // ff00::/8 multicast
     return false
 }
 
