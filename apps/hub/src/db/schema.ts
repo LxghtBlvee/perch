@@ -145,6 +145,11 @@ export const instanceSettings = pgTable('instance_settings', {
     maintenanceModeEnabled: boolean('maintenance_mode_enabled').notNull().default(false),
     // Status pages
     statusPageEnabled: boolean('status_page_enabled').notNull().default(false),
+    // Log viewer display defaults
+    logDefaultTail: integer('log_default_tail').notNull().default(200),
+    logDefaultWrap: boolean('log_default_wrap').notNull().default(true),
+    logShowTimestamps: boolean('log_show_timestamps').notNull().default(true),
+    logTagUntagged: boolean('log_tag_untagged').notNull().default(true),
     // Onboarding
     onboardingCompleted: boolean('onboarding_completed').notNull().default(false),
     enabledPlatforms: text('enabled_platforms').notNull().default('["docker"]'),
