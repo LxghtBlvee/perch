@@ -17,7 +17,7 @@ import { authRoutes } from './routes/auth'
 import { userRoutes } from './routes/users'
 import { oauthSettingsRoutes } from './routes/oauth-settings'
 import { alertRoutes } from './routes/alerts'
-import { instanceSettingsRoutes } from './routes/instance-settings'
+import { instanceSettingsRoutes, clientSettingsRoutes } from './routes/instance-settings'
 import { statusPageRoutes } from './routes/status-pages'
 import { agentWs } from './ws/agent'
 import { liveWs } from './ws/live'
@@ -111,6 +111,7 @@ const app = new Elysia()
     .use(oauthSettingsRoutes)
     .use(alertRoutes)
     .use(instanceSettingsRoutes)
+    .use(clientSettingsRoutes)
     .use(statusPageRoutes)
     .use(agentWs)
     .use(liveWs)
