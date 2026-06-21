@@ -198,8 +198,11 @@ export type AgentMessage =
 
 // Hub to Agent WebSocket messages
 export type HubMessage =
-  | { type: 'auth_ok'; agentId: string }
+  | { type: 'auth_ok'; agentId: string; reportInterval?: number; reconnectDelay?: number }
   | { type: 'auth_error'; message: string }
+  // Pushed when an admin changes instance settings so live agents re-tune their
+  // report cadence / reconnect backoff without a restart.
+  | { type: 'config_update'; reportInterval: number; reconnectDelay: number }
   | { type: 'log_stream_start'; streamId: string; containerId: string; tail: number }
   | { type: 'log_stream_stop'; streamId: string }
 
