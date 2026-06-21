@@ -2,8 +2,9 @@
 //
 // Source of truth, in order:
 //   1. PERCH_VERSION env (e.g. set in docker-compose at release time)
-//   2. The newest non-"latest" tag pushed to the lxghtblvee/perch-hub repo
-//      on Docker Hub (cached for an hour to avoid hammering the registry)
+//   2. The latest published GitHub release of LxghtBlvee/perch (cached an hour).
+//      GitHub is the release source of truth, so this reflects the real version
+//      (e.g. 1.3.10) — Docker Hub only carries moving major.minor tags.
 //   3. "unknown" when both are unavailable
 
 let versionCache: { tag: string; fetchedAt: number } | null = null
@@ -20,12 +21,13 @@ export async function resolveVersion(): Promise<string> {
 
     try {
         const res = await fetch(
-            'https://hub.docker.com/v2/repositories/lxghtblvee/perch-hub/tags?page_size=20&ordering=last_updated',
+            'https://api.github.com/repos/LxghtBlvee/perch/releases/latest',
+            { headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'perch-hub' } },
         )
-        if (!res.ok) throw new Error('Docker Hub error')
-        const data = await res.json() as { results: Array<{ name: string }> }
-        // First non-"latest" tag is the most recently pushed version tag
-        const tag = data.results.find(t => t.name !== 'latest')?.name ?? 'unknown'
+        if (!res.ok) throw new Error('GitHub API error')
+        const data = await res.json() as { tag_name?: string }
+        // Normalise "v1.3.10" -> "1.3.10"
+        const tag = data.tag_name?.replace(/^v/, '') || 'unknown'
         versionCache = { tag, fetchedAt: Date.now() }
         return tag
     } catch {
