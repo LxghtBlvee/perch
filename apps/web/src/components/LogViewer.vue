@@ -3,7 +3,7 @@ import { ref, reactive, computed, watch, nextTick } from 'vue'
 import { Search, RefreshCw, WrapText, Clock, Pause, Play, ArrowDownToLine } from 'lucide-vue-next'
 import { parseLogs, type LogLevel, type ParsedLogLine } from '@/lib/logs'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   lines: string
   loading: boolean
   error: string | null
@@ -12,7 +12,16 @@ const props = defineProps<{
   live?: boolean
   /** Whether the live follow is paused (rendering frozen). */
   paused?: boolean
-}>()
+  /** Instance defaults for log display (from instance settings). */
+  defaultWrap?: boolean
+  defaultTimestamps?: boolean
+  /** Render otherwise-unrecognised lines with a visible "LOG" tag. */
+  tagUntagged?: boolean
+}>(), {
+  defaultWrap: true,
+  defaultTimestamps: true,
+  tagUntagged: true,
+})
 
 const emit = defineEmits<{
   refresh: []
@@ -21,14 +30,24 @@ const emit = defineEmits<{
 }>()
 
 // Per-level presentation. Static class strings so Tailwind keeps them.
-const LEVEL_META: Record<LogLevel, { label: string; badge: string; border: string }> = {
+type LevelMeta = { label: string; badge: string; border: string }
+const LEVEL_META: Record<LogLevel, LevelMeta> = {
   error: { label: 'ERROR', badge: 'bg-red-500/15 text-red-600 dark:text-red-400', border: 'border-l-red-500' },
   fatal: { label: 'FATAL', badge: 'bg-red-600/20 text-red-700 dark:text-red-300', border: 'border-l-red-600' },
   warn: { label: 'WARN', badge: 'bg-amber-500/15 text-amber-600 dark:text-amber-400', border: 'border-l-amber-500' },
   info: { label: 'INFO', badge: 'bg-sky-500/15 text-sky-600 dark:text-sky-400', border: 'border-l-sky-500' },
   debug: { label: 'DEBUG', badge: 'bg-violet-500/15 text-violet-600 dark:text-violet-400', border: 'border-l-violet-500' },
   trace: { label: 'TRACE', badge: 'bg-zinc-500/15 text-zinc-500 dark:text-zinc-400', border: 'border-l-zinc-500' },
-  unknown: { label: '·', badge: 'text-muted-foreground', border: 'border-l-transparent' },
+  // Lines with no detectable level. With tagUntagged on they get a visible
+  // "LOG" tag; off, they fall back to the quiet dot.
+  unknown: { label: 'LOG', badge: 'bg-zinc-500/10 text-zinc-500 dark:text-zinc-400', border: 'border-l-zinc-500/40' },
+}
+const UNKNOWN_QUIET: LevelMeta = { label: '·', badge: 'text-muted-foreground', border: 'border-l-transparent' }
+
+// Resolve presentation for a level, honouring the tagUntagged preference.
+function metaFor(level: LogLevel): LevelMeta {
+  if (level === 'unknown' && !props.tagUntagged) return UNKNOWN_QUIET
+  return LEVEL_META[level]
 }
 
 const VALUE_CLASS: Record<string, string> = {
@@ -39,8 +58,12 @@ const VALUE_CLASS: Record<string, string> = {
 }
 
 const search = ref('')
-const wrap = ref(true)
-const showTimestamps = ref(true)
+const wrap = ref(props.defaultWrap)
+const showTimestamps = ref(props.defaultTimestamps)
+// Instance defaults can arrive after mount (fetched async by the parent); apply
+// them when they change so they aren't lost to the initial prop snapshot.
+watch(() => props.defaultWrap, v => { wrap.value = v })
+watch(() => props.defaultTimestamps, v => { showTimestamps.value = v })
 // Levels the user has toggled off.
 const hidden = reactive(new Set<LogLevel>())
 
@@ -128,12 +151,12 @@ const TAIL_OPTIONS = [100, 200, 500, 1000]
           :key="level"
           :class="[
             'text-[11px] font-medium px-2 py-1 rounded-md transition-colors tabular-nums',
-            hidden.has(level) ? 'opacity-40 bg-muted/40' : LEVEL_META[level].badge,
+            hidden.has(level) ? 'opacity-40 bg-muted/40' : metaFor(level).badge,
           ]"
           :title="hidden.has(level) ? `Show ${level}` : `Hide ${level}`"
           @click="toggleLevel(level)"
         >
-          {{ LEVEL_META[level].label }} {{ counts[level] }}
+          {{ metaFor(level).label }} {{ counts[level] }}
         </button>
       </div>
 
@@ -240,7 +263,7 @@ const TAIL_OPTIONS = [100, 200, 500, 1000]
         <div
           v-for="line in visible"
           :key="line.id"
-          :class="['group flex gap-2 px-3 py-0.5 border-l-2 hover:bg-muted/40', LEVEL_META[line.level].border]"
+          :class="['group flex gap-2 px-3 py-0.5 border-l-2 hover:bg-muted/40', metaFor(line.level).border]"
         >
           <span
             v-if="showTimestamps && anyTimestamp"
@@ -248,8 +271,8 @@ const TAIL_OPTIONS = [100, 200, 500, 1000]
           >{{ line.timestamp ?? '' }}</span>
 
           <span
-            :class="['shrink-0 inline-block w-12 text-center rounded text-[10px] font-semibold leading-5 select-none', LEVEL_META[line.level].badge]"
-          >{{ LEVEL_META[line.level].label }}</span>
+            :class="['shrink-0 inline-block w-12 text-center rounded text-[10px] font-semibold leading-5 select-none', metaFor(line.level).badge]"
+          >{{ metaFor(line.level).label }}</span>
 
           <span
             :class="['flex-1 min-w-0', wrap ? 'whitespace-pre-wrap break-all' : 'whitespace-pre overflow-x-auto']"
