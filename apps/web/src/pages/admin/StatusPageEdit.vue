@@ -445,13 +445,13 @@ const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background te
                 {{ uploadingLogo ? 'Uploading...' : page.logoUrl ? 'Replace logo' : 'Upload logo' }}
               </button>
               <p class="text-xs text-muted-foreground/60">
-                PNG, JPG, SVG · max 2 MB
+                PNG, JPG, GIF, WebP · max 2 MB
               </p>
             </div>
             <input
               ref="logoFileInput"
               type="file"
-              accept="image/*"
+              accept="image/png,image/jpeg,image/gif,image/webp"
               class="hidden"
               @change="onLogoSelected"
             >
