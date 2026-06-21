@@ -1,7 +1,9 @@
 import Elysia, { t } from 'elysia'
-import { eq } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
+import { mkdir } from 'node:fs/promises'
+import { join } from 'node:path'
 import { db } from '../db'
-import { users, oauthProviders, instanceSettings } from '../db/schema'
+import { users, oauthProviders, oauthAccounts, instanceSettings } from '../db/schema'
 import { env } from '../config/env.validation'
 import {
     createSession,
@@ -289,6 +291,68 @@ export const authRoutes = new Elysia({ prefix: '/api/auth' })
             currentPassword: t.String(),
             newPassword: t.String(),
         })),
+    })
+
+    // Upload / replace the current user's avatar
+    .post('/me/avatar', async ({ request, set, body }) => {
+        const user = await requireAuthUser(request, set)
+        if (!user) return { error: 'Unauthorized' }
+
+        const file = body.file as File
+        if (!file || file.size === 0) { set.status = 400; return { error: 'No file provided' } }
+        // SVG excluded: it can embed inline <script> and is served from this origin
+        // (stored XSS). Only raster images allowed.
+        if (!file.type.startsWith('image/') || file.type === 'image/svg+xml') { set.status = 400; return { error: 'File must be a raster image (png, jpg, gif, webp)' } }
+        if (file.size > 2 * 1024 * 1024) { set.status = 400; return { error: 'File must be under 2 MB' } }
+
+        const ALLOWED_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp']
+        const ext = (file.name.split('.').pop() ?? '').toLowerCase()
+        if (!ALLOWED_EXTENSIONS.includes(ext)) { set.status = 400; return { error: 'Invalid file type. Allowed: png, jpg, jpeg, gif, webp' } }
+
+        const uploadsDir = join(process.cwd(), 'uploads')
+        await mkdir(uploadsDir, { recursive: true })
+        const filename = `avatar-${user.id}-${Date.now()}.${ext}`
+        await Bun.write(join(uploadsDir, filename), await file.arrayBuffer())
+
+        const avatarUrl = `/uploads/${filename}`
+        const [updated] = await db.update(users).set({ avatarUrl, updatedAt: new Date() }).where(eq(users.id, user.id)).returning()
+        return { id: updated.id, email: updated.email, name: updated.name, avatarUrl: updated.avatarUrl, role: updated.role, hasPassword: !!updated.passwordHash, seeded: updated.seeded }
+    }, {
+        body: t.Object({ file: t.File() }),
+    })
+
+    // List the current user's connected OAuth accounts
+    .get('/me/connections', async ({ request, set }) => {
+        const user = await requireAuthUser(request, set)
+        if (!user) return { error: 'Unauthorized' }
+        const rows = await db.select({ provider: oauthAccounts.provider, connectedAt: oauthAccounts.createdAt })
+            .from(oauthAccounts)
+            .where(eq(oauthAccounts.userId, user.id))
+        return rows.map(r => ({ provider: r.provider, connectedAt: r.connectedAt.toISOString() }))
+    })
+
+    // Disconnect an OAuth account, guarding against removing the only sign-in method
+    .delete('/me/connections/:provider', async ({ request, set, params }) => {
+        const user = await requireAuthUser(request, set)
+        if (!user) return { error: 'Unauthorized' }
+
+        const connections = await db.select({ provider: oauthAccounts.provider })
+            .from(oauthAccounts)
+            .where(eq(oauthAccounts.userId, user.id))
+        const has = connections.some(c => c.provider === params.provider)
+        if (!has) { set.status = 404; return { error: 'Not connected' } }
+
+        // Don't let a user strand themselves: must keep a password or another login.
+        if (!user.passwordHash && connections.length <= 1) {
+            set.status = 400
+            return { error: 'Cannot remove your only sign-in method. Set a password first.' }
+        }
+
+        await db.delete(oauthAccounts)
+            .where(and(eq(oauthAccounts.userId, user.id), eq(oauthAccounts.provider, params.provider)))
+        return { success: true }
+    }, {
+        params: t.Object({ provider: t.String() }),
     })
 
     // Initiate OAuth flow
