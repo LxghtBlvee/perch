@@ -1,29 +1,45 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import {
   Eye, EyeOff, Check, Palette, User, ShieldCheck, Link2, Upload, Trash2,
+  SlidersHorizontal, TriangleAlert, Monitor, LogOut, Plus,
 } from 'lucide-vue-next'
 import type { AuthUser } from '@perch/types'
 import { useAuthStore } from '@/stores/auth'
 import { useColorMode, type ColorMode } from '@/composables/useColorMode'
 import { useToast } from '@/composables/useToast'
+import { useConfirm } from '@/composables/useConfirm'
+import { useUserPrefs, formatDateTime, supportedTimezones, type TimeFormat } from '@/composables/useUserPrefs'
 
 const auth = useAuthStore()
+const route = useRoute()
+const router = useRouter()
 const { mode: colorMode, setMode } = useColorMode()
 const toast = useToast()
+const { confirm } = useConfirm()
+const { timezone, timeFormat, toastsEnabled } = useUserPrefs()
 
 const COLOR_MODES: { value: ColorMode; label: string }[] = [
   { value: 'light', label: 'Light' },
   { value: 'system', label: 'System' },
   { value: 'dark', label: 'Dark' },
 ]
+const TIME_FORMATS: { value: TimeFormat; label: string }[] = [
+  { value: 'system', label: 'System' },
+  { value: '12', label: '12-hour' },
+  { value: '24', label: '24-hour' },
+]
+const tzList = supportedTimezones()
 
 // Sticky section nav (matches the admin Instance page).
 const SECTIONS = [
   { id: 'appearance', label: 'Appearance', icon: Palette },
   { id: 'profile', label: 'Profile', icon: User },
   { id: 'account', label: 'Account', icon: ShieldCheck },
+  { id: 'preferences', label: 'Preferences', icon: SlidersHorizontal },
   { id: 'connections', label: 'Connected accounts', icon: Link2 },
+  { id: 'danger', label: 'Danger zone', icon: TriangleAlert },
 ] as const
 const active = ref<(typeof SECTIONS)[number]['id']>('appearance')
 
@@ -62,25 +78,65 @@ const showCurrent = ref(false)
 const showNew = ref(false)
 const savingPassword = ref(false)
 
+// Account: sessions
+interface SessionInfo { id: string; createdAt: string; expiresAt: string; current: boolean }
+const sessions = ref<SessionInfo[]>([])
+const loadingSessions = ref(true)
+const signingOut = ref(false)
+
 // Connections
 const connections = ref<{ provider: string; connectedAt: string }[]>([])
 const loadingConnections = ref(true)
+const enabledProviders = ref<{ provider: string; customName: string | null }[]>([])
+const connecting = ref<string | null>(null)
+
+const availableToConnect = computed(() =>
+  enabledProviders.value.filter(p => !connections.value.some(c => c.provider === p.provider)),
+)
+
+// Danger zone
+const deleting = ref(false)
 
 onMounted(() => {
   name.value = auth.user?.name ?? ''
   email.value = auth.user?.email ?? ''
   void loadConnections()
+  void loadProviders()
+  void loadSessions()
+
+  // Returning from a "connect account" OAuth round-trip.
+  if (route.query.linked) {
+    toast.success(`Connected ${provMeta(String(route.query.linked)).label}`)
+  } else if (route.query.link_error === 'in_use') {
+    toast.error('That account is already linked to another user.')
+  }
+  if (route.query.linked || route.query.link_error) {
+    void router.replace({ query: {} })
+  }
 })
 
 async function loadConnections() {
   loadingConnections.value = true
   try {
-    const res = await fetch('/api/auth/me/connections', {
-      headers: { Authorization: `Bearer ${auth.token}` },
-    })
+    const res = await fetch('/api/auth/me/connections', { headers: { Authorization: `Bearer ${auth.token}` } })
     if (res.ok) connections.value = await res.json() as typeof connections.value
   } finally {
     loadingConnections.value = false
+  }
+}
+
+async function loadProviders() {
+  const res = await fetch('/api/auth/providers').catch(() => null)
+  if (res?.ok) enabledProviders.value = await res.json() as typeof enabledProviders.value
+}
+
+async function loadSessions() {
+  loadingSessions.value = true
+  try {
+    const res = await fetch('/api/auth/me/sessions', { headers: { Authorization: `Bearer ${auth.token}` } })
+    if (res.ok) sessions.value = await res.json() as SessionInfo[]
+  } finally {
+    loadingSessions.value = false
   }
 }
 
@@ -93,8 +149,7 @@ async function saveProfile() {
       body: JSON.stringify({ name: name.value }),
     })
     if (res.ok) {
-      const updated = await res.json() as AuthUser
-      auth.updateUser(updated)
+      auth.updateUser(await res.json() as AuthUser)
       toast.success('Profile updated')
     } else {
       const d = await res.json() as { error?: string }
@@ -112,6 +167,18 @@ function pickAvatar() {
 async function onAvatarChange(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0]
   if (!file) return
+  // Client-side guard so unsupported types fail fast with a clear message.
+  const ALLOWED = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
+  if (!ALLOWED.includes(file.type)) {
+    toast.error('Unsupported file type. Use PNG, JPG, GIF, or WebP.')
+    if (avatarInput.value) avatarInput.value.value = ''
+    return
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    toast.error('Image must be under 2 MB.')
+    if (avatarInput.value) avatarInput.value.value = ''
+    return
+  }
   uploadingAvatar.value = true
   try {
     const fd = new FormData()
@@ -122,8 +189,7 @@ async function onAvatarChange(e: Event) {
       body: fd,
     })
     if (res.ok) {
-      const updated = await res.json() as AuthUser
-      auth.updateUser(updated)
+      auth.updateUser(await res.json() as AuthUser)
       toast.success('Avatar updated')
     } else {
       const d = await res.json() as { error?: string }
@@ -145,8 +211,7 @@ async function saveEmail() {
       body: JSON.stringify({ email: email.value, currentPassword: emailPassword.value }),
     })
     if (res.ok) {
-      const updated = await res.json() as AuthUser
-      auth.updateUser(updated)
+      auth.updateUser(await res.json() as AuthUser)
       emailPassword.value = ''
       toast.success('Email updated')
     } else {
@@ -159,14 +224,8 @@ async function saveEmail() {
 }
 
 async function savePassword() {
-  if (newPassword.value !== confirmPassword.value) {
-    toast.error('New passwords do not match')
-    return
-  }
-  if (newPassword.value.length < 8) {
-    toast.error('Password must be at least 8 characters')
-    return
-  }
+  if (newPassword.value !== confirmPassword.value) { toast.error('New passwords do not match'); return }
+  if (newPassword.value.length < 8) { toast.error('Password must be at least 8 characters'); return }
   savingPassword.value = true
   try {
     const res = await fetch('/api/auth/me', {
@@ -175,8 +234,7 @@ async function savePassword() {
       body: JSON.stringify({ currentPassword: currentPassword.value, newPassword: newPassword.value }),
     })
     if (res.ok) {
-      const updated = await res.json() as AuthUser
-      auth.updateUser(updated)
+      auth.updateUser(await res.json() as AuthUser)
       currentPassword.value = ''
       newPassword.value = ''
       confirmPassword.value = ''
@@ -187,6 +245,23 @@ async function savePassword() {
     }
   } finally {
     savingPassword.value = false
+  }
+}
+
+async function connect(provider: string) {
+  connecting.value = provider
+  try {
+    const res = await fetch('/api/auth/link/start', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${auth.token}` },
+    })
+    if (!res.ok) { toast.error('Could not start the connect flow'); return }
+    const { token } = await res.json() as { token: string }
+    window.location.href = `/api/auth/${provider}?link=${encodeURIComponent(token)}`
+  } catch {
+    toast.error('Could not start the connect flow')
+  } finally {
+    connecting.value = null
   }
 }
 
@@ -204,9 +279,53 @@ async function disconnect(provider: string) {
   }
 }
 
+async function signOutOthers() {
+  signingOut.value = true
+  try {
+    const res = await fetch('/api/auth/me/sessions/others', {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${auth.token}` },
+    })
+    if (res.ok) {
+      const { count } = await res.json() as { count: number }
+      toast.success(count ? `Signed out ${count} other session${count === 1 ? '' : 's'}` : 'No other sessions')
+      await loadSessions()
+    } else {
+      toast.error('Failed to sign out other sessions')
+    }
+  } finally {
+    signingOut.value = false
+  }
+}
+
+async function deleteAccount() {
+  const ok = await confirm({
+    title: 'Delete your account?',
+    message: 'This permanently deletes your account, sessions, and connected logins. This cannot be undone.',
+    confirmLabel: 'Delete account',
+    danger: true,
+  })
+  if (!ok) return
+  deleting.value = true
+  try {
+    const res = await fetch('/api/auth/me', { method: 'DELETE', headers: { Authorization: `Bearer ${auth.token}` } })
+    if (res.ok) {
+      await auth.logout()
+      router.push('/login')
+    } else {
+      const d = await res.json() as { error?: string }
+      toast.error(d.error ?? 'Failed to delete account')
+    }
+  } finally {
+    deleting.value = false
+  }
+}
+
 const INPUT = 'w-full px-3 py-2 rounded-lg border border-border bg-background text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50'
 const BTN = 'px-4 py-2 rounded-lg bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 transition-colors disabled:opacity-50'
 const CARD = 'rounded-xl border border-border bg-card p-5'
+const TOGGLE = 'relative shrink-0 w-9 h-5 rounded-full transition-colors mt-0.5'
+const KNOB = 'absolute top-0.5 size-4 rounded-full bg-white shadow transition-transform'
 </script>
 
 <template>
@@ -227,7 +346,9 @@ const CARD = 'rounded-xl border border-border bg-card p-5'
           v-for="s in SECTIONS"
           :key="s.id"
           class="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-left transition-colors"
-          :class="active === s.id ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-accent hover:text-foreground'"
+          :class="active === s.id
+            ? (s.id === 'danger' ? 'bg-destructive/10 text-destructive font-medium' : 'bg-primary/10 text-primary font-medium')
+            : 'text-muted-foreground hover:bg-accent hover:text-foreground'"
           @click="active = s.id"
         >
           <component
@@ -479,6 +600,141 @@ const CARD = 'rounded-xl border border-border bg-card p-5'
               {{ savingPassword ? 'Saving...' : auth.user?.hasPassword ? 'Change password' : 'Set password' }}
             </button>
           </div>
+
+          <!-- Active sessions -->
+          <div :class="CARD + ' space-y-4'">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <h3 class="text-sm font-medium">
+                  Active sessions
+                </h3>
+                <p class="text-xs text-muted-foreground mt-0.5">
+                  Devices currently signed in to your account.
+                </p>
+              </div>
+              <button
+                v-if="sessions.length > 1"
+                :disabled="signingOut"
+                class="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border hover:bg-accent transition-colors disabled:opacity-50 shrink-0"
+                @click="signOutOthers"
+              >
+                <LogOut
+                  class="size-3.5"
+                  :stroke-width="1.75"
+                />
+                Sign out others
+              </button>
+            </div>
+
+            <div
+              v-if="loadingSessions"
+              class="space-y-2"
+            >
+              <div
+                v-for="i in 2"
+                :key="i"
+                class="h-12 rounded-lg border border-border bg-muted/30 animate-pulse"
+              />
+            </div>
+            <div
+              v-else
+              class="space-y-2"
+            >
+              <div
+                v-for="s in sessions"
+                :key="s.id"
+                class="flex items-center gap-3 rounded-lg border border-border p-3"
+              >
+                <Monitor
+                  class="size-4 text-muted-foreground shrink-0"
+                  :stroke-width="1.75"
+                />
+                <div class="flex-1 min-w-0 text-xs">
+                  <p class="font-medium">
+                    Session started {{ formatDateTime(s.createdAt) }}
+                  </p>
+                  <p class="text-muted-foreground">
+                    Expires {{ formatDateTime(s.expiresAt) }}
+                  </p>
+                </div>
+                <span
+                  v-if="s.current"
+                  class="text-[10px] font-medium px-2 py-0.5 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 shrink-0"
+                >This device</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Preferences -->
+        <section
+          v-show="active === 'preferences'"
+          class="space-y-6"
+        >
+          <div :class="CARD + ' space-y-4'">
+            <div>
+              <h3 class="text-sm font-medium">
+                Date &amp; time
+              </h3>
+              <p class="text-xs text-muted-foreground mt-0.5">
+                How timestamps are displayed across the app.
+              </p>
+            </div>
+            <div class="space-y-1">
+              <label class="text-xs text-muted-foreground">Timezone</label>
+              <select
+                v-model="timezone"
+                :class="INPUT"
+              >
+                <option value="">
+                  System default
+                </option>
+                <option
+                  v-for="tz in tzList"
+                  :key="tz"
+                  :value="tz"
+                >
+                  {{ tz }}
+                </option>
+              </select>
+            </div>
+            <div class="space-y-1">
+              <label class="text-xs text-muted-foreground">Time format</label>
+              <div class="flex items-center gap-1 rounded-lg border border-border bg-muted p-1 w-fit">
+                <button
+                  v-for="f in TIME_FORMATS"
+                  :key="f.value"
+                  class="px-3 py-1.5 rounded-md text-xs font-medium transition-all"
+                  :class="timeFormat === f.value ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'"
+                  @click="timeFormat = f.value"
+                >
+                  {{ f.label }}
+                </button>
+              </div>
+            </div>
+            <p class="text-xs text-muted-foreground/60">
+              Preview: {{ formatDateTime(Date.now()) }}
+            </p>
+          </div>
+
+          <div :class="CARD">
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <h3 class="text-sm font-medium">
+                  Notifications
+                </h3>
+                <p class="text-xs text-muted-foreground mt-0.5">
+                  Show toast notifications for actions. Errors are always shown.
+                </p>
+              </div>
+              <button
+                :class="[TOGGLE, toastsEnabled ? 'bg-primary' : 'bg-muted']"
+                @click="toastsEnabled = !toastsEnabled"
+              >
+                <div :class="[KNOB, toastsEnabled ? 'translate-x-4' : 'translate-x-0.5']" />
+              </button>
+            </div>
+          </div>
         </section>
 
         <!-- Connected accounts -->
@@ -489,7 +745,7 @@ const CARD = 'rounded-xl border border-border bg-card p-5'
                 Connected accounts
               </h3>
               <p class="text-xs text-muted-foreground mt-0.5">
-                Sign-in methods linked to your account. Connect a new one from the login page.
+                Sign-in methods linked to your account.
               </p>
             </div>
 
@@ -504,53 +760,120 @@ const CARD = 'rounded-xl border border-border bg-card p-5'
               />
             </div>
 
-            <p
-              v-else-if="!connections.length"
-              class="text-sm text-muted-foreground py-4 text-center"
-            >
-              No connected accounts.
-            </p>
-
-            <div
-              v-else
-              class="space-y-2"
-            >
+            <template v-else>
+              <p
+                v-if="!connections.length"
+                class="text-sm text-muted-foreground py-2"
+              >
+                No connected accounts yet.
+              </p>
               <div
-                v-for="c in connections"
-                :key="c.provider"
-                class="flex items-center gap-3 rounded-lg border border-border p-3"
+                v-else
+                class="space-y-2"
               >
                 <div
-                  class="size-9 rounded-lg flex items-center justify-center overflow-hidden shrink-0"
-                  :class="provMeta(c.provider).bg"
+                  v-for="c in connections"
+                  :key="c.provider"
+                  class="flex items-center gap-3 rounded-lg border border-border p-3"
                 >
-                  <img
-                    v-if="provMeta(c.provider).icon"
-                    :src="provMeta(c.provider).icon"
-                    :alt="provMeta(c.provider).label"
-                    class="size-5 object-contain"
+                  <div
+                    class="size-9 rounded-lg flex items-center justify-center overflow-hidden shrink-0"
+                    :class="provMeta(c.provider).bg"
                   >
+                    <img
+                      v-if="provMeta(c.provider).icon"
+                      :src="provMeta(c.provider).icon"
+                      :alt="provMeta(c.provider).label"
+                      class="size-5 object-contain"
+                    >
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium">
+                      {{ provMeta(c.provider).label }}
+                    </p>
+                    <p class="text-xs text-muted-foreground">
+                      Connected {{ formatDateTime(c.connectedAt) }}
+                    </p>
+                  </div>
+                  <button
+                    class="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border text-muted-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition-colors"
+                    @click="disconnect(c.provider)"
+                  >
+                    <Trash2
+                      class="size-3.5"
+                      :stroke-width="1.75"
+                    />
+                    Disconnect
+                  </button>
                 </div>
-                <div class="flex-1 min-w-0">
-                  <p class="text-sm font-medium">
-                    {{ provMeta(c.provider).label }}
-                  </p>
-                  <p class="text-xs text-muted-foreground">
-                    Connected {{ new Date(c.connectedAt).toLocaleDateString() }}
-                  </p>
-                </div>
-                <button
-                  class="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border text-muted-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition-colors"
-                  @click="disconnect(c.provider)"
-                >
-                  <Trash2
-                    class="size-3.5"
-                    :stroke-width="1.75"
-                  />
-                  Disconnect
-                </button>
               </div>
+
+              <!-- Available providers to connect -->
+              <div
+                v-if="availableToConnect.length"
+                class="pt-2 border-t border-border space-y-2"
+              >
+                <p class="text-xs text-muted-foreground">
+                  Connect another account
+                </p>
+                <div
+                  v-for="p in availableToConnect"
+                  :key="p.provider"
+                  class="flex items-center gap-3 rounded-lg border border-border p-3"
+                >
+                  <div
+                    class="size-9 rounded-lg flex items-center justify-center overflow-hidden shrink-0"
+                    :class="provMeta(p.provider).bg"
+                  >
+                    <img
+                      v-if="provMeta(p.provider).icon"
+                      :src="provMeta(p.provider).icon"
+                      :alt="provMeta(p.provider).label"
+                      class="size-5 object-contain"
+                    >
+                  </div>
+                  <span class="flex-1 min-w-0 text-sm font-medium">
+                    {{ p.provider === 'custom' && p.customName ? p.customName : provMeta(p.provider).label }}
+                  </span>
+                  <button
+                    :disabled="connecting === p.provider"
+                    class="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border hover:bg-accent transition-colors disabled:opacity-50"
+                    @click="connect(p.provider)"
+                  >
+                    <Plus
+                      class="size-3.5"
+                      :stroke-width="1.75"
+                    />
+                    {{ connecting === p.provider ? 'Connecting…' : 'Connect' }}
+                  </button>
+                </div>
+              </div>
+            </template>
+          </div>
+        </section>
+
+        <!-- Danger zone -->
+        <section v-show="active === 'danger'">
+          <div class="rounded-xl border border-destructive/30 bg-destructive/5 p-5 space-y-4">
+            <div>
+              <h3 class="text-sm font-medium text-destructive">
+                Delete account
+              </h3>
+              <p class="text-xs text-muted-foreground mt-0.5">
+                Permanently delete your account, sessions, and connected logins. This cannot be undone.
+              </p>
             </div>
+            <button
+              :disabled="deleting"
+              class="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-destructive/10 text-destructive text-sm font-medium hover:bg-destructive/20 transition-colors disabled:opacity-50"
+              @click="deleteAccount"
+            >
+              <Trash2
+                class="size-4"
+                :stroke-width="1.75"
+              />
+              {{ deleting ? 'Deleting…' : 'Delete my account' }}
+            </button>
           </div>
         </section>
       </div>
