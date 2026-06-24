@@ -65,7 +65,3 @@ bun dev:web
 ## Contributing
 
 Contributions are welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md) for the dev setup, project layout, and PR workflow. Found a security issue? Please follow the [security policy](./SECURITY.md) rather than opening a public issue.
-
-## License
-
-[AGPL-3.0](./LICENSE)
