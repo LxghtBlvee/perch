@@ -18,9 +18,9 @@
   },
   "devDependencies": {
     "@eslint/js": "latest",
-    "eslint": "^10.5.0",
-    "eslint-plugin-vue": "^10.9.1",
+    "eslint": "^10.8.0",
+    "eslint-plugin-vue": "^10.10.0",
     "globals": "latest",
-    "typescript-eslint": "^8.61.1"
+    "typescript-eslint": "^8.65.0"
   }
 }
